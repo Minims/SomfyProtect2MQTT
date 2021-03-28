@@ -1,0 +1,23 @@
+---
+# Somfy Protect APP credentials
+somfy_protect:
+  username: "email@address.com"
+  password: "********"
+
+  # Zones Label to check
+  sites:
+    - Maison
+
+# MQTT Configuration
+mqtt:
+  host: 192.168.1.10
+  port: 1883 # prefer SSL port if you can (not managed for now)
+  username: user
+  password: "********"
+  client-id: somfy-protect
+  topic_prefix: "somfyProtect2mqtt"
+  ha_discover_prefix: "homeassistant"
+
+# SomfyProtect2MQTT
+delay_site: 10 # seconds
+delay_device: 60 # seconds
