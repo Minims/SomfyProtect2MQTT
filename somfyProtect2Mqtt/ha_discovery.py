@@ -27,11 +27,23 @@ DEVICE_CAPABILITIES = {
         "type": "sensor",
         "config": {"device_class": "signal_strength", "unit_of_measurement": "%",},
     },
+    "lora_quality_percent": {
+        "type": "sensor",
+        "config": {"device_class": "signal_strength", "unit_of_measurement": "%",},
+    },
+    "mfa_quality_percent": {
+        "type": "sensor",
+        "config": {"device_class": "signal_strength", "unit_of_measurement": "%",},
+    },
     "recalibration_required": {
         "type": "binary_sensor",
         "config": {"device_class": "problem",},
     },
     "cover_present": {
+        "type": "binary_sensor",
+        "config": {"pl_on": "True", "pl_off": "False",},
+    },
+    "device_lost": {
         "type": "binary_sensor",
         "config": {"pl_on": "True", "pl_off": "False",},
     },
