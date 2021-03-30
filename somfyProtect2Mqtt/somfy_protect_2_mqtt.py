@@ -122,16 +122,20 @@ class SomfyProtect2Mqtt:
         """
         LOGGER.info(f"Update Sites Status")
         for site_id in self.my_sites_id:
-            my_sites = self.somfy_protect_api.get_sites()
-            for site in my_sites:
+            try:
+                my_sites = self.somfy_protect_api.get_sites()
+                for site in my_sites:
 
-                LOGGER.info(site)
+                    LOGGER.info(site)
 
-                # Push status to MQTT
-                self.mqttc.update(
-                    topic=f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/state",
-                    payload={"security_level": site.security_level},
-                )
+                    # Push status to MQTT
+                    self.mqttc.update(
+                        topic=f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/state",
+                        payload={"security_level": site.security_level},
+                    )
+            except Exception as exp:
+                LOGGER.warning(f"Error while refreshing site: {exp}")
+                continue
 
     def update_devices_status(self) -> None:
         """Uodate Devices Status (Including zone)
