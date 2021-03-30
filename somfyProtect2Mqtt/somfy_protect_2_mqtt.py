@@ -51,7 +51,7 @@ class SomfyProtect2Mqtt:
         self.mqtt_config = mqtt_config
         if mqtt_config is None:
             raise SomfyProtectInitError
-        self.mqttc = MQTTClient(config=mqtt_config)
+        self.mqttc = MQTTClient(config=mqtt_config, api=self.somfy_protect_api)
         sites = self.somfy_protect_api.get_sites()
         LOGGER.info(f"Found {len(sites)} Site(s)")
         for site in sites:
@@ -89,6 +89,7 @@ class SomfyProtect2Mqtt:
             self.mqttc.update(
                 topic=site_config.get("topic"), payload=site_config.get("config"),
             )
+            self.mqttc.client.subscribe(site_config.get("config").get("command_topic"))
 
     def ha_devices_config(self) -> None:
         """HA Devices Config
@@ -111,6 +112,10 @@ class SomfyProtect2Mqtt:
                         topic=device_config.get("topic"),
                         payload=device_config.get("config"),
                     )
+                    if device_config.get("config").get("command_topic"):
+                        self.mqttc.client.subscribe(
+                            device_config.get("config").get("command_topic")
+                        )
 
     def update_sites_status(self) -> None:
         """Uodate Devices Status (Including zone)
@@ -125,7 +130,7 @@ class SomfyProtect2Mqtt:
                 # Push status to MQTT
                 self.mqttc.update(
                     topic=f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/state",
-                    payload=site.security_level,
+                    payload={"security_level": site.security_level},
                 )
 
     def update_devices_status(self) -> None:

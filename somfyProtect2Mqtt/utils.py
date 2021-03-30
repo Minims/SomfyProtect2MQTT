@@ -59,11 +59,8 @@ def read_config_file(config_file: str) -> Dict[str, Any]:
 
 
 def close_and_exit(
-    robot,
-    code: int = 0,
-    signal: int = None,
-    frame=None,  # pylint: disable=unused-argument
-) -> None:
+    robot, code: int = 0, signal: int = None, frame=None,
+) -> None:  # pylint: disable=unused-argument
     """Close & Exit
 
     Args:

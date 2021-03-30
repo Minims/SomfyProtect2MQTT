@@ -36,17 +36,22 @@ DEVICE_CAPABILITIES = {
 
 def ha_discovery_alarm(site: Site, mqtt_config: dict):
     site_config = {}
+    command_topic = (
+        f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site.id}/command"
+    )
     site_config[
         "topic"
     ] = f"{mqtt_config.get('ha_discover_prefix', 'homeassistant')}/alarm_control_panel/{site.id}/config"
     site_config["config"] = {
         "name": site.label,
         "state_topic": f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site.id}/state",
-        "command_topic": f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site.id}/command",
+        "command_topic": command_topic,
         "payload_arm_away": "armed",
         "payload_arm_night": "partial",
         "payload_disarm": "disarmed",
+        "value_template": "{{ value_json.security_level }}",
     }
+
     return site_config
 
 
@@ -55,6 +60,7 @@ def ha_discovery_devices(
 ):
     device_config = {}
     device_type = DEVICE_CAPABILITIES.get(sensor_name).get("type")
+    command_topic = f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/command"
     device_config[
         "topic"
     ] = f"{mqtt_config.get('ha_discover_prefix', 'homeassistant')}/{device_type}/{site_id}/{device.id}_{sensor_name}/config"
@@ -69,7 +75,6 @@ def ha_discovery_devices(
             DEVICE_CAPABILITIES.get(sensor_name).get("config").get(config_entry)
         )
     if device_type == "switch":
-        device_config["config"][
-            "command_topic"
-        ] = f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/command"
+        device_config["config"]["command_topic"] = command_topic
+
     return device_config
