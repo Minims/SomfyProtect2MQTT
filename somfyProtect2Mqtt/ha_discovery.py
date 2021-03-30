@@ -19,6 +19,14 @@ DEVICE_CAPABILITIES = {
         "type": "sensor",
         "config": {"device_class": "signal_strength", "unit_of_measurement": "%",},
     },
+    "wifi_level": {
+        "type": "sensor",
+        "config": {"device_class": "signal_strength", "unit_of_measurement": "dB",},
+    },
+    "wifi_level_percent": {
+        "type": "sensor",
+        "config": {"device_class": "signal_strength", "unit_of_measurement": "%",},
+    },
     "recalibration_required": {
         "type": "binary_sensor",
         "config": {"device_class": "problem",},
