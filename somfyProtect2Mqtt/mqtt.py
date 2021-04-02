@@ -5,7 +5,7 @@ import paho.mqtt.client as mqtt
 
 LOGGER = logging.getLogger(__name__)
 
-AVAILABLE_STATUS = ["partial", "armed", "disarmed"]
+from ha_discovery import ALARM_STATUS
 
 
 class MQTTClient:
@@ -41,7 +41,7 @@ class MQTTClient:
         LOGGER.debug(f"Message received on {msg.topic}: {msg.payload}")
         try:
             text_payload = msg.payload.decode("UTF-8")
-            if text_payload in AVAILABLE_STATUS:
+            if text_payload in ALARM_STATUS.keys():
                 LOGGER.info(f"Security Level update ! Setting to {text_payload}")
                 try:
                     site_id = msg.topic.split("/")[1]

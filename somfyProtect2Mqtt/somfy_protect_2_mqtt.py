@@ -8,7 +8,12 @@ from mqtt import MQTTClient
 from somfy_protect import init_somfy_protect
 from somfy_protect_api.api.devices.category import Category
 from somfy_protect_api.api.devices.outdoor_siren import OutDoorSiren
-from ha_discovery import ha_discovery_alarm, ha_discovery_devices, DEVICE_CAPABILITIES
+from ha_discovery import (
+    ha_discovery_alarm,
+    ha_discovery_devices,
+    DEVICE_CAPABILITIES,
+    ALARM_STATUS,
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -131,7 +136,11 @@ class SomfyProtect2Mqtt:
                     # Push status to MQTT
                     self.mqttc.update(
                         topic=f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/state",
-                        payload={"security_level": site.security_level},
+                        payload={
+                            "security_level": ALARM_STATUS.get(
+                                site.security_level, "disarmed"
+                            )
+                        },
                     )
             except Exception as exp:
                 LOGGER.warning(f"Error while refreshing site: {exp}")
