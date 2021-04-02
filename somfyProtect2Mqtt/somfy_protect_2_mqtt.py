@@ -46,6 +46,11 @@ class SomfyProtect2Mqtt:
         self.delay_site = config.get("delay_site", 60)
         self.delay_device = config.get("delay_device", 60)
 
+        if self.delay_site < 10:
+            self.delay_site = 10
+        if self.delay_device < 10:
+            self.delay_device = 10
+
         self.somfy_protect_api = init_somfy_protect(
             username=username, password=password
         )
@@ -81,7 +86,6 @@ class SomfyProtect2Mqtt:
 
         while True:
             schedule.run_pending()
-            sleep(60)
 
     def ha_sites_config(self) -> None:
         """HA Site Config
