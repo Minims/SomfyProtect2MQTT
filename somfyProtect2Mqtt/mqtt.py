@@ -56,10 +56,10 @@ class MQTTClient:
         """MQTT on_publish"""
         LOGGER.debug(f"Message published: {result}")
 
-    def update(self, topic, payload):
+    def update(self, topic, payload, qos=0, retain=False):
         """MQTT update"""
         try:
-            self.client.publish(topic, json.dumps(payload))
+            self.client.publish(topic, json.dumps(payload), qos=qos, retain=retain)
         except Exception as exp:
             LOGGER.error(f"Error when publishing message: {exp}")
 

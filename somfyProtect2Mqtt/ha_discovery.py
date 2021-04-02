@@ -81,6 +81,7 @@ def ha_discovery_alarm(site: Site, mqtt_config: dict):
         "payload_disarm": "disarmed",
         "value_template": "{{ value_json.security_level }}",
         "device": site_info,
+        "retain": True
     }
 
     return site_config
@@ -110,6 +111,7 @@ def ha_discovery_devices(
         "state_topic": f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/state",
         "value_template": "{{ value_json." + sensor_name + " }}",
         "device": device_info,
+        "retain": True
     }
 
     for config_entry in DEVICE_CAPABILITIES.get(sensor_name).get("config"):

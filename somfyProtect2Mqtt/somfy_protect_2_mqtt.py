@@ -87,7 +87,9 @@ class SomfyProtect2Mqtt:
             my_site = self.somfy_protect_api.get_site(site_id=site_id)
             site_config = ha_discovery_alarm(site=my_site, mqtt_config=self.mqtt_config)
             self.mqttc.update(
-                topic=site_config.get("topic"), payload=site_config.get("config"),
+                topic=site_config.get("topic"),
+                payload=site_config.get("config"),
+                retain=True,
             )
             self.mqttc.client.subscribe(site_config.get("config").get("command_topic"))
 
@@ -111,6 +113,7 @@ class SomfyProtect2Mqtt:
                     self.mqttc.update(
                         topic=device_config.get("topic"),
                         payload=device_config.get("config"),
+                        retain=True,
                     )
                     if device_config.get("config").get("command_topic"):
                         self.mqttc.client.subscribe(
