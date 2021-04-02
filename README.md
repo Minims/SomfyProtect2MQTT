@@ -19,6 +19,15 @@ Ex:
 
 ## Installation
 
+### Easy Mode (via HomeAssistant Supervisor)
+
+In HomeAssistant, go to Supervisor > Add-on Store > Repositories
+Add this repo from @schumijo: https://github.com/schumijo/homeassistant-addons/
+Thx to him for his work.
+Configure it with you credentials
+Then all Devices will appaears in MQTT integration
+
+### Manual Mode
 Clone the repo
 Go to dev branch
 
