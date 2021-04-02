@@ -8,6 +8,67 @@ ALARM_STATUS = {
     "triggered": "triggered",  # To Check Status is currently unknown
 }
 
+# NOT USED, JUST FOR INFO
+# DEVICE_SETTINGS = {
+#     "IntelliTag": {
+#         "global": {
+#             "sensitivity": "[1-9]",
+#             "support_type": ["slidewindow", "slidedoor", "externdoor", "window"],
+#             "night_mode_enabled": [True, False],
+#             "prealarm_enabled": [True, False],
+#         },
+#     },
+#     "Myfox Security Infrared Sensor": {
+#         "global": {
+#             "sensitivity_level": ["low", "medium", "high"],
+#             "light_enabled": True,
+#             "auto_protect_enabled": True,
+#             "night_mode_enabled": False,
+#             "prealarm_enabled": True,
+#         },
+#         "disarmed": {"auto_protect_enabled": [True, False]},
+#         "partial": {"auto_protect_enabled": [True, False]},
+#         "armed": {"auto_protect_enabled": [True, False]},
+#     },
+#     "Key Fob": {"global": {"enabled": [True, False],},},
+#     "Somfy Indoor Camera": {
+#         "global": {
+#             "detection_enabled": [True, False],
+#             "video_mode": '["SD","HD"]',
+#             "sensitivity": "[0-100]",
+#             "night_vision": ["manual", "automatic"],
+#             "night_mode": "[0-2]",
+#             "led_enabled": [True, False],
+#             "night_mode_enabled": [True, False],
+#             "sound_recording_enabled": [True, False],
+#             "sound_enabled": [True, False],
+#             "siren_on_camera_detection_disabled": [True, False],
+#             "hdr_enabled": [True, False],
+#             "prealarm_enabled": [True, False],
+#         }
+#     },
+#     "Myfox Security Outdoor Siren": {
+#         "global": {
+#             "light_enabled": [True, False],
+#             "sound_enabled": [True, False],
+#             "auto_protect_enabled": [True, False],
+#         },
+#         "disarmed": {"auto_protect_enabled": [True, False]},
+#         "partial": {"auto_protect_enabled": [True, False]},
+#         "armed": {"auto_protect_enabled": [True, False]},
+#     },
+#     "Myfox Security Siren": {
+#         "global": {
+#             "light_enabled": [True, False],
+#             "sound_enabled": [True, False],
+#             "auto_protect_enabled": [True, False],
+#         },
+#         "disarmed": {"auto_protect_enabled": [True, False]},
+#         "partial": {"auto_protect_enabled": [True, False]},
+#         "armed": {"auto_protect_enabled": [True, False]},
+#     },
+# }
+
 DEVICE_CAPABILITIES = {
     "temperature": {
         "type": "sensor",
@@ -58,6 +119,31 @@ DEVICE_CAPABILITIES = {
         "type": "switch",
         "config": {"pl_on": "opened", "pl_off": "closed",},
     },
+    "sound_enabled": {
+        "type": "switch",
+        "config": {"pl_on": "True", "pl_off": "False",},
+    },
+    "light_enabled": {
+        "type": "switch",
+        "config": {"pl_on": "True", "pl_off": "False",},
+    },
+    "auto_protect_enabled": {
+        "type": "switch",
+        "config": {"pl_on": "True", "pl_off": "False",},
+    },
+    "light_enabled": {
+        "type": "switch",
+        "config": {"pl_on": "True", "pl_off": "False",},
+    },
+    "night_mode_enabled": {
+        "type": "switch",
+        "config": {"pl_on": "True", "pl_off": "False",},
+    },
+    "prealarm_enabled": {
+        "type": "switch",
+        "config": {"pl_on": "True", "pl_off": "False",},
+    },
+    "enabled": {"type": "switch", "config": {"pl_on": "True", "pl_off": "False",},},
 }
 
 
@@ -108,7 +194,7 @@ def ha_discovery_devices(
         "sw_version": device.version,
     }
 
-    command_topic = f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/command"
+    command_topic = f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/{sensor_name}/command"
     device_config[
         "topic"
     ] = f"{mqtt_config.get('ha_discover_prefix', 'homeassistant')}/{device_type}/{site_id}_{device.id}/{sensor_name}/config"

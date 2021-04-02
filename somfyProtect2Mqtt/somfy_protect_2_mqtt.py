@@ -105,7 +105,11 @@ class SomfyProtect2Mqtt:
         for site_id in self.my_sites_id:
             my_devices = self.somfy_protect_api.get_devices(site_id=site_id)
             for device in my_devices:
-                for state in device.status:
+                settings = device.settings.get("global")
+                status = device.status
+                status_settings = {**status, **settings}
+
+                for state in status_settings:
                     if not DEVICE_CAPABILITIES.get(state):
                         LOGGER.debug(f"No Config for {state}")
                         continue
@@ -154,15 +158,18 @@ class SomfyProtect2Mqtt:
             try:
                 my_devices = self.somfy_protect_api.get_devices(site_id=site_id)
                 for device in my_devices:
+                    settings = device.settings.get("global")
+                    status = device.status
+                    status_settings = {**status, **settings}
 
                     # Convert Values to String
-                    keys_values = device.status.items()
-                    status = {str(key): str(value) for key, value in keys_values}
+                    keys_values = status_settings.items()
+                    payload = {str(key): str(value) for key, value in keys_values}
 
                     # Push status to MQTT
                     self.mqttc.update(
                         topic=f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/state",
-                        payload=status,
+                        payload=payload,
                     )
             except Exception as exp:
                 LOGGER.warning(f"Error while refreshing devices: {exp}")

@@ -49,6 +49,23 @@ class MQTTClient:
                 except Exception as exp:
                     LOGGER.warning(f"Unable to reteive Site ID")
                 self.api.update_site(site_id=site_id, security_level=text_payload)
+            else:
+                site_id = msg.topic.split("/")[1]
+                device_id = msg.topic.split("/")[2]
+                setting = msg.topic.split("/")[3]
+                device = self.api.get_device(site_id=site_id, device_id=device_id)
+                LOGGER.info(
+                    f"Message received for Site ID: {site_id}, Device ID: {device_id}, Setting: {setting}"
+                )
+                settings = device.settings
+                settings["global"][setting] = text_payload
+                update_device = self.api.update_device(
+                    site_id=site_id,
+                    device_id=device_id,
+                    device_label=device.label,
+                    settings=settings,
+                )
+                LOGGER.debug(update_device)
         except Exception as exp:
             LOGGER.error(f"Error when processing message: {exp}")
 
