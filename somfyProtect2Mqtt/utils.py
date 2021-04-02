@@ -28,9 +28,8 @@ def setup_logger(
     logging.basicConfig(
         level=log_level,
         format="%(asctime)s [%(levelname)s] %(message)s",
-        filename=filename,
+        handlers=[logging.StreamHandler(), logging.FileHandler(filename=filename)],
     )
-    LOGGER.addHandler(logging.StreamHandler())
 
 
 def read_config_file(config_file: str) -> Dict[str, Any]:

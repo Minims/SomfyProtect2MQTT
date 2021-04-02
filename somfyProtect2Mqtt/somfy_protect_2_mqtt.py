@@ -128,9 +128,6 @@ class SomfyProtect2Mqtt:
             try:
                 my_sites = self.somfy_protect_api.get_sites()
                 for site in my_sites:
-
-                    LOGGER.info(site)
-
                     # Push status to MQTT
                     self.mqttc.update(
                         topic=f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/state",
