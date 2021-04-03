@@ -10,6 +10,7 @@ from somfy_protect_api.api.devices.category import Category
 from somfy_protect_api.api.devices.outdoor_siren import OutDoorSiren
 from ha_discovery import (
     ha_discovery_alarm,
+    ha_discovery_cameras,
     ha_discovery_devices,
     DEVICE_CAPABILITIES,
     ALARM_STATUS,
@@ -80,9 +81,11 @@ class SomfyProtect2Mqtt:
         self.ha_sites_config()
         self.ha_devices_config()
         self.update_sites_status()
+        self.update_camera_snapshot()
         self.update_devices_status()
         schedule.every(self.delay_site).seconds.do(self.update_sites_status)
         schedule.every(self.delay_device).seconds.do(self.update_devices_status)
+        schedule.every(self.delay_device).seconds.do(self.update_camera_snapshot)
 
         while True:
             schedule.run_pending()
@@ -133,6 +136,16 @@ class SomfyProtect2Mqtt:
                             device_config.get("config").get("command_topic")
                         )
 
+                if device.device_definition.get("label") == "Somfy Indoor Camera":
+                    camera_config = ha_discovery_cameras(
+                        site_id=site_id, device=device, mqtt_config=self.mqtt_config,
+                    )
+                    self.mqttc.update(
+                        topic=camera_config.get("topic"),
+                        payload=camera_config.get("config"),
+                        retain=True,
+                    )
+
     def update_sites_status(self) -> None:
         """Uodate Devices Status (Including zone)
         """
@@ -179,4 +192,37 @@ class SomfyProtect2Mqtt:
                     )
             except Exception as exp:
                 LOGGER.warning(f"Error while refreshing devices: {exp}")
+                continue
+
+    def update_camera_snapshot(self) -> None:
+        """Uodate Camera Snapshot
+        """
+        LOGGER.info(f"Update Camera Snapshot")
+        for site_id in self.my_sites_id:
+            try:
+                for category in [Category.INDOOR_CAMERA, Category.OUTDDOR_CAMERA]:
+                    my_devices = self.somfy_protect_api.get_devices(
+                        site_id=site_id, category=category
+                    )
+                    for device in my_devices:
+                        response = self.somfy_protect_api.camera_snapshot(
+                            site_id=site_id, device_id=device.id
+                        )
+                        if response.status_code == 200:
+                            # Write image to temp file
+                            path = f"{device.id}.jpeg"
+                            with open(path, "wb") as f:
+                                for chunk in response:
+                                    f.write(chunk)
+                            # Read and Push to MQTT
+                            f = open(path, "rb")
+                            image = f.read()
+                            byteArr = bytearray(image)
+                            topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/snapshot"
+                            self.mqttc.update(
+                                topic, byteArr, retain=False, is_json=False
+                            )
+
+            except Exception as exp:
+                LOGGER.warning(f"Error while refreshing snapshot: {exp}")
                 continue

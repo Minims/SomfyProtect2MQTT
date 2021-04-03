@@ -209,3 +209,29 @@ def ha_discovery_devices(
         device_config["config"]["command_topic"] = command_topic
 
     return device_config
+
+
+def ha_discovery_cameras(
+    site_id: str, device: Device, mqtt_config: dict,
+):
+    camera_config = {}
+
+    device_info = {
+        "identifiers": [device.id],
+        "manufacturer": "Somfy",
+        "model": device.device_definition.get("label"),
+        "name": device.label,
+        "sw_version": device.version,
+    }
+
+    camera_config[
+        "topic"
+    ] = f"{mqtt_config.get('ha_discover_prefix', 'homeassistant')}/camera/{site_id}_{device.id}/snapshot/config"
+    camera_config["config"] = {
+        "name": f"{device.label} snapshot",
+        "unique_id": f"{device.id}_snapshot",
+        "topic": f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/snapshot",
+        "device": device_info,
+    }
+
+    return camera_config
