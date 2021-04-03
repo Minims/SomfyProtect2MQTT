@@ -50,6 +50,13 @@ class MQTTClient:
                 except Exception as exp:
                     LOGGER.warning(f"Unable to reteive Site ID")
                 self.api.update_site(site_id=site_id, security_level=text_payload)
+            elif text_payload == "panic":
+                LOGGER.info(f"Start the Siren On Site ID {site_id}")
+                self.api.trigger_alarm(site_id=site_id, mode="alarm")
+            elif text_payload == "stop":
+                site_id = msg.topic.split("/")[1]
+                LOGGER.info(f"Stop the Siren On Site ID {site_id}")
+                self.api.stop_alarm(site_id=site_id)
             elif msg.topic.split("/")[3] == "shutter_state":
                 site_id = msg.topic.split("/")[1]
                 device_id = msg.topic.split("/")[2]

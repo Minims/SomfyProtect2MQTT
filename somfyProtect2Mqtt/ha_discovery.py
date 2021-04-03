@@ -175,6 +175,33 @@ def ha_discovery_alarm(site: Site, mqtt_config: dict):
     return site_config
 
 
+def ha_discovery_alarm_actions(site: Site, mqtt_config: dict):
+    site_config = {}
+
+    site_info = {
+        "identifiers": [site.id],
+        "manufacturer": "Somfy",
+        "model": "Somfy Home Alarm",
+        "name": site.label,
+        "sw_version": "SomfyProtect2MQTT: Alpha",
+    }
+
+    command_topic = f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site.id}/siren/command"
+    site_config[
+        "topic"
+    ] = f"{mqtt_config.get('ha_discover_prefix', 'homeassistant')}/switch/{site.id}/siren/config"
+    site_config["config"] = {
+        "name": f"{site.label} Siren",
+        "unique_id": f"{site.id}_{site.label}",
+        "command_topic": command_topic,
+        "device": site_info,
+        "pl_on": "panic",
+        "pl_off": "stop",
+    }
+
+    return site_config
+
+
 def ha_discovery_devices(
     site_id: str, device: Device, mqtt_config: dict, sensor_name: str,
 ):

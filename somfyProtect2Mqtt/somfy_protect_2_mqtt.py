@@ -10,6 +10,7 @@ from somfy_protect_api.api.devices.category import Category
 from somfy_protect_api.api.devices.outdoor_siren import OutDoorSiren
 from ha_discovery import (
     ha_discovery_alarm,
+    ha_discovery_alarm_actions,
     ha_discovery_cameras,
     ha_discovery_devices,
     DEVICE_CAPABILITIES,
@@ -97,13 +98,20 @@ class SomfyProtect2Mqtt:
         for site_id in self.my_sites_id:
             # Alarm Status
             my_site = self.somfy_protect_api.get_site(site_id=site_id)
-            site_config = ha_discovery_alarm(site=my_site, mqtt_config=self.mqtt_config)
-            self.mqttc.update(
-                topic=site_config.get("topic"),
-                payload=site_config.get("config"),
-                retain=True,
+            site = ha_discovery_alarm(site=my_site, mqtt_config=self.mqtt_config)
+            site_extended = ha_discovery_alarm_actions(
+                site=my_site, mqtt_config=self.mqtt_config
             )
-            self.mqttc.client.subscribe(site_config.get("config").get("command_topic"))
+            configs = [site, site_extended]
+            for site_config in configs:
+                self.mqttc.update(
+                    topic=site_config.get("topic"),
+                    payload=site_config.get("config"),
+                    retain=True,
+                )
+                self.mqttc.client.subscribe(
+                    site_config.get("config").get("command_topic")
+                )
 
     def ha_devices_config(self) -> None:
         """HA Devices Config
