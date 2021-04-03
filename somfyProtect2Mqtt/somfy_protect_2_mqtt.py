@@ -149,6 +149,7 @@ class SomfyProtect2Mqtt:
                                 site.security_level, "disarmed"
                             )
                         },
+                        retain=False,
                     )
             except Exception as exp:
                 LOGGER.warning(f"Error while refreshing site: {exp}")
@@ -174,6 +175,7 @@ class SomfyProtect2Mqtt:
                     self.mqttc.update(
                         topic=f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/state",
                         payload=payload,
+                        retain=False,
                     )
             except Exception as exp:
                 LOGGER.warning(f"Error while refreshing devices: {exp}")
