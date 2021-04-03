@@ -7,6 +7,11 @@ This an alpha dev version
  - Retreive some status of the alarm and his devices.
  - Set security level: armed, disarmed, partial.
  - HA MQTT Discovery.
+ - Stop the Alarm
+ - Trigger the Alarm
+ - Update Device Settings
+ - Send Action to device (Open/Close Camera Shutter)
+ - Get lastest Camera snapshot
 
 Ex:
 
@@ -14,8 +19,10 @@ Ex:
 
 ## TODO
 
- - Control Indoor Camera roller_sutter
- - Fix status when alarm is triggered
+ - Test all things
+ - Validate Somfy OutDoor Camera (I have not it)
+ - Try to retreive Camera Stream
+ - TBD
 
 ## Installation
 
@@ -71,3 +78,4 @@ This code is base on reverse engineering of the Android Mobile App.
  So if you want to contribue, have knowledge in JAVA / APK, you can help to find all API calls used in the APP.
  We can integrate here (https://github.com/Minims/somfy-protect-api) to use it.
 
+ * Use APKTool to get smali files and all available API Endpoints
