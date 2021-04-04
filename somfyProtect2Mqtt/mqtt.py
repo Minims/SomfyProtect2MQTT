@@ -49,7 +49,7 @@ class MQTTClient:
                     LOGGER.debug(f"Site ID: {site_id}")
                 except Exception as exp:
                     LOGGER.warning(f"Unable to reteive Site ID")
-                self.api.update_site(site_id=site_id, security_level=text_payload)
+                self.api.update_security_level(site_id=site_id, security_level=text_payload)
             elif text_payload == "panic":
                 LOGGER.info(f"Start the Siren On Site ID {site_id}")
                 self.api.trigger_alarm(site_id=site_id, mode="alarm")
