@@ -90,6 +90,7 @@ class SomfyProtect2Mqtt:
 
         while True:
             schedule.run_pending()
+            sleep(10)
 
     def ha_sites_config(self) -> None:
         """HA Site Config
