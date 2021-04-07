@@ -2,6 +2,7 @@
 import logging
 import json
 import paho.mqtt.client as mqtt
+from time import sleep
 
 LOGGER = logging.getLogger(__name__)
 
@@ -49,7 +50,11 @@ class MQTTClient:
                     LOGGER.debug(f"Site ID: {site_id}")
                 except Exception as exp:
                     LOGGER.warning(f"Unable to reteive Site ID")
-                self.api.update_security_level(site_id=site_id, security_level=text_payload)
+                self.api.update_security_level(
+                    site_id=site_id, security_level=text_payload
+                )
+                # Re Read site
+                self.update_site(site_id=site_id)
             elif text_payload == "panic":
                 LOGGER.info(f"Start the Siren On Site ID {site_id}")
                 self.api.trigger_alarm(site_id=site_id, mode="alarm")
@@ -71,6 +76,9 @@ class MQTTClient:
                     site_id=site_id, device_id=device_id, action=text_payload,
                 )
                 LOGGER.debug(action_device)
+                # Re Read device
+                sleep(3)
+                self.update_device(site_id=site_id, device_id=device_id)
             else:
                 site_id = msg.topic.split("/")[1]
                 device_id = msg.topic.split("/")[2]
@@ -88,6 +96,9 @@ class MQTTClient:
                     settings=settings,
                 )
                 LOGGER.debug(update_device)
+                # Re Read device
+                sleep(3)
+                self.update_device(site_id=site_id, device_id=device_id)
         except Exception as exp:
             LOGGER.error(f"Error when processing message: {exp}")
 
@@ -114,3 +125,38 @@ class MQTTClient:
         self.running = False
         self.client.loop_stop()
         self.client.disconnect()
+
+    def update_device(self, site_id, device_id):
+        LOGGER.info(f"Live Update device {device_id}")
+        try:
+            device = self.api.get_device(site_id=site_id, device_id=device_id)
+            settings = device.settings.get("global")
+            status = device.status
+            status_settings = {**status, **settings}
+
+            # Convert Values to String
+            keys_values = status_settings.items()
+            payload = {str(key): str(value) for key, value in keys_values}
+            # Push status to MQTT
+            self.update(
+                topic=f"{self.config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/state",
+                payload=payload,
+                retain=False,
+            )
+        except Exception as exp:
+            LOGGER.warning(f"Error while refreshing {device.label}: {exp}")
+
+    def update_site(self, site_id):
+        LOGGER.info(f"Live Update site {site_id}")
+        try:
+            site = self.api.get_site(site_id=site_id)
+            # Push status to MQTT
+            self.update(
+                topic=f"{self.config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/state",
+                payload={
+                    "security_level": ALARM_STATUS.get(site.security_level, "disarmed")
+                },
+                retain=False,
+            )
+        except Exception as exp:
+            LOGGER.warning(f"Error while refreshing site {site_id}: {exp}")
