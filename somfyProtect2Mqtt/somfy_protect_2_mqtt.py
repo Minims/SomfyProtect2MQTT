@@ -178,7 +178,7 @@ class SomfyProtect2Mqtt:
                 continue
 
     def update_devices_status(self) -> None:
-        """Uodate Devices Status (Including zone)
+        """Update Devices Status (Including zone)
         """
         LOGGER.info(f"Update Devices Status")
         for site_id in self.my_sites_id:
@@ -214,6 +214,9 @@ class SomfyProtect2Mqtt:
                         site_id=site_id, category=category
                     )
                     for device in my_devices:
+                        self.somfy_protect_api.camera_refresh_snapshot(
+                            site_id=site_id, device_id=device.id
+                        )
                         response = self.somfy_protect_api.camera_snapshot(
                             site_id=site_id, device_id=device.id
                         )
