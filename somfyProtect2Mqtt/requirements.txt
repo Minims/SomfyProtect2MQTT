@@ -1,4 +1,4 @@
-somfy-protect-api==0.1.5
+somfy-protect-api==0.1.5.1
 schedule==1.0.0
 paho-mqtt==1.5.1
 pyyaml==5.4.1
