@@ -161,18 +161,18 @@ class SomfyProtect2Mqtt:
         LOGGER.info(f"Update Sites Status")
         for site_id in self.my_sites_id:
             try:
-                my_sites = self.somfy_protect_api.get_sites()
-                for site in my_sites:
-                    # Push status to MQTT
-                    self.mqttc.update(
-                        topic=f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/state",
-                        payload={
-                            "security_level": ALARM_STATUS.get(
-                                site.security_level, "disarmed"
-                            )
-                        },
-                        retain=False,
-                    )
+                site = self.somfy_protect_api.get_site(site_id=site_id)
+                LOGGER.info(f"Update {site.label} Status")
+                # Push status to MQTT
+                self.mqttc.update(
+                    topic=f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/state",
+                    payload={
+                        "security_level": ALARM_STATUS.get(
+                            site.security_level, "disarmed"
+                        )
+                    },
+                    retain=False,
+                )
             except Exception as exp:
                 LOGGER.warning(f"Error while refreshing site: {exp}")
                 continue

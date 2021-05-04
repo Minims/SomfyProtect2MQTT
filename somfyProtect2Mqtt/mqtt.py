@@ -56,6 +56,7 @@ class MQTTClient:
                 # Re Read site
                 self.update_site(site_id=site_id)
             elif text_payload == "panic":
+                site_id = msg.topic.split("/")[1]
                 LOGGER.info(f"Start the Siren On Site ID {site_id}")
                 self.api.trigger_alarm(site_id=site_id, mode="alarm")
             elif text_payload == "stop":
