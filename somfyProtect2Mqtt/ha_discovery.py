@@ -143,7 +143,7 @@ DEVICE_CAPABILITIES = {
 }
 
 
-def ha_discovery_alarm(site: Site, mqtt_config: dict):
+def ha_discovery_alarm(site: Site, mqtt_config: dict, code: int = None):
     site_config = {}
 
     site_info = {
@@ -171,7 +171,8 @@ def ha_discovery_alarm(site: Site, mqtt_config: dict):
         "value_template": "{{ value_json.security_level }}",
         "device": site_info,
     }
-
+    if code and (isinstance(code, int)):
+        site_config["config"]["code"] = code
     return site_config
 
 

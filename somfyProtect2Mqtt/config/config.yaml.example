@@ -8,6 +8,9 @@ somfy_protect:
   sites:
     - Maison
 
+  # Code to arm/disarm
+  code: null
+
 # MQTT Configuration
 mqtt:
   host: 192.168.1.10
