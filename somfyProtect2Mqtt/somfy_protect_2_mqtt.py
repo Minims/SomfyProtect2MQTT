@@ -58,7 +58,7 @@ class SomfyProtect2Mqtt:
         )
         self.my_sites = my_sites
         self.my_sites_id = []
-        self.code = config.get("somfy_protect").get("code")
+        self.homeassistant_config = config.get("homeassistant_config")
         mqtt_config = config.get("mqtt")
         self.mqtt_config = mqtt_config
         if mqtt_config is None:
@@ -99,7 +99,7 @@ class SomfyProtect2Mqtt:
         for site_id in self.my_sites_id:
             # Alarm Status
             my_site = self.somfy_protect_api.get_site(site_id=site_id)
-            site = ha_discovery_alarm(site=my_site, mqtt_config=self.mqtt_config, code=self.code)
+            site = ha_discovery_alarm(site=my_site, mqtt_config=self.mqtt_config, homeassistant_config=self.homeassistant_config)
             site_extended = ha_discovery_alarm_actions(
                 site=my_site, mqtt_config=self.mqtt_config
             )

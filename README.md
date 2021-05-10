@@ -39,7 +39,10 @@ Clone the repo
 Go to dev branch
 
 ```
-git checkout dev
+cd /opt/
+git clone https://github.com/Minims/SomfyProtect2MQTT.git
+git checkout dev # if you want the dev branch
+cd /opt/SomfyProtect2MQTT/
 ```
 
 Install Python3 dependencies
@@ -51,6 +54,7 @@ pip3 install -r  somfyProtect2Mqtt/requirements.txt
 Copy config file and setup your own credentials for SomfyProtect & MQTT.
 
 ```
+cd /opt/SomfyProtect2MQTT/somfyProtect2Mqtt
 cp config/config.yaml.example config/config.yaml
 ```
 
@@ -60,6 +64,8 @@ cp config/config.yaml.example config/config.yaml
 cd SomfyProtect2MQTT/somfyProtect2Mqtt
 python3 main.py
 ```
+
+## Systemd (Running in background on boot)
 
 ## Developement
 

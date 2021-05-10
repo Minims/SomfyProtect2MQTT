@@ -8,13 +8,18 @@ somfy_protect:
   sites:
     - Maison
 
-  # Code to arm/disarm
-  code: null
+# Home Assistant Configuration
+homeassistant_config:
+  # Code to arm/disarm, Remove code to disable.
+  code: 1234
+  # Use Code on arm/disarm
+  code_arm_required: false
+  code_disarm_required: true
 
 # MQTT Configuration
 mqtt:
   host: 192.168.1.10
-  port: 1883 # prefer SSL port if you can (not managed for now)
+  port: 1883  # prefer SSL port if you can (not managed for now)
   username: user
   password: "********"
   client-id: somfy-protect
@@ -22,5 +27,5 @@ mqtt:
   ha_discover_prefix: "homeassistant"
 
 # SomfyProtect2MQTT
-delay_site: 10 # seconds
-delay_device: 60 # seconds
+delay_site: 10  # seconds
+delay_device: 60  # seconds
