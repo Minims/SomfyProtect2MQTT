@@ -67,6 +67,63 @@ python3 main.py
 
 ## Systemd (Running in background on boot)
 
+## 5. (Optional) Running as a daemon with systemctl
+To run SomfyProtect2MQTT as daemon (in background) and start it automatically on boot we will run SomfyProtect2MQTT with systemctl.
+
+```bash
+# Create a systemctl configuration file for SomfyProtect2MQTT
+sudo nano /etc/systemd/system/somfyProtect2mqtt.service
+```
+
+Add the following to this file:
+```
+[Unit]
+Description=somfyProtect2mqtt
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/SomfyProtect2MQTT/somfyProtect2Mqtt
+ExecStart=/usr/bin/python3 /opt/SomfyProtect2MQTT/somfyProtect2Mqtt/main.py
+StandardOutput=inherit
+# Or use StandardOutput=null if you don't want SomfyProtect2MQTT messages filling syslog, for more options see systemd.exec(5)
+StandardError=inherit
+Restart=always
+User=pi
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Save the file and exit.
+
+Verify that the configuration works:
+```bash
+# Start SomfyProtect2MQTT
+sudo systemctl start somfyProtect2mqtt
+
+# Show status
+systemctl status somfyProtect2mqtt.service
+```
+
+Now that everything works, we want systemctl to start SomfyProtect2MQTT automatically on boot, this can be done by executing:
+```bash
+sudo systemctl enable somfyProtect2mqtt.service
+```
+
+Done! 😃
+
+Some tips that can be handy later:
+```bash
+# Stopping SomfyProtect2MQTT
+sudo systemctl stop somfyProtect2mqtt
+
+# Starting SomfyProtect2MQTT
+sudo systemctl start somfyProtect2mqtt
+
+# View the log of SomfyProtect2MQTT
+sudo journalctl -u somfyProtect2mqtt.service -f
+```
+
 ## Developement
 
 This code is base on reverse engineering of the Android Mobile App.
