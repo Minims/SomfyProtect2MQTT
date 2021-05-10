@@ -28,7 +28,10 @@ def setup_logger(
     logging.basicConfig(
         level=log_level,
         format="%(asctime)s [%(levelname)s] %(message)s",
-        handlers=[logging.StreamHandler(), logging.FileHandler(filename=filename)],
+        handlers=[
+            logging.StreamHandler(),
+            logging.FileHandler(filename=filename),
+        ],
     )
 
 

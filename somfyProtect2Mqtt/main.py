@@ -14,7 +14,9 @@ if __name__ == "__main__":
 
     # Read Arguments
     PARSER = argparse.ArgumentParser()
-    PARSER.add_argument("--verbose", "-v", action="store_true", help="verbose mode")
+    PARSER.add_argument(
+        "--verbose", "-v", action="store_true", help="verbose mode"
+    )
     ARGS = PARSER.parse_args()
 
     # Setup Logger
