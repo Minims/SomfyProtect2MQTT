@@ -151,10 +151,10 @@ class SomfyProtect2Mqtt:
                             device_config.get("config").get("command_topic")
                         )
 
-                if (
-                    device.device_definition.get("label")
-                    == "Somfy Indoor Camera"
-                ):
+                if "camera" in device.device_definition.get("type"):
+                    LOGGER.info(
+                        f"Found Camera {device.device_definition.get('label')}"
+                    )
                     camera_config = ha_discovery_cameras(
                         site_id=site_id,
                         device=device,
