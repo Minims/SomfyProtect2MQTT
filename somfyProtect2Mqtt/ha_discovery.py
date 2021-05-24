@@ -78,30 +78,51 @@ DEVICE_CAPABILITIES = {
         "type": "sensor",
         "config": {"device_class": "battery", "unit_of_measurement": "%",},
     },
-    "battery_low": {"type": "binary_sensor", "config": {"device_class": "battery",},},
+    "battery_low": {
+        "type": "binary_sensor",
+        "config": {"device_class": "battery",},
+    },
     "rlink_quality": {
         "type": "sensor",
-        "config": {"device_class": "signal_strength", "unit_of_measurement": "dB",},
+        "config": {
+            "device_class": "signal_strength",
+            "unit_of_measurement": "dB",
+        },
     },
     "rlink_quality_percent": {
         "type": "sensor",
-        "config": {"device_class": "signal_strength", "unit_of_measurement": "%",},
+        "config": {
+            "device_class": "signal_strength",
+            "unit_of_measurement": "%",
+        },
     },
     "wifi_level": {
         "type": "sensor",
-        "config": {"device_class": "signal_strength", "unit_of_measurement": "dB",},
+        "config": {
+            "device_class": "signal_strength",
+            "unit_of_measurement": "dB",
+        },
     },
     "wifi_level_percent": {
         "type": "sensor",
-        "config": {"device_class": "signal_strength", "unit_of_measurement": "%",},
+        "config": {
+            "device_class": "signal_strength",
+            "unit_of_measurement": "%",
+        },
     },
     "lora_quality_percent": {
         "type": "sensor",
-        "config": {"device_class": "signal_strength", "unit_of_measurement": "%",},
+        "config": {
+            "device_class": "signal_strength",
+            "unit_of_measurement": "%",
+        },
     },
     "mfa_quality_percent": {
         "type": "sensor",
-        "config": {"device_class": "signal_strength", "unit_of_measurement": "%",},
+        "config": {
+            "device_class": "signal_strength",
+            "unit_of_measurement": "%",
+        },
     },
     "recalibration_required": {
         "type": "binary_sensor",
@@ -139,11 +160,26 @@ DEVICE_CAPABILITIES = {
         "type": "switch",
         "config": {"pl_on": "True", "pl_off": "False",},
     },
-    "enabled": {"type": "switch", "config": {"pl_on": "True", "pl_off": "False",},},
+    "enabled": {
+        "type": "switch",
+        "config": {"pl_on": "True", "pl_off": "False",},
+    },
 }
 
 
-def ha_discovery_alarm(site: Site, mqtt_config: dict):
+def ha_discovery_alarm(
+    site: Site, mqtt_config: dict, homeassistant_config: dict
+):
+
+    if homeassistant_config:
+        code = homeassistant_config.get("code")
+        code_arm_required = homeassistant_config.get("code_arm_required")
+        code_disarm_required = homeassistant_config.get("code_disarm_required")
+    else:
+        code = None
+        code_arm_required = None
+        code_disarm_required = None
+
     site_config = {}
 
     site_info = {
@@ -154,9 +190,7 @@ def ha_discovery_alarm(site: Site, mqtt_config: dict):
         "sw_version": "SomfyProtect2MQTT: Alpha",
     }
 
-    command_topic = (
-        f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site.id}/command"
-    )
+    command_topic = f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site.id}/command"
     site_config[
         "topic"
     ] = f"{mqtt_config.get('ha_discover_prefix', 'homeassistant')}/alarm_control_panel/{site.id}/alarm/config"
@@ -171,7 +205,12 @@ def ha_discovery_alarm(site: Site, mqtt_config: dict):
         "value_template": "{{ value_json.security_level }}",
         "device": site_info,
     }
-
+    if code and (isinstance(code, int)):
+        site_config["config"]["code"] = code
+    if not code_arm_required:
+        site_config["config"]["code_arm_required"] = False
+    if not code_disarm_required:
+        site_config["config"]["code_disarm_required"] = False
     return site_config
 
 

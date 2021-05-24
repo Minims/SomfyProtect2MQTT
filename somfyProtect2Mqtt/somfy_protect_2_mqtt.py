@@ -58,7 +58,7 @@ class SomfyProtect2Mqtt:
         )
         self.my_sites = my_sites
         self.my_sites_id = []
-
+        self.homeassistant_config = config.get("homeassistant_config")
         mqtt_config = config.get("mqtt")
         self.mqtt_config = mqtt_config
         if mqtt_config is None:
@@ -86,7 +86,9 @@ class SomfyProtect2Mqtt:
         self.update_devices_status()
         schedule.every(self.delay_site).seconds.do(self.update_sites_status)
         schedule.every(self.delay_device).seconds.do(self.update_devices_status)
-        schedule.every(self.delay_device).seconds.do(self.update_camera_snapshot)
+        schedule.every(self.delay_device).seconds.do(
+            self.update_camera_snapshot
+        )
 
         while True:
             schedule.run_pending()
@@ -99,7 +101,11 @@ class SomfyProtect2Mqtt:
         for site_id in self.my_sites_id:
             # Alarm Status
             my_site = self.somfy_protect_api.get_site(site_id=site_id)
-            site = ha_discovery_alarm(site=my_site, mqtt_config=self.mqtt_config)
+            site = ha_discovery_alarm(
+                site=my_site,
+                mqtt_config=self.mqtt_config,
+                homeassistant_config=self.homeassistant_config,
+            )
             site_extended = ha_discovery_alarm_actions(
                 site=my_site, mqtt_config=self.mqtt_config
             )
@@ -145,9 +151,14 @@ class SomfyProtect2Mqtt:
                             device_config.get("config").get("command_topic")
                         )
 
-                if device.device_definition.get("label") == "Somfy Indoor Camera":
+                if "camera" in device.device_definition.get("type"):
+                    LOGGER.info(
+                        f"Found Camera {device.device_definition.get('label')}"
+                    )
                     camera_config = ha_discovery_cameras(
-                        site_id=site_id, device=device, mqtt_config=self.mqtt_config,
+                        site_id=site_id,
+                        device=device,
+                        mqtt_config=self.mqtt_config,
                     )
                     self.mqttc.update(
                         topic=camera_config.get("topic"),
@@ -191,7 +202,9 @@ class SomfyProtect2Mqtt:
 
                     # Convert Values to String
                     keys_values = status_settings.items()
-                    payload = {str(key): str(value) for key, value in keys_values}
+                    payload = {
+                        str(key): str(value) for key, value in keys_values
+                    }
 
                     # Push status to MQTT
                     self.mqttc.update(
@@ -209,7 +222,10 @@ class SomfyProtect2Mqtt:
         LOGGER.info(f"Update Camera Snapshot")
         for site_id in self.my_sites_id:
             try:
-                for category in [Category.INDOOR_CAMERA, Category.OUTDDOR_CAMERA]:
+                for category in [
+                    Category.INDOOR_CAMERA,
+                    Category.OUTDDOR_CAMERA,
+                ]:
                     my_devices = self.somfy_protect_api.get_devices(
                         site_id=site_id, category=category
                     )

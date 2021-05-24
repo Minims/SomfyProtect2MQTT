@@ -39,7 +39,10 @@ Clone the repo
 Go to dev branch
 
 ```
-git checkout dev
+cd /opt/
+git clone https://github.com/Minims/SomfyProtect2MQTT.git
+git checkout dev # if you want the dev branch
+cd /opt/SomfyProtect2MQTT/
 ```
 
 Install Python3 dependencies
@@ -51,6 +54,7 @@ pip3 install -r  somfyProtect2Mqtt/requirements.txt
 Copy config file and setup your own credentials for SomfyProtect & MQTT.
 
 ```
+cd /opt/SomfyProtect2MQTT/somfyProtect2Mqtt
 cp config/config.yaml.example config/config.yaml
 ```
 
@@ -59,6 +63,65 @@ cp config/config.yaml.example config/config.yaml
 ```
 cd SomfyProtect2MQTT/somfyProtect2Mqtt
 python3 main.py
+```
+
+## Systemd (Running in background on boot)
+
+## 5. (Optional) Running as a daemon with systemctl
+To run SomfyProtect2MQTT as daemon (in background) and start it automatically on boot we will run SomfyProtect2MQTT with systemctl.
+
+```bash
+# Create a systemctl configuration file for SomfyProtect2MQTT
+sudo nano /etc/systemd/system/somfyProtect2mqtt.service
+```
+
+Add the following to this file:
+```
+[Unit]
+Description=somfyProtect2mqtt
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/SomfyProtect2MQTT/somfyProtect2Mqtt
+ExecStart=/usr/bin/python3 /opt/SomfyProtect2MQTT/somfyProtect2Mqtt/main.py
+StandardOutput=inherit
+# Or use StandardOutput=null if you don't want SomfyProtect2MQTT messages filling syslog, for more options see systemd.exec(5)
+StandardError=inherit
+Restart=always
+User=pi
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Save the file and exit.
+
+Verify that the configuration works:
+```bash
+# Start SomfyProtect2MQTT
+sudo systemctl start somfyProtect2mqtt
+
+# Show status
+systemctl status somfyProtect2mqtt.service
+```
+
+Now that everything works, we want systemctl to start SomfyProtect2MQTT automatically on boot, this can be done by executing:
+```bash
+sudo systemctl enable somfyProtect2mqtt.service
+```
+
+Done! 😃
+
+Some tips that can be handy later:
+```bash
+# Stopping SomfyProtect2MQTT
+sudo systemctl stop somfyProtect2mqtt
+
+# Starting SomfyProtect2MQTT
+sudo systemctl start somfyProtect2mqtt
+
+# View the log of SomfyProtect2MQTT
+sudo journalctl -u somfyProtect2mqtt.service -f
 ```
 
 ## Developement

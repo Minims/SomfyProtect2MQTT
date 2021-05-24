@@ -27,11 +27,16 @@ def set_token(token, cache_path: dict = CACHE_PATH) -> None:
         cache.write(json.dumps(token))
 
 
-def init_somfy_protect(username: str, password: str, cache_path: dict = CACHE_PATH):
+def init_somfy_protect(
+    username: str, password: str, cache_path: dict = CACHE_PATH
+):
     """Init Somfy Api
     """
     api = SomfyProtectApi(
-        username=username, password=password, token=get_token(), token_updater=set_token
+        username=username,
+        password=password,
+        token=get_token(),
+        token_updater=set_token,
     )
 
     # Check if we already have a token
