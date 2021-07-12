@@ -12,6 +12,7 @@ This an alpha dev version
  - Update Device Settings
  - Send Action to device (Open/Close Camera Shutter)
  - Get lastest Camera snapshot
+ - Retrieve Smoke Detector status
 
 Ex:
 
@@ -19,8 +20,8 @@ Ex:
 
 ## TODO
 
- - Test all things
- - Validate Somfy OutDoor Camera (I have not it)
+ - Test all things (/)
+ - Validate Somfy OutDoor Camera (/)
  - Try to retreive Camera Stream
  - TBD
 

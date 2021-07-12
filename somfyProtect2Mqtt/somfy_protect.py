@@ -11,8 +11,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 def get_token(cache_path: dict = CACHE_PATH):
-    """Retrieve a token from a file
-    """
+    """Retrieve a token from a file"""
     try:
         with open(cache_path, "r") as cache:
             return json.loads(cache.read())
@@ -21,17 +20,13 @@ def get_token(cache_path: dict = CACHE_PATH):
 
 
 def set_token(token, cache_path: dict = CACHE_PATH) -> None:
-    """Write a token into a file
-    """
+    """Write a token into a file"""
     with open(cache_path, "w") as cache:
         cache.write(json.dumps(token))
 
 
-def init_somfy_protect(
-    username: str, password: str, cache_path: dict = CACHE_PATH
-):
-    """Init Somfy Api
-    """
+def init_somfy_protect(username: str, password: str, cache_path: dict = CACHE_PATH):
+    """Init Somfy Api"""
     api = SomfyProtectApi(
         username=username,
         password=password,

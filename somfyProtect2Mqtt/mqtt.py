@@ -11,26 +11,19 @@ from somfy_protect_api.api.somfy_protect_api import ACTION_LIST
 
 
 class MQTTClient:
-    """MQTT Client Class
-    """
+    """MQTT Client Class"""
 
     def __init__(self, config, api, publish_delay=1):
         self.publish_delay = publish_delay
 
         self.api = api
 
-        self.client = mqtt.Client(
-            client_id=config.get("client-id", "somfy-protect")
-        )
+        self.client = mqtt.Client(client_id=config.get("client-id", "somfy-protect"))
         self.client.on_connect = self.on_connect
         self.client.on_message = self.on_message
         self.client.on_publish = self.on_publish
-        self.client.username_pw_set(
-            config.get("username"), config.get("password")
-        )
-        self.client.connect(
-            config.get("host", "127.0.0.1"), config.get("port", 1883), 60
-        )
+        self.client.username_pw_set(config.get("username"), config.get("password"))
+        self.client.connect(config.get("host", "127.0.0.1"), config.get("port", 1883), 60)
         self.client.loop_start()
 
         self.config = config
@@ -48,17 +41,13 @@ class MQTTClient:
         try:
             text_payload = msg.payload.decode("UTF-8")
             if text_payload in ALARM_STATUS.keys():
-                LOGGER.info(
-                    f"Security Level update ! Setting to {text_payload}"
-                )
+                LOGGER.info(f"Security Level update ! Setting to {text_payload}")
                 try:
                     site_id = msg.topic.split("/")[1]
                     LOGGER.debug(f"Site ID: {site_id}")
                 except Exception as exp:
                     LOGGER.warning(f"Unable to reteive Site ID")
-                self.api.update_security_level(
-                    site_id=site_id, security_level=text_payload
-                )
+                self.api.update_security_level(site_id=site_id, security_level=text_payload)
                 # Re Read site
                 self.update_site(site_id=site_id)
             elif text_payload == "panic":
@@ -76,11 +65,11 @@ class MQTTClient:
                     text_payload = "shutter_close"
                 if text_payload == "opened":
                     text_payload = "shutter_open"
-                LOGGER.info(
-                    f"Message received for Site ID: {site_id}, Device ID: {device_id}, Action: {text_payload}"
-                )
+                LOGGER.info(f"Message received for Site ID: {site_id}, Device ID: {device_id}, Action: {text_payload}")
                 action_device = self.api.action_device(
-                    site_id=site_id, device_id=device_id, action=text_payload,
+                    site_id=site_id,
+                    device_id=device_id,
+                    action=text_payload,
                 )
                 LOGGER.debug(action_device)
                 # Re Read device
@@ -90,12 +79,8 @@ class MQTTClient:
                 site_id = msg.topic.split("/")[1]
                 device_id = msg.topic.split("/")[2]
                 setting = msg.topic.split("/")[3]
-                device = self.api.get_device(
-                    site_id=site_id, device_id=device_id
-                )
-                LOGGER.info(
-                    f"Message received for Site ID: {site_id}, Device ID: {device_id}, Setting: {setting}"
-                )
+                device = self.api.get_device(site_id=site_id, device_id=device_id)
+                LOGGER.info(f"Message received for Site ID: {site_id}, Device ID: {device_id}, Setting: {setting}")
                 settings = device.settings
                 settings["global"][setting] = text_payload
                 update_device = self.api.update_device(
@@ -119,9 +104,7 @@ class MQTTClient:
         """MQTT update"""
         try:
             if is_json:
-                self.client.publish(
-                    topic, json.dumps(payload), qos=qos, retain=retain
-                )
+                self.client.publish(topic, json.dumps(payload), qos=qos, retain=retain)
             else:
                 self.client.publish(topic, payload, qos=qos, retain=retain)
         except Exception as exp:
@@ -164,11 +147,7 @@ class MQTTClient:
             # Push status to MQTT
             self.update(
                 topic=f"{self.config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/state",
-                payload={
-                    "security_level": ALARM_STATUS.get(
-                        site.security_level, "disarmed"
-                    )
-                },
+                payload={"security_level": ALARM_STATUS.get(site.security_level, "disarmed")},
                 retain=False,
             )
         except Exception as exp:
