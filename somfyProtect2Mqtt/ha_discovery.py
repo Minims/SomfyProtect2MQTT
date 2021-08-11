@@ -72,15 +72,23 @@ ALARM_STATUS = {
 DEVICE_CAPABILITIES = {
     "temperature": {
         "type": "sensor",
-        "config": {"device_class": "temperature", "unit_of_measurement": "°C",},
+        "config": {
+            "device_class": "temperature",
+            "unit_of_measurement": "°C",
+        },
     },
     "battery_level": {
         "type": "sensor",
-        "config": {"device_class": "battery", "unit_of_measurement": "%",},
+        "config": {
+            "device_class": "battery",
+            "unit_of_measurement": "%",
+        },
     },
     "battery_low": {
         "type": "binary_sensor",
-        "config": {"device_class": "battery",},
+        "config": {
+            "device_class": "battery",
+        },
     },
     "rlink_quality": {
         "type": "sensor",
@@ -126,50 +134,112 @@ DEVICE_CAPABILITIES = {
     },
     "recalibration_required": {
         "type": "binary_sensor",
-        "config": {"device_class": "problem",},
+        "config": {
+            "device_class": "problem",
+        },
     },
     "cover_present": {
         "type": "binary_sensor",
-        "config": {"pl_on": "True", "pl_off": "False",},
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+        },
     },
     "device_lost": {
         "type": "binary_sensor",
-        "config": {"pl_on": "True", "pl_off": "False",},
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+        },
     },
     "shutter_state": {
         "type": "switch",
-        "config": {"pl_on": "opened", "pl_off": "closed",},
+        "config": {
+            "pl_on": "opened",
+            "pl_off": "closed",
+        },
     },
     "sound_enabled": {
         "type": "switch",
-        "config": {"pl_on": "True", "pl_off": "False",},
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+        },
     },
     "light_enabled": {
         "type": "switch",
-        "config": {"pl_on": "True", "pl_off": "False",},
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+        },
     },
     "auto_protect_enabled": {
         "type": "switch",
-        "config": {"pl_on": "True", "pl_off": "False",},
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+        },
     },
     "night_mode_enabled": {
         "type": "switch",
-        "config": {"pl_on": "True", "pl_off": "False",},
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+        },
     },
     "prealarm_enabled": {
         "type": "switch",
-        "config": {"pl_on": "True", "pl_off": "False",},
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+        },
     },
     "enabled": {
         "type": "switch",
-        "config": {"pl_on": "True", "pl_off": "False",},
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+        },
+    },
+    "sp_smoke_detector_alarm_muted": {
+        "type": "binary_sensor",
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+        },
+    },
+    "sp_smoke_detector_error_chamber": {
+        "type": "binary_sensor",
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+        },
+    },
+    "sp_smoke_detector_no_disturb": {
+        "type": "binary_sensor",
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+        },
+    },
+    "sp_smoke_detector_role": {
+        "type": "binary_sensor",
+        "config": {
+            "pl_on": "end_device",
+            "pl_off": "coordinator",
+        },
+    },
+    "sp_smoke_detector_smoke_detection": {
+        "type": "binary_sensor",
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+        },
     },
 }
 
 
-def ha_discovery_alarm(
-    site: Site, mqtt_config: dict, homeassistant_config: dict
-):
+def ha_discovery_alarm(site: Site, mqtt_config: dict, homeassistant_config: dict):
 
     if homeassistant_config:
         code = homeassistant_config.get("code")
@@ -226,9 +296,7 @@ def ha_discovery_alarm_actions(site: Site, mqtt_config: dict):
     }
 
     command_topic = f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site.id}/siren/command"
-    site_config[
-        "topic"
-    ] = f"{mqtt_config.get('ha_discover_prefix', 'homeassistant')}/switch/{site.id}/siren/config"
+    site_config["topic"] = f"{mqtt_config.get('ha_discover_prefix', 'homeassistant')}/switch/{site.id}/siren/config"
     site_config["config"] = {
         "name": f"{site.label} Siren",
         "unique_id": f"{site.id}_{site.label}",
@@ -242,7 +310,10 @@ def ha_discovery_alarm_actions(site: Site, mqtt_config: dict):
 
 
 def ha_discovery_devices(
-    site_id: str, device: Device, mqtt_config: dict, sensor_name: str,
+    site_id: str,
+    device: Device,
+    mqtt_config: dict,
+    sensor_name: str,
 ):
     device_config = {}
     device_type = DEVICE_CAPABILITIES.get(sensor_name).get("type")
@@ -255,7 +326,9 @@ def ha_discovery_devices(
         "sw_version": device.version,
     }
 
-    command_topic = f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/{sensor_name}/command"
+    command_topic = (
+        f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/{sensor_name}/command"
+    )
     device_config[
         "topic"
     ] = f"{mqtt_config.get('ha_discover_prefix', 'homeassistant')}/{device_type}/{site_id}_{device.id}/{sensor_name}/config"
@@ -268,9 +341,7 @@ def ha_discovery_devices(
     }
 
     for config_entry in DEVICE_CAPABILITIES.get(sensor_name).get("config"):
-        device_config["config"][config_entry] = (
-            DEVICE_CAPABILITIES.get(sensor_name).get("config").get(config_entry)
-        )
+        device_config["config"][config_entry] = DEVICE_CAPABILITIES.get(sensor_name).get("config").get(config_entry)
     if device_type == "switch":
         device_config["config"]["command_topic"] = command_topic
 
@@ -278,7 +349,9 @@ def ha_discovery_devices(
 
 
 def ha_discovery_cameras(
-    site_id: str, device: Device, mqtt_config: dict,
+    site_id: str,
+    device: Device,
+    mqtt_config: dict,
 ):
     camera_config = {}
 
