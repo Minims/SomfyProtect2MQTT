@@ -35,6 +35,12 @@ Thx to him for his work.
 Configure it with you credentials
 Then all Devices will appaears in MQTT integration
 
+### Easy Mode (Running in Docker Container)
+
+Add docker container `docker run -v <PATH-TO-CONFIG-FOLDER>:/usr/src/SomfyProtect2MQTT/somfyProtect2Mqtt/config treynaer/somfyprotect2mqtt`
+
+Add config to `<PATH-TO-CONFIG-FOLDER>`
+
 ### Manual Mode
 Clone the repo
 Go to dev branch
