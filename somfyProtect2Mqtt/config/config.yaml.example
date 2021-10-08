@@ -29,3 +29,4 @@ mqtt:
 # SomfyProtect2MQTT
 delay_site: 10  # seconds
 delay_device: 60  # seconds
+manual_snapshot: false

@@ -236,6 +236,14 @@ DEVICE_CAPABILITIES = {
             "pl_off": "False",
         },
     },
+    "snapshot": {
+        "type": "switch",
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+            "optimistic": "True",
+        },
+    },
 }
 
 

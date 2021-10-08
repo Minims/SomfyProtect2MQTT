@@ -75,6 +75,25 @@ class MQTTClient:
                 # Re Read device
                 sleep(3)
                 self.update_device(site_id=site_id, device_id=device_id)
+            elif msg.topic.split("/")[3] == "snapshot":
+                site_id = msg.topic.split("/")[1]
+                device_id = msg.topic.split("/")[2]
+                if text_payload == "True":
+                    LOGGER.info("Manual Snapshot")
+                    self.api.camera_refresh_snapshot(site_id=site_id, device_id=device_id)
+                    response = self.api.camera_snapshot(site_id=site_id, device_id=device_id)
+                    if response.status_code == 200:
+                        # Write image to temp file
+                        path = f"{device_id}.jpeg"
+                        with open(path, "wb") as f:
+                            for chunk in response:
+                                f.write(chunk)
+                        # Read and Push to MQTT
+                        f = open(path, "rb")
+                        image = f.read()
+                        byteArr = bytearray(image)
+                        topic = f"{self.config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/snapshot"
+                        self.update(topic, byteArr, retain=False, is_json=False)
             else:
                 site_id = msg.topic.split("/")[1]
                 device_id = msg.topic.split("/")[2]
