@@ -47,6 +47,7 @@ class SomfyProtect2Mqtt:
 
         self.delay_site = config.get("delay_site", 60)
         self.delay_device = config.get("delay_device", 60)
+        self.manual_snapshot = config.get("manual_snapshot", False)
 
         if self.delay_site < 10:
             self.delay_site = 10
@@ -78,11 +79,13 @@ class SomfyProtect2Mqtt:
         self.ha_sites_config()
         self.ha_devices_config()
         self.update_sites_status()
-        self.update_camera_snapshot()
+        if not self.manual_snapshot:
+            self.update_camera_snapshot()
         self.update_devices_status()
         schedule.every(self.delay_site).seconds.do(self.update_sites_status)
         schedule.every(self.delay_device).seconds.do(self.update_devices_status)
-        schedule.every(self.delay_device).seconds.do(self.update_camera_snapshot)
+        if not self.manual_snapshot:
+            schedule.every(self.delay_device).seconds.do(self.update_camera_snapshot)
 
         while True:
             schedule.run_pending()
@@ -149,6 +152,20 @@ class SomfyProtect2Mqtt:
                         payload=camera_config.get("config"),
                         retain=True,
                     )
+                    # Manual Snapshot
+                    device_config = ha_discovery_devices(
+                        site_id=site_id,
+                        device=device,
+                        mqtt_config=self.mqtt_config,
+                        sensor_name="snapshot",
+                    )
+                    self.mqttc.update(
+                        topic=device_config.get("topic"),
+                        payload=device_config.get("config"),
+                        retain=True,
+                    )
+                    if device_config.get("config").get("command_topic"):
+                        self.mqttc.client.subscribe(device_config.get("config").get("command_topic"))
 
     def update_sites_status(self) -> None:
         """Uodate Devices Status (Including zone)"""
@@ -199,7 +216,7 @@ class SomfyProtect2Mqtt:
             try:
                 for category in [
                     Category.INDOOR_CAMERA,
-                    Category.OUTDDOR_CAMERA,                   
+                    Category.OUTDDOR_CAMERA,
                     Category.MYFOX_CAMERA,
                 ]:
                     my_devices = self.somfy_protect_api.get_devices(site_id=site_id, category=category)
