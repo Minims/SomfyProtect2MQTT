@@ -199,7 +199,8 @@ class SomfyProtect2Mqtt:
             try:
                 for category in [
                     Category.INDOOR_CAMERA,
-                    Category.OUTDDOR_CAMERA,
+                    Category.OUTDDOR_CAMERA,                   
+                    Category.MYFOX_CAMERA,
                 ]:
                     my_devices = self.somfy_protect_api.get_devices(site_id=site_id, category=category)
                     for device in my_devices:
