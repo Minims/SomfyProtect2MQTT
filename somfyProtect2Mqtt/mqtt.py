@@ -22,6 +22,7 @@ class MQTTClient:
         self.client.on_connect = self.on_connect
         self.client.on_message = self.on_message
         self.client.on_publish = self.on_publish
+        self.client.on_disconnect = self.on_disconnect
         self.client.username_pw_set(config.get("username"), config.get("password"))
         self.client.connect(config.get("host", "127.0.0.1"), config.get("port", 1883), 60)
         self.client.loop_start()
@@ -171,3 +172,15 @@ class MQTTClient:
             )
         except Exception as exp:
             LOGGER.warning(f"Error while refreshing site {site_id}: {exp}")
+
+    def on_disconnect(self, userdata, rc, properties=None):
+        if rc != 0:
+            LOGGER.warning("Unexpected MQTT disconnection. Will auto-reconnect")
+            try:
+                LOGGER.info("Reconnecting to MQTT")
+                self.client.reconnect()
+            except ConnectionRefusedError:
+                LOGGER.warning("Reconnecting to MQTT fails")
+                sleep(10)
+                self.on_disconnect
+            LOGGER.info("Reconnecting to MQTT: Success")
