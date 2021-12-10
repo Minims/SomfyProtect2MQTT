@@ -41,6 +41,11 @@ class MQTTClient:
         LOGGER.debug(f"Message received on {msg.topic}: {msg.payload}")
         try:
             text_payload = msg.payload.decode("UTF-8")
+            if text_payload == "True":
+                text_payload = bool(True)
+            if text_payload == "False":
+                text_payload = bool(False)
+            print(f"Payload : {text_payload}")
             if text_payload in ALARM_STATUS.keys():
                 LOGGER.info(f"Security Level update ! Setting to {text_payload}")
                 try:
