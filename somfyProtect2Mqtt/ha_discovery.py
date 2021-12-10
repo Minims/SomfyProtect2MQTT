@@ -236,6 +236,14 @@ DEVICE_CAPABILITIES = {
             "pl_off": "False",
         },
     },
+    "snapshot": {
+        "type": "switch",
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+            "optimistic": "True",
+        },
+    },
 }
 
 
@@ -344,6 +352,8 @@ def ha_discovery_devices(
         device_config["config"][config_entry] = DEVICE_CAPABILITIES.get(sensor_name).get("config").get(config_entry)
     if device_type == "switch":
         device_config["config"]["command_topic"] = command_topic
+    if sensor_name == "snapshot":
+        device_config["config"].pop("value_template")
 
     return device_config
 

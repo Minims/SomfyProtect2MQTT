@@ -22,6 +22,7 @@ class MQTTClient:
         self.client.on_connect = self.on_connect
         self.client.on_message = self.on_message
         self.client.on_publish = self.on_publish
+        self.client.on_disconnect = self.on_disconnect
         self.client.username_pw_set(config.get("username"), config.get("password"))
         self.client.connect(config.get("host", "127.0.0.1"), config.get("port", 1883), 60)
         self.client.loop_start()
@@ -75,6 +76,25 @@ class MQTTClient:
                 # Re Read device
                 sleep(3)
                 self.update_device(site_id=site_id, device_id=device_id)
+            elif msg.topic.split("/")[3] == "snapshot":
+                site_id = msg.topic.split("/")[1]
+                device_id = msg.topic.split("/")[2]
+                if text_payload == "True":
+                    LOGGER.info("Manual Snapshot")
+                    self.api.camera_refresh_snapshot(site_id=site_id, device_id=device_id)
+                    response = self.api.camera_snapshot(site_id=site_id, device_id=device_id)
+                    if response.status_code == 200:
+                        # Write image to temp file
+                        path = f"{device_id}.jpeg"
+                        with open(path, "wb") as f:
+                            for chunk in response:
+                                f.write(chunk)
+                        # Read and Push to MQTT
+                        f = open(path, "rb")
+                        image = f.read()
+                        byteArr = bytearray(image)
+                        topic = f"{self.config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/snapshot"
+                        self.update(topic, byteArr, retain=False, is_json=False)
             else:
                 site_id = msg.topic.split("/")[1]
                 device_id = msg.topic.split("/")[2]
@@ -152,3 +172,15 @@ class MQTTClient:
             )
         except Exception as exp:
             LOGGER.warning(f"Error while refreshing site {site_id}: {exp}")
+
+    def on_disconnect(self, userdata, rc, properties=None):
+        if rc != 0:
+            LOGGER.warning("Unexpected MQTT disconnection. Will auto-reconnect")
+            try:
+                LOGGER.info("Reconnecting to MQTT")
+                self.client.reconnect()
+            except ConnectionRefusedError:
+                LOGGER.warning("Reconnecting to MQTT fails")
+                sleep(10)
+                self.on_disconnect
+            LOGGER.info("Reconnecting to MQTT: Success")
