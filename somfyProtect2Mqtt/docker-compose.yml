@@ -2,3 +2,14 @@ version: "3.9"
 services:
   somfyprotect2mqtt:
     build: .
+    environment:
+      TZ: Europe/Paris
+    links:
+      - mosquitto
+    volumes:
+      - ./data:/data
+      - ./app:/app
+    command: tail -f /dev/null
+
+volumes:
+  mydata:
