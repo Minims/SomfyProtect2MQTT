@@ -1,4 +1,7 @@
-somfy-protect-api==0.1.8
-schedule==1.0.0
+aenum==3.1.5
+oauthlib==3.1.0
 paho-mqtt==1.5.1
 pyyaml==5.4.1
+requests-oauthlib==1.3.0
+schedule==1.0.0
+websocket-client==1.2.3

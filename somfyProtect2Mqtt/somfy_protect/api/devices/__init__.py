@@ -1,0 +1,1 @@
+"""Somfy Protect Devices"""
