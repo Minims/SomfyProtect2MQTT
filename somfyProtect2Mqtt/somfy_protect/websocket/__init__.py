@@ -7,6 +7,7 @@ import ssl
 import time
 
 from business.mqtt import mqtt_publish, update_site, update_device
+from homeassistant.ha_discovery import ALARM_STATUS
 from mqtt import MQTTClient, init_mqtt
 from oauthlib.oauth2 import LegacyApplicationClient, TokenExpiredError
 from requests_oauthlib import OAuth2Session
@@ -116,7 +117,7 @@ class SomfyProtectWebsocket:
         LOGGER.info("Update Alarm Status")
         site_id = message.get("site_id")
         security_level = message.get("security_level")
-        payload = {"security_level": security_level}
+        payload={"security_level": ALARM_STATUS.get(site.security_level, "disarmed")},
         topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/state"
 
         mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=payload)
