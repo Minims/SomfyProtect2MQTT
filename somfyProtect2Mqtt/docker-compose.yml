@@ -4,8 +4,6 @@ services:
     build: .
     environment:
       TZ: Europe/Paris
-    links:
-      - mosquitto
     volumes:
       - ./data:/data
       - ./app:/app
