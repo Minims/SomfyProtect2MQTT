@@ -22,7 +22,10 @@ def setup_logger(debug: bool = False, filename: str = "/var/log/somfyProtect.log
     logging.basicConfig(
         level=log_level,
         format="%(asctime)s [%(levelname)s] [%(name)s:%(lineno)d] %(message)s",
-        handlers=[logging.StreamHandler(), logging.FileHandler(filename=filename),],
+        handlers=[
+            logging.StreamHandler(),
+            logging.FileHandler(filename=filename),
+        ],
     )
 
 
@@ -51,7 +54,12 @@ def read_config_file(config_file: str) -> Dict[str, Any]:
     return conf
 
 
-def close_and_exit(robot, code: int = 0, signal: int = None, frame=None,) -> None:  # pylint: disable=unused-argument
+def close_and_exit(
+    robot,
+    code: int = 0,
+    signal: int = None,
+    frame=None,
+) -> None:  # pylint: disable=unused-argument
     """Close & Exit
 
     Args:

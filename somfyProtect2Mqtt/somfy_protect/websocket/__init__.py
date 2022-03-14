@@ -26,7 +26,12 @@ class SomfyProtectWebsocket:
     """Somfy Protect WebSocket Class"""
 
     def __init__(
-        self, sso: SomfyProtectSso, config: dict, mqtt_client: MQTTClient, api: SomfyProtectApi, debug: bool = False,
+        self,
+        sso: SomfyProtectSso,
+        config: dict,
+        mqtt_client: MQTTClient,
+        api: SomfyProtectApi,
+        debug: bool = False,
     ):
         self.mqtt_client = mqtt_client
         self.mqtt_config = config.get("mqtt")
@@ -47,7 +52,9 @@ class SomfyProtectWebsocket:
     def run_forever(self):
         """Run Forever Loop"""
         self._websocket.run_forever(
-            ping_timeout=10, ping_interval=30, sslopt={"cert_reqs": ssl.CERT_NONE},
+            ping_timeout=10,
+            ping_interval=30,
+            sslopt={"cert_reqs": ssl.CERT_NONE},
         )
 
     def on_message(self, ws_app, message):
@@ -117,7 +124,7 @@ class SomfyProtectWebsocket:
         LOGGER.info("Update Alarm Status")
         site_id = message.get("site_id")
         security_level = message.get("security_level")
-        payload={"security_level": ALARM_STATUS.get(site.security_level, "disarmed")},
+        payload = ({"security_level": ALARM_STATUS.get(site.security_level, "disarmed")},)
         topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/state"
 
         mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=payload)

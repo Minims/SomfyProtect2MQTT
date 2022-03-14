@@ -21,24 +21,40 @@ LOGGER = logging.getLogger(__name__)
 
 
 def ha_sites_config(
-    api: SomfyProtectApi, mqtt_client: MQTTClient, mqtt_config: dict, homeassistant_config: dict, my_sites_id: list,
+    api: SomfyProtectApi,
+    mqtt_client: MQTTClient,
+    mqtt_config: dict,
+    homeassistant_config: dict,
+    my_sites_id: list,
 ) -> None:
     """HA Site Config"""
     LOGGER.info("Looking for Sites")
     for site_id in my_sites_id:
         # Alarm Status
         my_site = api.get_site(site_id=site_id)
-        site = ha_discovery_alarm(site=my_site, mqtt_config=mqtt_config, homeassistant_config=homeassistant_config,)
+        site = ha_discovery_alarm(
+            site=my_site,
+            mqtt_config=mqtt_config,
+            homeassistant_config=homeassistant_config,
+        )
         site_extended = ha_discovery_alarm_actions(site=my_site, mqtt_config=mqtt_config)
         configs = [site, site_extended]
         for site_config in configs:
             mqtt_publish(
-                mqtt_client=mqtt_client, topic=site_config.get("topic"), payload=site_config.get("config"), retain=True,
+                mqtt_client=mqtt_client,
+                topic=site_config.get("topic"),
+                payload=site_config.get("config"),
+                retain=True,
             )
             mqtt_client.client.subscribe(site_config.get("config").get("command_topic"))
 
 
-def ha_devices_config(api: SomfyProtectApi, mqtt_client: MQTTClient, mqtt_config: dict, my_sites_id: list,) -> None:
+def ha_devices_config(
+    api: SomfyProtectApi,
+    mqtt_client: MQTTClient,
+    mqtt_config: dict,
+    my_sites_id: list,
+) -> None:
     """HA Devices Config"""
     LOGGER.info("Looking for Devices")
     for site_id in my_sites_id:
@@ -53,7 +69,10 @@ def ha_devices_config(api: SomfyProtectApi, mqtt_client: MQTTClient, mqtt_config
                     LOGGER.debug(f"No Config for {state}")
                     continue
                 device_config = ha_discovery_devices(
-                    site_id=site_id, device=device, mqtt_config=mqtt_config, sensor_name=state,
+                    site_id=site_id,
+                    device=device,
+                    mqtt_config=mqtt_config,
+                    sensor_name=state,
                 )
                 mqtt_publish(
                     mqtt_client=mqtt_client,
@@ -66,7 +85,11 @@ def ha_devices_config(api: SomfyProtectApi, mqtt_client: MQTTClient, mqtt_config
 
             if "camera" in device.device_definition.get("type"):
                 LOGGER.info(f"Found Camera {device.device_definition.get('label')}")
-                camera_config = ha_discovery_cameras(site_id=site_id, device=device, mqtt_config=mqtt_config,)
+                camera_config = ha_discovery_cameras(
+                    site_id=site_id,
+                    device=device,
+                    mqtt_config=mqtt_config,
+                )
                 mqtt_publish(
                     mqtt_client=mqtt_client,
                     topic=camera_config.get("topic"),
@@ -75,7 +98,10 @@ def ha_devices_config(api: SomfyProtectApi, mqtt_client: MQTTClient, mqtt_config
                 )
                 # Manual Snapshot
                 device_config = ha_discovery_devices(
-                    site_id=site_id, device=device, mqtt_config=mqtt_config, sensor_name="snapshot",
+                    site_id=site_id,
+                    device=device,
+                    mqtt_config=mqtt_config,
+                    sensor_name="snapshot",
                 )
                 mqtt_publish(
                     mqtt_client=mqtt_client,
@@ -90,7 +116,10 @@ def ha_devices_config(api: SomfyProtectApi, mqtt_client: MQTTClient, mqtt_config
             if "remote" in device.device_definition.get("type"):
                 LOGGER.info(f"Found Key Fob {device.device_definition.get('label')}")
                 key_fob_config = ha_discovery_devices(
-                    site_id=site_id, device=device, mqtt_config=mqtt_config, sensor_name="presence",
+                    site_id=site_id,
+                    device=device,
+                    mqtt_config=mqtt_config,
+                    sensor_name="presence",
                 )
                 mqtt_publish(
                     mqtt_client=mqtt_client,
@@ -100,7 +129,12 @@ def ha_devices_config(api: SomfyProtectApi, mqtt_client: MQTTClient, mqtt_config
                 )
 
 
-def update_sites_status(api: SomfyProtectApi, mqtt_client: MQTTClient, mqtt_config: dict, my_sites_id: list,) -> None:
+def update_sites_status(
+    api: SomfyProtectApi,
+    mqtt_client: MQTTClient,
+    mqtt_config: dict,
+    my_sites_id: list,
+) -> None:
     """Uodate Devices Status (Including zone)"""
     LOGGER.info("Update Sites Status")
     for site_id in my_sites_id:
@@ -119,7 +153,12 @@ def update_sites_status(api: SomfyProtectApi, mqtt_client: MQTTClient, mqtt_conf
             continue
 
 
-def update_devices_status(api: SomfyProtectApi, mqtt_client: MQTTClient, mqtt_config: dict, my_sites_id: list,) -> None:
+def update_devices_status(
+    api: SomfyProtectApi,
+    mqtt_client: MQTTClient,
+    mqtt_config: dict,
+    my_sites_id: list,
+) -> None:
     """Update Devices Status (Including zone)"""
     LOGGER.info("Update Devices Status")
     for site_id in my_sites_id:
@@ -147,7 +186,10 @@ def update_devices_status(api: SomfyProtectApi, mqtt_client: MQTTClient, mqtt_co
 
 
 def update_camera_snapshot(
-    api: SomfyProtectApi, mqtt_client: MQTTClient, mqtt_config: dict, my_sites_id: list,
+    api: SomfyProtectApi,
+    mqtt_client: MQTTClient,
+    mqtt_config: dict,
+    my_sites_id: list,
 ) -> None:
     """Uodate Camera Snapshot"""
     LOGGER.info("Update Camera Snapshot")
@@ -174,7 +216,11 @@ def update_camera_snapshot(
                         byte_arr = bytearray(image)
                         topic = f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/snapshot"
                         mqtt_publish(
-                            mqtt_client=mqtt_client, topic=topic, payload=byte_arr, retain=False, is_json=False,
+                            mqtt_client=mqtt_client,
+                            topic=topic,
+                            payload=byte_arr,
+                            retain=False,
+                            is_json=False,
                         )
 
         except Exception as exp:
