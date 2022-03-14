@@ -55,10 +55,9 @@ DEVICE_CAPABILITIES = {
         "config": {"min": 1, "max": 9},
     },
     "sensitivity_level": {
-        "type": "sensor",
+        "type": "select",
         "config": {
-            "device_class": "signal_strength",
-            "unit_of_measurement": "dB",
+            "option": ["low", "medium", "high"],
         },
     },
     "fsk_level": {
