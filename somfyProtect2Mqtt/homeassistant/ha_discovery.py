@@ -57,7 +57,7 @@ DEVICE_CAPABILITIES = {
     "sensitivity_level": {
         "type": "select",
         "config": {
-            "option": ["low", "medium", "high"],
+            "options": ["low", "medium", "high"],
         },
     },
     "fsk_level": {
@@ -336,7 +336,7 @@ def ha_discovery_devices(
                 .get("config")
                 .get(config_entry)
             )
-    if device_type == "switch" or device_type == "number":
+    if device_type in ("switch", "number", "select"):
         device_config["config"]["command_topic"] = command_topic
     if sensor_name == "snapshot":
         device_config["config"].pop("value_template")
