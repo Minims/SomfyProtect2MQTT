@@ -66,7 +66,9 @@ class SomfyProtectSso:
         )
         self._oauth.headers["User-Agent"] = "Somfy Protect"
 
-    def request_token(self,) -> Dict[str, str]:
+    def request_token(
+        self,
+    ) -> Dict[str, str]:
         """Generic method for fetching a Somfy Protect access token.
 
         Returns:

@@ -81,7 +81,10 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
             # Read updated Alarm Status
             sleep(2)
             update_site(
-                api=api, mqtt_client=mqtt_client, mqtt_config=mqtt_config, site_id=site_id,
+                api=api,
+                mqtt_client=mqtt_client,
+                mqtt_config=mqtt_config,
+                site_id=site_id,
             )
 
         # Manage Siren
@@ -105,12 +108,20 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
                 text_payload = "shutter_open"
             LOGGER.info(f"Message received for Site ID: {site_id}, Device ID: {device_id}, Action: {text_payload}")
             # Update Camera Shutter via API
-            action_device = api.action_device(site_id=site_id, device_id=device_id, action=text_payload,)
+            action_device = api.action_device(
+                site_id=site_id,
+                device_id=device_id,
+                action=text_payload,
+            )
             LOGGER.debug(action_device)
             # Read updated device
             sleep(2)
             update_device(
-                api=api, mqtt_client=mqtt_client, mqtt_config=mqtt_config, site_id=site_id, device_id=device_id,
+                api=api,
+                mqtt_client=mqtt_client,
+                mqtt_config=mqtt_config,
+                site_id=site_id,
+                device_id=device_id,
             )
 
         # Manage Manual Snapshot
@@ -133,7 +144,11 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
                     byte_array = bytearray(image)
                     topic = f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/snapshot"
                     mqtt_publish(
-                        mqtt_client, topic, byte_array, retain=False, is_json=False,
+                        mqtt_client,
+                        topic,
+                        byte_array,
+                        retain=False,
+                        is_json=False,
                     )
 
         # Manage Settings update
@@ -146,12 +161,19 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
             settings = device.settings
             settings["global"][setting] = text_payload
             api.update_device(
-                site_id=site_id, device_id=device_id, device_label=device.label, settings=settings,
+                site_id=site_id,
+                device_id=device_id,
+                device_label=device.label,
+                settings=settings,
             )
             # Read updated device
             sleep(2)
             update_device(
-                api=api, mqtt_client=mqtt_client, mqtt_config=mqtt_config, site_id=site_id, device_id=device_id,
+                api=api,
+                mqtt_client=mqtt_client,
+                mqtt_config=mqtt_config,
+                site_id=site_id,
+                device_id=device_id,
             )
 
     except Exception as exp:

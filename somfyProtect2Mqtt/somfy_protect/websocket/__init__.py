@@ -26,7 +26,12 @@ class SomfyProtectWebsocket:
     """Somfy Protect WebSocket Class"""
 
     def __init__(
-        self, sso: SomfyProtectSso, config: dict, mqtt_client: MQTTClient, api: SomfyProtectApi, debug: bool = False,
+        self,
+        sso: SomfyProtectSso,
+        config: dict,
+        mqtt_client: MQTTClient,
+        api: SomfyProtectApi,
+        debug: bool = False,
     ):
         self.mqtt_client = mqtt_client
         self.mqtt_config = config.get("mqtt")
@@ -47,7 +52,9 @@ class SomfyProtectWebsocket:
     def run_forever(self):
         """Run Forever Loop"""
         self._websocket.run_forever(
-            ping_timeout=10, ping_interval=30, sslopt={"cert_reqs": ssl.CERT_NONE},
+            ping_timeout=10,
+            ping_interval=30,
+            sslopt={"cert_reqs": ssl.CERT_NONE},
         )
 
     def on_message(self, ws_app, message):
@@ -64,12 +71,13 @@ class SomfyProtectWebsocket:
 
         message_json = json.loads(message)
         callbacks = {
-            "security.level.change": self.update_alarm_status,
-            "alarm.panic": self.start_alarm_panic,
-            "alarm.end": self.stop_alarm_siren,
+            "security_level_change": self.update_alarm_status,
+            "alarm.trespass": self.alarm_trespass,
+            "alarm.panic": self.alarm_panic,
+            "alarm.end": self.alarm_end,
             "presence_out": self.update_keyfob_presence,
             "presence_in": self.update_keyfob_presence,
-            "device.status": self.update_device_status,
+            "device.status": self.device_status,
             "site.device.testing.status": self.site_device_testing_status,
             "device.update.connect": self.default_message,
             "device.update.progress": self.default_message,
@@ -110,19 +118,34 @@ class SomfyProtectWebsocket:
             payload = {"presence": "home"}
         topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/presence"
 
-        mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=payload)
+        mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True)
 
     def update_alarm_status(self, message):
         """Update Alarm Status"""
         LOGGER.info("Update Alarm Status")
         site_id = message.get("site_id")
         security_level = message.get("security_level")
-        payload={"security_level": ALARM_STATUS.get(site.security_level, "disarmed")},
+        payload = ({"security_level": ALARM_STATUS.get(site.security_level, "disarmed")},)
         topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/state"
 
         mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=payload)
 
-    def start_alarm_panic(self, message):
+    def alarm_trespass(self, message):
+        """Alarm Triggered !!"""
+        LOGGER.info("Report Alarm Triggered")
+        site_id = message.get("site_id")
+        device_id = message.get("device_id")
+        device_type = message.get("device_type")
+        security_level = "triggered"
+        if message.get("type") != "alarm":
+            LOGGER.info(f"{message.get('type')} is not 'alarm'")
+        payload = {"security_level": security_level}
+        topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/state"
+
+        mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True)
+        # TODO Create a motion sensor from device_id & device_type
+
+    def alarm_panic(self, message):
         """Report Alarm Panic"""
         LOGGER.info("Report Alarm Panic")
         site_id = message.get("site_id")
@@ -132,13 +155,13 @@ class SomfyProtectWebsocket:
 
         mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True)
 
-    def stop_alarm_siren(self, message):
+    def alarm_end(self, message):
         """Report Alarm Stop"""
         LOGGER.info("Report Alarm Stop")
         site_id = message.get("site_id")
         update_site(self.api, self.mqtt_client, self.mqtt_config, site_id)
 
-    def update_device_status(self, message):
+    def device_status(self, message):
         """Update Device Status"""
         LOGGER.info("Read Test message")
         site_id = message.get("site_id")

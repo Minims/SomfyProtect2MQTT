@@ -164,7 +164,12 @@ class SomfyProtectApi:
         response.raise_for_status()
         return response.json()
 
-    def action_device(self, site_id: str, device_id: str, action: str,) -> Dict:
+    def action_device(
+        self,
+        site_id: str,
+        device_id: str,
+        action: str,
+    ) -> Dict:
         """Make an action on a Device
 
         Args:
@@ -178,11 +183,20 @@ class SomfyProtectApi:
         if action not in ACTION_LIST:
             raise ValueError(f"Unknown action {action}")
 
-        response = self.post(f"/v3/site/{site_id}/device/{device_id}/action", json={"action": action},)
+        response = self.post(
+            f"/v3/site/{site_id}/device/{device_id}/action",
+            json={"action": action},
+        )
         response.raise_for_status()
         return response.json()
 
-    def update_device(self, site_id: str, device_id: str, device_label: str, settings: Dict,) -> Dict:
+    def update_device(
+        self,
+        site_id: str,
+        device_id: str,
+        device_label: str,
+        settings: Dict,
+    ) -> Dict:
         """Update Device Settings
 
         Args:
@@ -218,7 +232,10 @@ class SomfyProtectApi:
         Returns:
             Response: Response Image
         """
-        response = self.post(f"/video/site/{site_id}/device/{device_id}/snapshot", json={"refresh": 10},)
+        response = self.post(
+            f"/video/site/{site_id}/device/{device_id}/snapshot",
+            json={"refresh": 10},
+        )
         response.raise_for_status()
         # path = "file.jpeg"
         if response.status_code == 200:
@@ -237,7 +254,10 @@ class SomfyProtectApi:
         Returns:
             Task: Somfy Task
         """
-        response = self.post(f"/video/site/{site_id}/device/{device_id}/refresh-snapshot", json={},)
+        response = self.post(
+            f"/video/site/{site_id}/device/{device_id}/refresh-snapshot",
+            json={},
+        )
         response.raise_for_status()
         return response.json()
 

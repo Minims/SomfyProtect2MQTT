@@ -79,19 +79,31 @@ class SomfyProtect2Mqtt:
             homeassistant_config=self.homeassistant_config,
         )
         ha_devices_config(
-            api=self.api, mqtt_client=self.mqtt_client, mqtt_config=self.mqtt_config, my_sites_id=self.my_sites_id,
+            api=self.api,
+            mqtt_client=self.mqtt_client,
+            mqtt_config=self.mqtt_config,
+            my_sites_id=self.my_sites_id,
         )
 
         # Device Update (First Run Only)
         update_sites_status(
-            api=self.api, mqtt_client=self.mqtt_client, mqtt_config=self.mqtt_config, my_sites_id=self.my_sites_id,
+            api=self.api,
+            mqtt_client=self.mqtt_client,
+            mqtt_config=self.mqtt_config,
+            my_sites_id=self.my_sites_id,
         )
         if not self.manual_snapshot:
             update_camera_snapshot(
-                api=self.api, mqtt_client=self.mqtt_client, mqtt_config=self.mqtt_config, my_sites_id=self.my_sites_id,
+                api=self.api,
+                mqtt_client=self.mqtt_client,
+                mqtt_config=self.mqtt_config,
+                my_sites_id=self.my_sites_id,
             )
         update_devices_status(
-            api=self.api, mqtt_client=self.mqtt_client, mqtt_config=self.mqtt_config, my_sites_id=self.my_sites_id,
+            api=self.api,
+            mqtt_client=self.mqtt_client,
+            mqtt_config=self.mqtt_config,
+            my_sites_id=self.my_sites_id,
         )
 
         # Schedule Refreshs
