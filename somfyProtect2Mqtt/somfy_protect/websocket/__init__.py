@@ -117,7 +117,7 @@ class SomfyProtectWebsocket:
             payload = {"presence": "home"}
         topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/presence"
 
-        mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=payload)
+        mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True)
 
     def update_alarm_status(self, message):
         """Update Alarm Status"""
