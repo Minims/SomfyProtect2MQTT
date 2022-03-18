@@ -20,6 +20,10 @@ from somfy_protect.sso import SomfyProtectSso, read_token_from_file
 
 
 BASE_URL = "https://api.myfox.io"
+# Don't know how it works for now.
+VIDEO_URL = "https://video.myfox.io"
+#(MEDIA_TYPE_VIDEO, 1, 1; MEDIA_TYPE_AUDIO, 0, 0)
+
 
 ACTION_LIST = [
     "shutter_open",
