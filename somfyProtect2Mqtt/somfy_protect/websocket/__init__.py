@@ -319,7 +319,7 @@ class SomfyProtectWebsocket:
             topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{topic_suffix}"
         else:
             topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/{topic_suffix}"
-        mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=message)
+        mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=message, retain=True)
 
     def remote_unassigned(self, message):
         """Remote Unassigned"""
