@@ -25,7 +25,9 @@ class MQTTClient:
         self.client.on_publish = self.on_publish
         self.client.on_disconnect = self.on_disconnect
         self.client.username_pw_set(config.get("username"), config.get("password"))
-        self.client.connect(config.get("host", "127.0.0.1"), config.get("port", 1883), 60)
+        self.client.connect(
+            config.get("host", "127.0.0.1"), config.get("port", 1883), 60
+        )
         if config.get("ssl", False) is True:
             self.client.tls_set(cert_reqs=ssl.CERT_NONE)
             self.client.tls_insecure_set(True)
@@ -37,7 +39,9 @@ class MQTTClient:
 
         LOGGER.debug("MQTT client initialized")
 
-    def on_connect(self, mqttc, obj, flags, rc):  # pylint: disable=unused-argument,invalid-name
+    def on_connect(
+        self, mqttc, obj, flags, rc
+    ):  # pylint: disable=unused-argument,invalid-name
         """MQTT on_connect"""
         LOGGER.debug(f"Connected: {rc}")
 
@@ -45,17 +49,16 @@ class MQTTClient:
         """MQTT on_message"""
         LOGGER.debug(f"Message received on {msg.topic}: {msg.payload}")
         consume_mqtt_message(
-            msg=msg,
-            mqtt_config=self.config,
-            api=self.api,
-            mqtt_client=self.client,
+            msg=msg, mqtt_config=self.config, api=self.api, mqtt_client=self.client,
         )
 
     def on_publish(self, mqttc, obj, result):  # pylint: disable=unused-argument
         """MQTT on_publish"""
         LOGGER.debug(f"Message published: {result}")
 
-    def on_disconnect(self, userdata, rc, properties=None):  # pylint: disable=unused-argument,invalid-name
+    def on_disconnect(
+        self, userdata, rc, properties=None
+    ):  # pylint: disable=unused-argument,invalid-name
         """MQTT on_disconnect"""
         if rc != 0:
             LOGGER.warning("Unexpected MQTT disconnection. Will auto-reconnect")

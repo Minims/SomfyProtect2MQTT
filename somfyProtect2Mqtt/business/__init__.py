@@ -37,7 +37,9 @@ def ha_sites_config(
             mqtt_config=mqtt_config,
             homeassistant_config=homeassistant_config,
         )
-        site_extended = ha_discovery_alarm_actions(site=my_site, mqtt_config=mqtt_config)
+        site_extended = ha_discovery_alarm_actions(
+            site=my_site, mqtt_config=mqtt_config
+        )
         configs = [site, site_extended]
         for site_config in configs:
             mqtt_publish(
@@ -50,10 +52,7 @@ def ha_sites_config(
 
 
 def ha_devices_config(
-    api: SomfyProtectApi,
-    mqtt_client: MQTTClient,
-    mqtt_config: dict,
-    my_sites_id: list,
+    api: SomfyProtectApi, mqtt_client: MQTTClient, mqtt_config: dict, my_sites_id: list,
 ) -> None:
     """HA Devices Config"""
     LOGGER.info("Looking for Devices")
@@ -81,14 +80,14 @@ def ha_devices_config(
                     retain=True,
                 )
                 if device_config.get("config").get("command_topic"):
-                    mqtt_client.client.subscribe(device_config.get("config").get("command_topic"))
+                    mqtt_client.client.subscribe(
+                        device_config.get("config").get("command_topic")
+                    )
 
             if "camera" in device.device_definition.get("type"):
                 LOGGER.info(f"Found Camera {device.device_definition.get('label')}")
                 camera_config = ha_discovery_cameras(
-                    site_id=site_id,
-                    device=device,
-                    mqtt_config=mqtt_config,
+                    site_id=site_id, device=device, mqtt_config=mqtt_config,
                 )
                 mqtt_publish(
                     mqtt_client=mqtt_client,
@@ -110,7 +109,9 @@ def ha_devices_config(
                     retain=True,
                 )
                 if device_config.get("config").get("command_topic"):
-                    mqtt_client.client.subscribe(device_config.get("config").get("command_topic"))
+                    mqtt_client.client.subscribe(
+                        device_config.get("config").get("command_topic")
+                    )
 
             # Works with Websockets
             if "remote" in device.device_definition.get("type"):
@@ -130,10 +131,7 @@ def ha_devices_config(
 
 
 def update_sites_status(
-    api: SomfyProtectApi,
-    mqtt_client: MQTTClient,
-    mqtt_config: dict,
-    my_sites_id: list,
+    api: SomfyProtectApi, mqtt_client: MQTTClient, mqtt_config: dict, my_sites_id: list,
 ) -> None:
     """Uodate Devices Status (Including zone)"""
     LOGGER.info("Update Sites Status")
@@ -145,7 +143,9 @@ def update_sites_status(
             mqtt_publish(
                 mqtt_client=mqtt_client,
                 topic=f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/state",
-                payload={"security_level": ALARM_STATUS.get(site.security_level, "disarmed")},
+                payload={
+                    "security_level": ALARM_STATUS.get(site.security_level, "disarmed")
+                },
                 retain=False,
             )
         except Exception as exp:
@@ -154,10 +154,7 @@ def update_sites_status(
 
 
 def update_devices_status(
-    api: SomfyProtectApi,
-    mqtt_client: MQTTClient,
-    mqtt_config: dict,
-    my_sites_id: list,
+    api: SomfyProtectApi, mqtt_client: MQTTClient, mqtt_config: dict, my_sites_id: list,
 ) -> None:
     """Update Devices Status (Including zone)"""
     LOGGER.info("Update Devices Status")
@@ -186,10 +183,7 @@ def update_devices_status(
 
 
 def update_camera_snapshot(
-    api: SomfyProtectApi,
-    mqtt_client: MQTTClient,
-    mqtt_config: dict,
-    my_sites_id: list,
+    api: SomfyProtectApi, mqtt_client: MQTTClient, mqtt_config: dict, my_sites_id: list,
 ) -> None:
     """Uodate Camera Snapshot"""
     LOGGER.info("Update Camera Snapshot")

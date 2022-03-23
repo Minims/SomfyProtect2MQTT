@@ -22,7 +22,7 @@ from somfy_protect.sso import SomfyProtectSso, read_token_from_file
 BASE_URL = "https://api.myfox.io"
 # Don't know how it works for now.
 VIDEO_URL = "https://video.myfox.io"
-#(MEDIA_TYPE_VIDEO, 1, 1; MEDIA_TYPE_AUDIO, 0, 0)
+# (MEDIA_TYPE_VIDEO, 1, 1; MEDIA_TYPE_AUDIO, 0, 0)
 
 
 ACTION_LIST = [
@@ -60,11 +60,17 @@ class SomfyProtectApi:
 
         url = f"{BASE_URL}{path}"
         try:
-            return getattr(self.sso._oauth, method)(url, **kwargs)  # pylint: disable=protected-access
+            return getattr(self.sso._oauth, method)(
+                url, **kwargs
+            )  # pylint: disable=protected-access
         except TokenExpiredError:
-            self.sso._oauth.token = self.sso.refresh_tokens()  # pylint: disable=protected-access
+            self.sso._oauth.token = (
+                self.sso.refresh_tokens()
+            )  # pylint: disable=protected-access
 
-            return getattr(self.sso._oauth, method)(url, **kwargs)  # pylint: disable=protected-access
+            return getattr(self.sso._oauth, method)(
+                url, **kwargs
+            )  # pylint: disable=protected-access
 
     def get(self, path: str) -> Response:
         """Fetch an URL from the Somfy Protect API.
@@ -126,7 +132,9 @@ class SomfyProtectApi:
         response.raise_for_status()
         return Site(**response.json())
 
-    def update_security_level(self, site_id: str, security_level: AvailableStatus) -> Dict:
+    def update_security_level(
+        self, site_id: str, security_level: AvailableStatus
+    ) -> Dict:
         """Set Alarm Security Level
 
         Args:
@@ -168,12 +176,7 @@ class SomfyProtectApi:
         response.raise_for_status()
         return response.json()
 
-    def action_device(
-        self,
-        site_id: str,
-        device_id: str,
-        action: str,
-    ) -> Dict:
+    def action_device(self, site_id: str, device_id: str, action: str,) -> Dict:
         """Make an action on a Device
 
         Args:
@@ -188,18 +191,13 @@ class SomfyProtectApi:
             raise ValueError(f"Unknown action {action}")
 
         response = self.post(
-            f"/v3/site/{site_id}/device/{device_id}/action",
-            json={"action": action},
+            f"/v3/site/{site_id}/device/{device_id}/action", json={"action": action},
         )
         response.raise_for_status()
         return response.json()
 
     def update_device(
-        self,
-        site_id: str,
-        device_id: str,
-        device_label: str,
-        settings: Dict,
+        self, site_id: str, device_id: str, device_label: str, settings: Dict,
     ) -> Dict:
         """Update Device Settings
 
@@ -237,8 +235,7 @@ class SomfyProtectApi:
             Response: Response Image
         """
         response = self.post(
-            f"/video/site/{site_id}/device/{device_id}/snapshot",
-            json={"refresh": 10},
+            f"/video/site/{site_id}/device/{device_id}/snapshot", json={"refresh": 10},
         )
         response.raise_for_status()
         # path = "file.jpeg"
@@ -259,13 +256,14 @@ class SomfyProtectApi:
             Task: Somfy Task
         """
         response = self.post(
-            f"/video/site/{site_id}/device/{device_id}/refresh-snapshot",
-            json={},
+            f"/video/site/{site_id}/device/{device_id}/refresh-snapshot", json={},
         )
         response.raise_for_status()
         return response.json()
 
-    def get_devices(self, site_id: str, category: Optional[Category] = None) -> List[Device]:
+    def get_devices(
+        self, site_id: str, category: Optional[Category] = None
+    ) -> List[Device]:
         """List Devices from a Site ID
 
         Args:
@@ -285,7 +283,9 @@ class SomfyProtectApi:
         devices += [
             Device(**d)
             for d in content.get("items")
-            if category is None or category.value.lower() in Device(**d).device_definition.get("label").lower()
+            if category is None
+            or category.value.lower()
+            in Device(**d).device_definition.get("label").lower()
         ]
 
         return devices

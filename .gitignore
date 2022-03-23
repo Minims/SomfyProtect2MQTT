@@ -129,6 +129,7 @@ dmypy.json
 .pyre/
 
 # User Config
+*.jpeg
 config.yaml
 token.json
 .vscode/

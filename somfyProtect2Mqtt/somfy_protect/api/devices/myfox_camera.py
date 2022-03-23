@@ -34,15 +34,11 @@ class MyFoxCamera(SomfyProtectDevice):
     def close_shutter(self) -> None:
         """Close Shutter"""
         self.api.action_device(
-            site_id=self.site.id,
-            device_id=self.device.id,
-            action="shutter_close",
+            site_id=self.site.id, device_id=self.device.id, action="shutter_close",
         )
 
     def open_shutter(self) -> None:
         """Open Shutter"""
         self.api.action_device(
-            site_id=self.site.id,
-            device_id=self.device.id,
-            action="shutter_open",
+            site_id=self.site.id, device_id=self.device.id, action="shutter_open",
         )

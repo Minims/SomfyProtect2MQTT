@@ -24,7 +24,9 @@ class SomfyProtect2Mqtt:
         SomfyProtectInitError: Unable to init
     """
 
-    def __init__(self, api: SomfyProtectApi, mqtt_client: MQTTClient, config: dict) -> None:
+    def __init__(
+        self, api: SomfyProtectApi, mqtt_client: MQTTClient, config: dict
+    ) -> None:
         """Init SomfyProtect2Mqtt
 
         Args:

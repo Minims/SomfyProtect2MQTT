@@ -66,15 +66,13 @@ class SomfyProtectSso:
         )
         self._oauth.headers["User-Agent"] = "Somfy Protect"
 
-    def request_token(
-        self,
-    ) -> Dict[str, str]:
+    def request_token(self,) -> Dict[str, str]:
         """Generic method for fetching a Somfy Protect access token.
 
         Returns:
             Dict[str, str]: Token
         """
-
+        LOGGER.info("Requesting Token")
         return self._oauth.fetch_token(
             SOMFY_PROTECT_TOKEN,
             username=self.username,
@@ -90,11 +88,13 @@ class SomfyProtectSso:
         Returns:
             Dict[str, Union[str, int]]: Token
         """
+        LOGGER.info("Refreshing Token")
         token = self._oauth.refresh_token(SOMFY_PROTECT_TOKEN)
 
         if self.token_updater is not None:
             self.token_updater(token)
 
+        LOGGER.info(f"New Token: {token}")
         return token
 
 
