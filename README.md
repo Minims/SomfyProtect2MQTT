@@ -31,7 +31,7 @@ Ex:
 
 In HomeAssistant, go to Supervisor > Add-on Store > Repositories
 Add this repo: https://github.com/minims/homeassistant-addons/
-Thx to him for his work.
+
 Configure it with you credentials
 Then all Devices will appaears in MQTT integration
 
