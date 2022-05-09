@@ -64,9 +64,7 @@ class SomfyProtectWebsocket:
         if "websocket.error.token" in message:
             LOGGER.warning("Websocket Token Error: requesting a new one")
             self.sso.refresh_tokens()
-            LOGGER.info("Reconnecting")
-            time.sleep(2)
-            self.run_forever()            
+            self.close()
 
         logging.debug(f"Message: {message}")
 
