@@ -54,11 +54,37 @@ DEVICE_CAPABILITIES = {
         "type": "number",
         "config": {"min": 1, "max": 9},
     },
+    "night_vision": {
+        "type": "select",
+        "config": {
+            "options": ["automatic"],
+        },
+    },
     "sensitivity_level": {
         "type": "select",
         "config": {
             "options": ["low", "medium", "high"],
         },
+    },
+    "support_type": {
+        "type": "select",
+        "config": {
+            "options": ["slidedoor", "window", "externdoor"],
+        },
+    },
+    "video_mode": {
+        "type": "select",
+        "config": {
+            "options": ["FHD"],
+        },
+    },
+    "power_mode": {
+        "type": "sensor",
+        "config": {},
+    },
+    "wifi_ssid": {
+        "type": "sensor",
+        "config": {},
     },
     "fsk_level": {
         "type": "sensor",
@@ -95,6 +121,118 @@ DEVICE_CAPABILITIES = {
             "unit_of_measurement": "%",
         },
     },
+    "temperatureAt": {
+        "type": "sensor",
+        "config": {},
+    },
+    "last_online_at": {
+        "type": "sensor",
+        "config": {},
+    },
+    "last_offline_at": {
+        "type": "sensor",
+        "config": {},
+    },
+    "mounted_at": {
+        "type": "sensor",
+        "config": {},
+    },
+    "last_shutter_closed_at": {
+        "type": "sensor",
+        "config": {},
+    },
+    "last_shutter_opened_at": {
+        "type": "sensor",
+        "config": {},
+    },
+    "last_status_at": {
+        "type": "sensor",
+        "config": {},
+    },
+    "mfa_last_test_at": {
+        "type": "sensor",
+        "config": {},
+    },
+    "mfa_last_test_success_at": {
+        "type": "sensor",
+        "config": {},
+    },
+    "mfa_last_online_at": {
+        "type": "sensor",
+        "config": {},
+    },
+    "mfa_last_offline_at": {
+        "type": "sensor",
+        "config": {},
+    },
+    "mfa_last_connected_at": {
+        "type": "sensor",
+        "config": {},
+    },
+    "mfa_last_disconnected_at": {
+        "type": "sensor",
+        "config": {},
+    },
+    "lora_last_test_at": {
+        "type": "sensor",
+        "config": {},
+    },
+    "lora_last_test_success_at": {
+        "type": "sensor",
+        "config": {},
+    },
+    "lora_last_online_at": {
+        "type": "sensor",
+        "config": {},
+    },
+    "lora_test_on_going": {
+        "type": "sensor",
+        "config": {},
+    },
+    "lora_last_offline_at": {
+        "type": "sensor",
+        "config": {},
+    },
+    "lora_last_connected_at": {
+        "type": "sensor",
+        "config": {},
+    },
+    "lora_last_disconnected_at": {
+        "type": "sensor",
+        "config": {},
+    },
+    "last_check_in_state": {
+        "type": "sensor",
+        "config": {},
+    },
+    "last_check_out_state": {
+        "type": "sensor",
+        "config": {},
+    },
+    "keep_alive": {
+        "type": "sensor",
+        "config": {},
+    },
+    "rlink_state": {
+        "type": "sensor",
+        "config": {},
+    },
+    "battery_level_state": {
+        "type": "sensor",
+        "config": {},
+    },
+    "power_state": {
+        "type": "sensor",
+        "config": {},
+    },
+    "thresholdAcc": {
+        "type": "sensor",
+        "config": {},
+    },
+    "night_mode": {
+        "type": "sensor",
+        "config": {},
+    },
     "mfa_quality_percent": {
         "type": "sensor",
         "config": {
@@ -127,6 +265,41 @@ DEVICE_CAPABILITIES = {
         "config": {
             "pl_on": "opened",
             "pl_off": "closed",
+        },
+    },
+    "detection_enabled": {
+        "type": "switch",
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+        },
+    },
+    "led_enabled": {
+        "type": "switch",
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+        },
+    },
+    "hdr_enabled": {
+        "type": "switch",
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+        },
+    },
+    "siren_on_camera_detection_disabled": {
+        "type": "switch",
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+        },
+    },
+    "sound_recording_enabled": {
+        "type": "switch",
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
         },
     },
     "sound_enabled": {
@@ -172,6 +345,13 @@ DEVICE_CAPABILITIES = {
         },
     },
     "sp_smoke_detector_alarm_muted": {
+        "type": "binary_sensor",
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+        },
+    },
+    "recalibrateable": {
         "type": "binary_sensor",
         "config": {
             "pl_on": "True",
