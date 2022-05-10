@@ -52,7 +52,10 @@ def ha_sites_config(
 
 
 def ha_devices_config(
-    api: SomfyProtectApi, mqtt_client: MQTTClient, mqtt_config: dict, my_sites_id: list,
+    api: SomfyProtectApi,
+    mqtt_client: MQTTClient,
+    mqtt_config: dict,
+    my_sites_id: list,
 ) -> None:
     """HA Devices Config"""
     LOGGER.info("Looking for Devices")
@@ -87,7 +90,9 @@ def ha_devices_config(
             if "camera" in device.device_definition.get("type"):
                 LOGGER.info(f"Found Camera {device.device_definition.get('label')}")
                 camera_config = ha_discovery_cameras(
-                    site_id=site_id, device=device, mqtt_config=mqtt_config,
+                    site_id=site_id,
+                    device=device,
+                    mqtt_config=mqtt_config,
                 )
                 mqtt_publish(
                     mqtt_client=mqtt_client,
@@ -129,9 +134,32 @@ def ha_devices_config(
                     retain=True,
                 )
 
+            if "pir" in device.device_definition.get("type"):
+                LOGGER.info(f"Found PIR Sensor {device.device_definition.get('label')}")
+                pir_config = ha_discovery_devices(
+                    site_id=site_id,
+                    device=device,
+                    mqtt_config=mqtt_config,
+                    sensor_name="motion_sensor",
+                )
+                mqtt_publish(
+                    mqtt_client=mqtt_client,
+                    topic=pir_config.get("topic"),
+                    payload=pir_config.get("config"),
+                    retain=True,
+                )
+                mqtt_publish(
+                    mqtt_client=mqtt_client,
+                    topic=pir_config.get("config").get("state_topic"),
+                    payload={"motion_sensor": "False"},
+                )
+
 
 def update_sites_status(
-    api: SomfyProtectApi, mqtt_client: MQTTClient, mqtt_config: dict, my_sites_id: list,
+    api: SomfyProtectApi,
+    mqtt_client: MQTTClient,
+    mqtt_config: dict,
+    my_sites_id: list,
 ) -> None:
     """Uodate Devices Status (Including zone)"""
     LOGGER.info("Update Sites Status")
@@ -154,7 +182,10 @@ def update_sites_status(
 
 
 def update_devices_status(
-    api: SomfyProtectApi, mqtt_client: MQTTClient, mqtt_config: dict, my_sites_id: list,
+    api: SomfyProtectApi,
+    mqtt_client: MQTTClient,
+    mqtt_config: dict,
+    my_sites_id: list,
 ) -> None:
     """Update Devices Status (Including zone)"""
     LOGGER.info("Update Devices Status")
@@ -183,7 +214,10 @@ def update_devices_status(
 
 
 def update_camera_snapshot(
-    api: SomfyProtectApi, mqtt_client: MQTTClient, mqtt_config: dict, my_sites_id: list,
+    api: SomfyProtectApi,
+    mqtt_client: MQTTClient,
+    mqtt_config: dict,
+    my_sites_id: list,
 ) -> None:
     """Uodate Camera Snapshot"""
     LOGGER.info("Update Camera Snapshot")
