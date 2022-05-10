@@ -14,115 +14,219 @@ ALARM_STATUS = {
 DEVICE_CAPABILITIES = {
     "temperature": {
         "type": "sensor",
-        "config": {"device_class": "temperature", "unit_of_measurement": "°C",},
+        "config": {
+            "device_class": "temperature",
+            "unit_of_measurement": "°C",
+        },
     },
     "battery_level": {
         "type": "sensor",
-        "config": {"device_class": "battery", "unit_of_measurement": "%",},
+        "config": {
+            "device_class": "battery",
+            "unit_of_measurement": "%",
+        },
     },
-    "battery_low": {"type": "binary_sensor", "config": {"device_class": "battery",},},
+    "battery_low": {
+        "type": "binary_sensor",
+        "config": {
+            "device_class": "battery",
+        },
+    },
     "rlink_quality": {
         "type": "sensor",
-        "config": {"device_class": "signal_strength", "unit_of_measurement": "dB",},
+        "config": {
+            "device_class": "signal_strength",
+            "unit_of_measurement": "dB",
+        },
     },
     "rlink_quality_percent": {
         "type": "sensor",
-        "config": {"device_class": "signal_strength", "unit_of_measurement": "%",},
+        "config": {
+            "device_class": "signal_strength",
+            "unit_of_measurement": "%",
+        },
     },
-    "sensitivity": {"type": "number", "config": {"min": 0, "max": 100},},
-    "sensitivity_IntelliTag": {"type": "number", "config": {"min": 1, "max": 9},},
+    "sensitivity": {
+        "type": "number",
+        "config": {"min": 0, "max": 100},
+    },
+    "sensitivity_IntelliTag": {
+        "type": "number",
+        "config": {"min": 1, "max": 9},
+    },
     "sensitivity_level": {
         "type": "select",
-        "config": {"options": ["low", "medium", "high"],},
+        "config": {
+            "options": ["low", "medium", "high"],
+        },
     },
     "fsk_level": {
         "type": "sensor",
-        "config": {"device_class": "signal_strength", "unit_of_measurement": "dB",},
+        "config": {
+            "device_class": "signal_strength",
+            "unit_of_measurement": "dB",
+        },
     },
     "ble_level": {
         "type": "sensor",
-        "config": {"device_class": "signal_strength", "unit_of_measurement": "dB",},
+        "config": {
+            "device_class": "signal_strength",
+            "unit_of_measurement": "dB",
+        },
     },
     "wifi_level": {
         "type": "sensor",
-        "config": {"device_class": "signal_strength", "unit_of_measurement": "dB",},
+        "config": {
+            "device_class": "signal_strength",
+            "unit_of_measurement": "dB",
+        },
     },
     "wifi_level_percent": {
         "type": "sensor",
-        "config": {"device_class": "signal_strength", "unit_of_measurement": "%",},
+        "config": {
+            "device_class": "signal_strength",
+            "unit_of_measurement": "%",
+        },
     },
     "lora_quality_percent": {
         "type": "sensor",
-        "config": {"device_class": "signal_strength", "unit_of_measurement": "%",},
+        "config": {
+            "device_class": "signal_strength",
+            "unit_of_measurement": "%",
+        },
     },
     "mfa_quality_percent": {
         "type": "sensor",
-        "config": {"device_class": "signal_strength", "unit_of_measurement": "%",},
+        "config": {
+            "device_class": "signal_strength",
+            "unit_of_measurement": "%",
+        },
     },
     "recalibration_required": {
         "type": "binary_sensor",
-        "config": {"device_class": "problem",},
+        "config": {
+            "device_class": "problem",
+        },
     },
     "cover_present": {
         "type": "binary_sensor",
-        "config": {"pl_on": "True", "pl_off": "False",},
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+        },
     },
     "device_lost": {
         "type": "binary_sensor",
-        "config": {"pl_on": "True", "pl_off": "False",},
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+        },
     },
     "shutter_state": {
         "type": "switch",
-        "config": {"pl_on": "opened", "pl_off": "closed",},
+        "config": {
+            "pl_on": "opened",
+            "pl_off": "closed",
+        },
     },
     "sound_enabled": {
         "type": "switch",
-        "config": {"pl_on": "True", "pl_off": "False",},
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+        },
     },
     "light_enabled": {
         "type": "switch",
-        "config": {"pl_on": "True", "pl_off": "False",},
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+        },
     },
     "auto_protect_enabled": {
         "type": "switch",
-        "config": {"pl_on": "True", "pl_off": "False",},
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+        },
     },
     "night_mode_enabled": {
         "type": "switch",
-        "config": {"pl_on": "True", "pl_off": "False",},
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+        },
     },
     "prealarm_enabled": {
         "type": "switch",
-        "config": {"pl_on": "True", "pl_off": "False",},
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+        },
     },
-    "enabled": {"type": "switch", "config": {"pl_on": "True", "pl_off": "False",},},
+    "enabled": {
+        "type": "switch",
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+        },
+    },
     "sp_smoke_detector_alarm_muted": {
         "type": "binary_sensor",
-        "config": {"pl_on": "True", "pl_off": "False",},
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+        },
     },
     "sp_smoke_detector_error_chamber": {
         "type": "binary_sensor",
-        "config": {"pl_on": "True", "pl_off": "False",},
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+        },
     },
     "sp_smoke_detector_no_disturb": {
         "type": "binary_sensor",
-        "config": {"pl_on": "True", "pl_off": "False",},
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+        },
     },
     "sp_smoke_detector_role": {
         "type": "binary_sensor",
-        "config": {"pl_on": "end_device", "pl_off": "coordinator",},
+        "config": {
+            "pl_on": "end_device",
+            "pl_off": "coordinator",
+        },
     },
     "sp_smoke_detector_smoke_detection": {
         "type": "binary_sensor",
-        "config": {"pl_on": "True", "pl_off": "False",},
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+        },
     },
     "snapshot": {
         "type": "switch",
-        "config": {"pl_on": "True", "pl_off": "False", "optimistic": "True",},
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+            "optimistic": "True",
+        },
     },
     "presence": {
         "type": "device_tracker",
-        "config": {" payload_home": "home", " payload_not_home": "not_home",},
+        "config": {
+            " payload_home": "home",
+            " payload_not_home": "not_home",
+        },
+    },
+    "motion_sensor": {
+        "type": "binary_sensor",
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+        },
     },
 }
 
@@ -203,7 +307,10 @@ def ha_discovery_alarm_actions(site: Site, mqtt_config: dict):
 
 
 def ha_discovery_devices(
-    site_id: str, device: Device, mqtt_config: dict, sensor_name: str,
+    site_id: str,
+    device: Device,
+    mqtt_config: dict,
+    sensor_name: str,
 ):
     """Auto Discover Devices"""
     device_config = {}
@@ -253,12 +360,18 @@ def ha_discovery_devices(
         device_config["config"][
             "state_topic"
         ] = f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/presence"
+    if sensor_name == "motion_sensor":
+        device_config["config"][
+            "state_topic"
+        ] = f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/pir"
 
     return device_config
 
 
 def ha_discovery_cameras(
-    site_id: str, device: Device, mqtt_config: dict,
+    site_id: str,
+    device: Device,
+    mqtt_config: dict,
 ):
     """Auto Discover Cameras"""
     camera_config = {}

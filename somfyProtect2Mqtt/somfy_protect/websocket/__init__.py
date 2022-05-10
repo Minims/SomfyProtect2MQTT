@@ -52,7 +52,9 @@ class SomfyProtectWebsocket:
     def run_forever(self):
         """Run Forever Loop"""
         self._websocket.run_forever(
-            ping_timeout=10, ping_interval=30, sslopt={"cert_reqs": ssl.CERT_NONE},
+            ping_timeout=10,
+            ping_interval=30,
+            sslopt={"cert_reqs": ssl.CERT_NONE},
         )
 
     def on_message(self, ws_app, message):
@@ -64,7 +66,7 @@ class SomfyProtectWebsocket:
         if "websocket.error.token" in message:
             LOGGER.warning("Websocket Token Error: requesting a new one")
             self.sso.refresh_tokens()
-            self.close()
+            self._websocket.close()
 
         logging.debug(f"Message: {message}")
 
@@ -143,7 +145,10 @@ class SomfyProtectWebsocket:
         topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/presence"
 
         mqtt_publish(
-            mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True,
+            mqtt_client=self.mqtt_client,
+            topic=topic,
+            payload=payload,
+            retain=True,
         )
 
     def security_level_change(self, message):
@@ -164,9 +169,7 @@ class SomfyProtectWebsocket:
         LOGGER.info("Update Alarm Status")
         site_id = message.get("site_id")
         security_level = message.get("security_level")
-        payload = (
-            {"security_level": ALARM_STATUS.get(site.security_level, "disarmed")},
-        )
+        payload = ({"security_level": ALARM_STATUS.get(security_level, "disarmed")},)
         topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/state"
 
         mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=payload)
@@ -204,9 +207,29 @@ class SomfyProtectWebsocket:
         topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/state"
 
         mqtt_publish(
-            mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True,
+            mqtt_client=self.mqtt_client,
+            topic=topic,
+            payload=payload,
+            retain=True,
         )
-        # TODO Create a motion sensor from device_id & device_type
+
+        if device_type == "pir":
+            LOGGER.info("Trigger PIR Sensor")
+            payload = {"motion_sensor": "True"}
+            topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/pir"
+
+            mqtt_publish(
+                mqtt_client=self.mqtt_client,
+                topic=topic,
+                payload=payload,
+            )
+            time.sleep(1)
+            payload = {"motion_sensor": "False"}
+            mqtt_publish(
+                mqtt_client=self.mqtt_client,
+                topic=topic,
+                payload=payload,
+            )
 
     def alarm_panic(self, message):
         """Report Alarm Panic"""
@@ -237,7 +260,10 @@ class SomfyProtectWebsocket:
         topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/state"
 
         mqtt_publish(
-            mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True,
+            mqtt_client=self.mqtt_client,
+            topic=topic,
+            payload=payload,
+            retain=True,
         )
 
     def alarm_end(self, message):
@@ -329,7 +355,10 @@ class SomfyProtectWebsocket:
         else:
             topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/{topic_suffix}"
         mqtt_publish(
-            mqtt_client=self.mqtt_client, topic=topic, payload=message, retain=True,
+            mqtt_client=self.mqtt_client,
+            topic=topic,
+            payload=message,
+            retain=True,
         )
 
     def remote_unassigned(self, message):
