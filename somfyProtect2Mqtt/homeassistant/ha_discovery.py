@@ -69,13 +69,13 @@ DEVICE_CAPABILITIES = {
     "support_type": {
         "type": "select",
         "config": {
-            "options": ["slidedoor", "window", "externdoor"],
+            "options": ["slidedoor", "window", "externdoor", "slidewindow"],
         },
     },
     "video_mode": {
         "type": "select",
         "config": {
-            "options": ["FHD"],
+            "options": ["FHD", "HD", "SD"],
         },
     },
     "power_mode": {
