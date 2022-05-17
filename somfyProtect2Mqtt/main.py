@@ -2,6 +2,7 @@
 """Somfy Protect 2 MQTT"""
 import argparse
 import logging
+import os
 import threading
 from functools import partial
 from signal import SIGINT, SIGTERM, signal
@@ -46,7 +47,7 @@ if __name__ == "__main__":
     LOGGER = logging.getLogger(__name__)
     LOGGER.info("Starting SomfyProtect2Mqtt")
 
-    CONFIG = read_config_file("config/config.yaml")
+    CONFIG = read_config_file(f"{os.getcwd()}/somfyProtect2Mqtt/config/config.yaml")
 
     SSO = init_sso(config=CONFIG)
     API = SomfyProtectApi(sso=SSO)
