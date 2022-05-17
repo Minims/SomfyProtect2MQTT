@@ -39,15 +39,17 @@ if __name__ == "__main__":
     # Read Arguments
     PARSER = argparse.ArgumentParser()
     PARSER.add_argument("--verbose", "-v", action="store_true", help="verbose mode")
+    PARSER.add_argument("--configuration", "-c", type=str, help="config file path")
     ARGS = PARSER.parse_args()
     DEBUG = ARGS.verbose
+    CONFIG_FILE = ARGS.configuration
 
     # Setup Logger
     setup_logger(debug=DEBUG, filename="somfyProtect2Mqtt.log")
     LOGGER = logging.getLogger(__name__)
     LOGGER.info("Starting SomfyProtect2Mqtt")
 
-    CONFIG = read_config_file(f"{os.getcwd()}/somfyProtect2Mqtt/config/config.yaml")
+    CONFIG = read_config_file(CONFIG_FILE)
 
     SSO = init_sso(config=CONFIG)
     API = SomfyProtectApi(sso=SSO)
