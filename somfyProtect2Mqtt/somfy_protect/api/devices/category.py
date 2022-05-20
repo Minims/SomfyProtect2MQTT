@@ -17,6 +17,8 @@ class Category(Enum):
     MOTION = "Myfox Security Infrared Sensor"
     SMOKE_DETECTOR = "Somfy Smoke Detector"
     EXTENDER = "Myfox Security Extender"
+    SOMFY_ONE_PLUS = "Somfy One Plus"
+    SOMFY_ONE = "Somfy One"
 
     @classmethod
     def _missing_name_(cls, name):

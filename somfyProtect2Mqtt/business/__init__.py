@@ -87,7 +87,9 @@ def ha_devices_config(
                         device_config.get("config").get("command_topic")
                     )
 
-            if "camera" in device.device_definition.get("type"):
+            if "camera" in device.device_definition.get(
+                "type"
+            ) or "allinone" in device.device_definition.get("type"):
                 LOGGER.info(f"Found Camera {device.device_definition.get('label')}")
                 camera_config = ha_discovery_cameras(
                     site_id=site_id,
@@ -227,6 +229,8 @@ def update_camera_snapshot(
                 Category.INDOOR_CAMERA,
                 Category.OUTDDOR_CAMERA,
                 Category.MYFOX_CAMERA,
+                Category.SOMFY_ONE_PLUS,
+                Category.SOMFY_ONE,
             ]:
                 my_devices = api.get_devices(site_id=site_id, category=category)
                 for device in my_devices:
