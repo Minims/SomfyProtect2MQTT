@@ -62,6 +62,7 @@ def ha_devices_config(
     for site_id in my_sites_id:
         my_devices = api.get_devices(site_id=site_id)
         for device in my_devices:
+            LOGGER.info(f"Configuring Device: {device.label}")
             settings = device.settings.get("global")
             status = device.status
             status_settings = {**status, **settings}
@@ -122,7 +123,7 @@ def ha_devices_config(
 
             # Works with Websockets
             if "remote" in device.device_definition.get("type"):
-                LOGGER.info(f"Found Key Fob {device.device_definition.get('label')}")
+                LOGGER.info(f"Found {device.device_definition.get('label')}")
                 key_fob_config = ha_discovery_devices(
                     site_id=site_id,
                     device=device,

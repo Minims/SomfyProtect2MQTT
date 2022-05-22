@@ -62,6 +62,7 @@ class SomfyProtect2Mqtt:
         sites = self.api.get_sites()
         LOGGER.info(f"Found {len(sites)} Site(s)")
         for site in sites:
+            LOGGER.info(f"Found Site : {site.label}")
             if site.label in self.my_sites:
                 LOGGER.info(f"Storing Site ID for {site.label}")
                 self.my_sites_id.append(site.id)
