@@ -69,7 +69,7 @@ DEVICE_CAPABILITIES = {
     "support_type": {
         "type": "select",
         "config": {
-            "options": ["slidedoor", "window", "externdoor", "slidewindow"],
+            "options": ["slidedoor", "window", "externdoor", "slidewindow", "garage"],
         },
     },
     "video_mode": {

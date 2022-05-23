@@ -62,6 +62,7 @@ def ha_devices_config(
     for site_id in my_sites_id:
         my_devices = api.get_devices(site_id=site_id)
         for device in my_devices:
+            LOGGER.info(f"Configuring Device: {device.label}")
             settings = device.settings.get("global")
             status = device.status
             status_settings = {**status, **settings}
@@ -87,7 +88,9 @@ def ha_devices_config(
                         device_config.get("config").get("command_topic")
                     )
 
-            if "camera" in device.device_definition.get("type"):
+            if "camera" in device.device_definition.get(
+                "type"
+            ) or "allinone" in device.device_definition.get("type"):
                 LOGGER.info(f"Found Camera {device.device_definition.get('label')}")
                 camera_config = ha_discovery_cameras(
                     site_id=site_id,
@@ -120,7 +123,7 @@ def ha_devices_config(
 
             # Works with Websockets
             if "remote" in device.device_definition.get("type"):
-                LOGGER.info(f"Found Key Fob {device.device_definition.get('label')}")
+                LOGGER.info(f"Found {device.device_definition.get('label')}")
                 key_fob_config = ha_discovery_devices(
                     site_id=site_id,
                     device=device,
@@ -227,6 +230,8 @@ def update_camera_snapshot(
                 Category.INDOOR_CAMERA,
                 Category.OUTDDOR_CAMERA,
                 Category.MYFOX_CAMERA,
+                Category.SOMFY_ONE_PLUS,
+                Category.SOMFY_ONE,
             ]:
                 my_devices = api.get_devices(site_id=site_id, category=category)
                 for device in my_devices:

@@ -15,6 +15,8 @@ from somfy_protect.sso import init_sso
 from somfy_protect.api import SomfyProtectApi
 from somfy_protect.websocket import SomfyProtectWebsocket
 
+VERSION = "0.2.0"
+
 
 def somfy_protect_loop(somfy_protect_2_mqtt):
     """SomfyProtect 2 MQTT Loop"""
@@ -47,7 +49,7 @@ if __name__ == "__main__":
     # Setup Logger
     setup_logger(debug=DEBUG, filename="somfyProtect2Mqtt.log")
     LOGGER = logging.getLogger(__name__)
-    LOGGER.info("Starting SomfyProtect2Mqtt")
+    LOGGER.info(f"Starting SomfyProtect2Mqtt {VERSION}")
 
     CONFIG = read_config_file(CONFIG_FILE)
 
