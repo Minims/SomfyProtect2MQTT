@@ -2,7 +2,6 @@
 """Somfy Protect 2 MQTT"""
 import argparse
 import logging
-import os
 import threading
 from functools import partial
 from signal import SIGINT, SIGTERM, signal

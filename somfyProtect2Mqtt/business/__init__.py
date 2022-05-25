@@ -137,8 +137,12 @@ def ha_devices_config(
                     retain=True,
                 )
 
-            if "pir" in device.device_definition.get("type"):
-                LOGGER.info(f"Found PIR Sensor {device.device_definition.get('label')}")
+            if "pir" in device.device_definition.get(
+                "type"
+            ) or "tag" in device.device_definition.get("type"):
+                LOGGER.info(
+                    f"Found Motion Sensor (PIR & IntelliTag) {device.device_definition.get('label')}"
+                )
                 pir_config = ha_discovery_devices(
                     site_id=site_id,
                     device=device,
