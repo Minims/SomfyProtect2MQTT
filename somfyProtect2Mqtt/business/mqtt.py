@@ -115,7 +115,9 @@ def consume_mqtt_message(
             )
             # Update Camera Shutter via API
             action_device = api.action_device(
-                site_id=site_id, device_id=device_id, action=text_payload,
+                site_id=site_id,
+                device_id=device_id,
+                action=text_payload,
             )
             LOGGER.debug(action_device)
             # Read updated device
@@ -148,7 +150,11 @@ def consume_mqtt_message(
                     byte_array = bytearray(image)
                     topic = f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/snapshot"
                     mqtt_publish(
-                        mqtt_client, topic, byte_array, retain=False, is_json=False,
+                        mqtt_client,
+                        topic,
+                        byte_array,
+                        retain=False,
+                        is_json=False,
                     )
 
         # Manage Settings update

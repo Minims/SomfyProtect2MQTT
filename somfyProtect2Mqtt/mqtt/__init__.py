@@ -49,7 +49,10 @@ class MQTTClient:
         """MQTT on_message"""
         LOGGER.debug(f"Message received on {msg.topic}: {msg.payload}")
         consume_mqtt_message(
-            msg=msg, mqtt_config=self.config, api=self.api, mqtt_client=self.client,
+            msg=msg,
+            mqtt_config=self.config,
+            api=self.api,
+            mqtt_client=self,
         )
 
     def on_publish(self, mqttc, obj, result):  # pylint: disable=unused-argument
