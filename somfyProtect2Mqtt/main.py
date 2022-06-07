@@ -2,7 +2,6 @@
 """Somfy Protect 2 MQTT"""
 import argparse
 import logging
-import os
 import threading
 from functools import partial
 from signal import SIGINT, SIGTERM, signal
@@ -15,7 +14,7 @@ from somfy_protect.sso import init_sso
 from somfy_protect.api import SomfyProtectApi
 from somfy_protect.websocket import SomfyProtectWebsocket
 
-VERSION = "0.2.0"
+VERSION = "0.2.1"
 
 
 def somfy_protect_loop(somfy_protect_2_mqtt):
@@ -40,8 +39,12 @@ if __name__ == "__main__":
 
     # Read Arguments
     PARSER = argparse.ArgumentParser()
-    PARSER.add_argument("--verbose", "-v", action="store_true", help="verbose mode")
-    PARSER.add_argument("--configuration", "-c", type=str, help="config file path")
+    PARSER.add_argument(
+        "--verbose", "-v", action="store_true", help="verbose mode"
+    )
+    PARSER.add_argument(
+        "--configuration", "-c", type=str, help="config file path"
+    )
     ARGS = PARSER.parse_args()
     DEBUG = ARGS.verbose
     CONFIG_FILE = ARGS.configuration

@@ -10,7 +10,9 @@ from somfy_protect.api import SomfyProtectApi
 LOGGER = logging.getLogger(__name__)
 
 
-def mqtt_publish(mqtt_client, topic, payload, qos=0, retain=False, is_json=True):
+def mqtt_publish(
+    mqtt_client, topic, payload, qos=0, retain=False, is_json=True
+):
     """MQTT publish"""
     if is_json:
         payload = json.dumps(payload)
@@ -50,7 +52,9 @@ def update_site(api, mqtt_client, mqtt_config, site_id):
             mqtt_client=mqtt_client,
             topic=f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/state",
             payload={
-                "security_level": ALARM_STATUS.get(site.security_level, "disarmed")
+                "security_level": ALARM_STATUS.get(
+                    site.security_level, "disarmed"
+                )
             },
             retain=False,
         )
@@ -81,7 +85,9 @@ def consume_mqtt_message(
             except Exception as exp:
                 LOGGER.warning(f"Unable to reteive Site ID: {site_id}: {exp}")
             # Update Alarm via API
-            api.update_security_level(site_id=site_id, security_level=text_payload)
+            api.update_security_level(
+                site_id=site_id, security_level=text_payload
+            )
             # Read updated Alarm Status
             sleep(2)
             update_site(
@@ -115,7 +121,9 @@ def consume_mqtt_message(
             )
             # Update Camera Shutter via API
             action_device = api.action_device(
-                site_id=site_id, device_id=device_id, action=text_payload,
+                site_id=site_id,
+                device_id=device_id,
+                action=text_payload,
             )
             LOGGER.debug(action_device)
             # Read updated device
@@ -134,8 +142,12 @@ def consume_mqtt_message(
             device_id = msg.topic.split("/")[2]
             if text_payload == "True":
                 LOGGER.info("Manual Snapshot")
-                api.camera_refresh_snapshot(site_id=site_id, device_id=device_id)
-                response = api.camera_snapshot(site_id=site_id, device_id=device_id)
+                api.camera_refresh_snapshot(
+                    site_id=site_id, device_id=device_id
+                )
+                response = api.camera_snapshot(
+                    site_id=site_id, device_id=device_id
+                )
                 if response.status_code == 200:
                     # Write image to temp file
                     path = f"{device_id}.jpeg"
@@ -148,7 +160,11 @@ def consume_mqtt_message(
                     byte_array = bytearray(image)
                     topic = f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/snapshot"
                     mqtt_publish(
-                        mqtt_client, topic, byte_array, retain=False, is_json=False,
+                        mqtt_client,
+                        topic,
+                        byte_array,
+                        retain=False,
+                        is_json=False,
                     )
 
         # Manage Settings update

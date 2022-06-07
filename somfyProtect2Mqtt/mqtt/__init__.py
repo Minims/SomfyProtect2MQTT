@@ -19,12 +19,16 @@ class MQTTClient:
     def __init__(self, config, api, publish_delay=1):
         self.publish_delay = publish_delay
 
-        self.client = mqtt.Client(client_id=config.get("client-id", "somfy-protect"))
+        self.client = mqtt.Client(
+            client_id=config.get("client-id", "somfy-protect")
+        )
         self.client.on_connect = self.on_connect
         self.client.on_message = self.on_message
         self.client.on_publish = self.on_publish
         self.client.on_disconnect = self.on_disconnect
-        self.client.username_pw_set(config.get("username"), config.get("password"))
+        self.client.username_pw_set(
+            config.get("username"), config.get("password")
+        )
         self.client.connect(
             config.get("host", "127.0.0.1"), config.get("port", 1883), 60
         )
@@ -49,7 +53,10 @@ class MQTTClient:
         """MQTT on_message"""
         LOGGER.debug(f"Message received on {msg.topic}: {msg.payload}")
         consume_mqtt_message(
-            msg=msg, mqtt_config=self.config, api=self.api, mqtt_client=self.client,
+            msg=msg,
+            mqtt_config=self.config,
+            api=self.api,
+            mqtt_client=self,
         )
 
     def on_publish(self, mqttc, obj, result):  # pylint: disable=unused-argument
