@@ -176,7 +176,12 @@ class SomfyProtectApi:
         response.raise_for_status()
         return response.json()
 
-    def action_device(self, site_id: str, device_id: str, action: str,) -> Dict:
+    def action_device(
+        self,
+        site_id: str,
+        device_id: str,
+        action: str,
+    ) -> Dict:
         """Make an action on a Device
 
         Args:
@@ -191,13 +196,18 @@ class SomfyProtectApi:
             raise ValueError(f"Unknown action {action}")
 
         response = self.post(
-            f"/v3/site/{site_id}/device/{device_id}/action", json={"action": action},
+            f"/v3/site/{site_id}/device/{device_id}/action",
+            json={"action": action},
         )
         response.raise_for_status()
         return response.json()
 
     def update_device(
-        self, site_id: str, device_id: str, device_label: str, settings: Dict,
+        self,
+        site_id: str,
+        device_id: str,
+        device_label: str,
+        settings: Dict,
     ) -> Dict:
         """Update Device Settings
 
@@ -220,7 +230,9 @@ class SomfyProtectApi:
         # settings.pop('armed')
 
         payload = {"settings": settings, "label": device_label}
-        response = self.put(f"/v3/site/{site_id}/device/{device_id}", json=payload)
+        response = self.put(
+            f"/v3/site/{site_id}/device/{device_id}", json=payload
+        )
         response.raise_for_status()
         return response.json()
 
@@ -235,7 +247,8 @@ class SomfyProtectApi:
             Response: Response Image
         """
         response = self.post(
-            f"/video/site/{site_id}/device/{device_id}/snapshot", json={"refresh": 10},
+            f"/video/site/{site_id}/device/{device_id}/snapshot",
+            json={"refresh": 10},
         )
         response.raise_for_status()
         # path = "file.jpeg"
@@ -256,7 +269,8 @@ class SomfyProtectApi:
             Task: Somfy Task
         """
         response = self.post(
-            f"/video/site/{site_id}/device/{device_id}/refresh-snapshot", json={},
+            f"/video/site/{site_id}/device/{device_id}/refresh-snapshot",
+            json={},
         )
         response.raise_for_status()
         return response.json()

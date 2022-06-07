@@ -69,7 +69,13 @@ DEVICE_CAPABILITIES = {
     "support_type": {
         "type": "select",
         "config": {
-            "options": ["slidedoor", "window", "externdoor", "slidewindow", "garage"],
+            "options": [
+                "slidedoor",
+                "window",
+                "externdoor",
+                "slidewindow",
+                "garage",
+            ],
         },
     },
     "video_mode": {
@@ -411,7 +417,9 @@ DEVICE_CAPABILITIES = {
 }
 
 
-def ha_discovery_alarm(site: Site, mqtt_config: dict, homeassistant_config: dict):
+def ha_discovery_alarm(
+    site: Site, mqtt_config: dict, homeassistant_config: dict
+):
     """Auto Discover Alarm"""
     if homeassistant_config:
         code = homeassistant_config.get("code")
@@ -432,9 +440,7 @@ def ha_discovery_alarm(site: Site, mqtt_config: dict, homeassistant_config: dict
         "sw_version": "SomfyProtect2MQTT",
     }
 
-    command_topic = (
-        f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site.id}/command"
-    )
+    command_topic = f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site.id}/command"
     site_config[
         "topic"
     ] = f"{mqtt_config.get('ha_discover_prefix', 'homeassistant')}/alarm_control_panel/{site.id}/alarm/config"

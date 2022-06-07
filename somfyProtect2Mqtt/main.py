@@ -39,8 +39,12 @@ if __name__ == "__main__":
 
     # Read Arguments
     PARSER = argparse.ArgumentParser()
-    PARSER.add_argument("--verbose", "-v", action="store_true", help="verbose mode")
-    PARSER.add_argument("--configuration", "-c", type=str, help="config file path")
+    PARSER.add_argument(
+        "--verbose", "-v", action="store_true", help="verbose mode"
+    )
+    PARSER.add_argument(
+        "--configuration", "-c", type=str, help="config file path"
+    )
     ARGS = PARSER.parse_args()
     DEBUG = ARGS.verbose
     CONFIG_FILE = ARGS.configuration

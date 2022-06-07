@@ -1,5 +1,7 @@
 """SomfyProtect2MQTT Exceptions"""
 
 
-class SomfyProtectInitError(Exception):  # pylint: disable=missing-class-docstring
+class SomfyProtectInitError(
+    Exception
+):  # pylint: disable=missing-class-docstring
     pass
