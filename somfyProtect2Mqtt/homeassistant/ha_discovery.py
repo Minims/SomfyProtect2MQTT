@@ -30,6 +30,8 @@ DEVICE_CAPABILITIES = {
         "type": "binary_sensor",
         "config": {
             "device_class": "battery",
+            "pl_on": "True",
+            "pl_off": "False",
         },
     },
     "rlink_quality": {
