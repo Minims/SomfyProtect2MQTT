@@ -250,6 +250,8 @@ DEVICE_CAPABILITIES = {
         "type": "binary_sensor",
         "config": {
             "device_class": "problem",
+            "pl_on": "True",
+            "pl_off": "False",
         },
     },
     "cover_present": {
