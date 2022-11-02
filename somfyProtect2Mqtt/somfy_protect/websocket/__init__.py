@@ -72,7 +72,7 @@ class SomfyProtectWebsocket:
 
         message_json = json.loads(message)
         callbacks = {
-            "security_level_change": self.security_level_change,
+            "security.level.change": self.security_level_change,
             "alarm.trespass": self.alarm_trespass,
             "alarm.panic": self.alarm_panic,
             "alarm.end": self.alarm_end,
