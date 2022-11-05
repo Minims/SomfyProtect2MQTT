@@ -1,14 +1,30 @@
 name: Push to Docker.io
-on: workflow_dispatch
+#on: workflow_dispatch
+# Run this workflow every time a new tag is created
+on:
+  create:
+    tags:
+      - .*
 
 jobs:
   install:
     name: Build & Deploy in docker.io
-    runs-on: [ ubuntu-latest ]
+    runs-on: ubuntu-latest
     steps:
 
       - name: Checkout
         uses: actions/checkout@v2
+
+      - name: Set Tag Number
+        id: tag-number
+        run: echo ::set-output name=tag::${GITHUB_REF#refs/*/}
+
+      - name: Check Tag Release
+        env:
+          RELEASE_VERSION: ${{ steps.tag-number.outputs.tag }}
+        run: |
+          echo $RELEASE_VERSION
+          echo ${{ steps.vars.outputs.tag }}
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
