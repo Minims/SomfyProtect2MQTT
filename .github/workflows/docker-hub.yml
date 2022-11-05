@@ -1,10 +1,10 @@
 name: Push to Docker.io
-#on: workflow_dispatch
+on: workflow_dispatch
 # Run this workflow every time a new tag is created
-on:
-  create:
-    tags:
-      - .*
+# on:
+#   create:
+#     tags:
+#       - .*
 
 jobs:
   install:
@@ -45,7 +45,7 @@ jobs:
 
       # Production versions
       - name: Build and push
-        uses: docker/build-push-action@v2
+        uses: docker/build-push-action@v3
         with:
           context: somfyProtect2Mqtt/
           platforms: linux/amd64,linux/arm64,linux/arm/v7
