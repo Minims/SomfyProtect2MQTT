@@ -17,7 +17,7 @@ jobs:
 
       - name: Set Tag Number
         id: tag-number
-        run: echo ::set-output name=tag::${GITHUB_REF#refs/*/}
+        run: echo "name=tag::${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
 
       - name: Check Tag Release
         env:
@@ -40,7 +40,7 @@ jobs:
 
       - name: Extract branch name
         shell: bash
-        run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
+        run: echo "name=branch;]$(echo ${GITHUB_REF#refs/heads/})" >> $GITHUB_OUTPUT
         id: extract_branch
 
       # Production versions
