@@ -26,8 +26,8 @@ jobs:
         shell: bash
         run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
         id: extract_branch
-      
-      # Production versions 
+
+      # Production versions
       - name: Build and push
         uses: docker/build-push-action@v2
         with:
@@ -36,4 +36,4 @@ jobs:
           push: true
           tags: |
             minims/somfyprotect2mqtt:latest
-      
+            minims/somfyprotect2mqtt:${{ steps.vars.outputs.tag }}
