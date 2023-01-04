@@ -75,6 +75,7 @@ DEVICE_CAPABILITIES = {
                 "slidedoor",
                 "window",
                 "externdoor",
+                "interndoor",
                 "slidewindow",
                 "garage",
             ],
