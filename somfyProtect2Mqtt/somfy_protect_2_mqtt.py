@@ -66,10 +66,13 @@ class SomfyProtect2Mqtt:
             if site.label in self.my_sites:
                 LOGGER.info(f"Storing Site ID for {site.label}")
                 self.my_sites_id.append(site.id)
+            else:
+                LOGGER.info(
+                    f"Site '{site.label}' is not set in configuration, Update it if you want to add this Site"
+                )
 
     def close(self) -> None:  # pylint: disable=no-self-use
         """Close"""
-        return
 
     def loop(self) -> None:
         """Main Loop"""

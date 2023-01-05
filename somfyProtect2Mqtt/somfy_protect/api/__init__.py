@@ -1,5 +1,6 @@
 """Somfy Protect Api"""
 import base64
+import logging
 from json import JSONDecodeError
 from typing import Any, Callable, Dict, List, Optional, Union
 
@@ -14,9 +15,9 @@ from somfy_protect.api.model import (
     Site,
 )
 
-### NEW ###
-
 from somfy_protect.sso import SomfyProtectSso, read_token_from_file
+
+LOGGER = logging.getLogger(__name__)
 
 
 BASE_URL = "https://api.myfox.io"
@@ -225,9 +226,6 @@ class SomfyProtectApi:
 
         # Clean Settings Dict
         settings.pop("object")
-        # settings.pop('disarmed')
-        # settings.pop('partial')
-        # settings.pop('armed')
 
         payload = {"settings": settings, "label": device_label}
         response = self.put(
@@ -251,11 +249,7 @@ class SomfyProtectApi:
             json={"refresh": 10},
         )
         response.raise_for_status()
-        # path = "file.jpeg"
         if response.status_code == 200:
-            # with open(path, "wb") as f:
-            #    for chunk in response:
-            #        f.write(chunk)
             return response
 
     def camera_refresh_snapshot(self, site_id: str, device_id: str) -> Device:
@@ -293,7 +287,7 @@ class SomfyProtectApi:
             content = response.json()
         except JSONDecodeError:
             response.raise_for_status()
-
+        LOGGER.debug(f"Devices Capabilities: {response.json()}")
         devices += [
             Device(**d)
             for d in content.get("items")
