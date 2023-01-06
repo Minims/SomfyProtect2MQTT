@@ -44,7 +44,6 @@ DEVICE_CAPABILITIES = {
     "rlink_quality_percent": {
         "type": "sensor",
         "config": {
-            "device_class": "signal_strength",
             "unit_of_measurement": "%",
         },
     },
@@ -119,14 +118,12 @@ DEVICE_CAPABILITIES = {
     "wifi_level_percent": {
         "type": "sensor",
         "config": {
-            "device_class": "signal_strength",
             "unit_of_measurement": "%",
         },
     },
     "lora_quality_percent": {
         "type": "sensor",
         "config": {
-            "device_class": "signal_strength",
             "unit_of_measurement": "%",
         },
     },
@@ -245,7 +242,6 @@ DEVICE_CAPABILITIES = {
     "mfa_quality_percent": {
         "type": "sensor",
         "config": {
-            "device_class": "signal_strength",
             "unit_of_measurement": "%",
         },
     },
