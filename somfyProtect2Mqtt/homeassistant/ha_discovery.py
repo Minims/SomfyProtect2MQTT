@@ -51,6 +51,14 @@ DEVICE_CAPABILITIES = {
         "type": "number",
         "config": {"min": 0, "max": 100},
     },
+    "ambient_light_threshold": {
+        "type": "number",
+        "config": {"min": 0, "max": 100},
+    },
+    "lighting_duration": {
+        "type": "number",
+        "config": {"min": 0, "max": 900},
+    },
     "sensitivity_IntelliTag": {
         "type": "number",
         "config": {"min": 1, "max": 9},
@@ -84,6 +92,18 @@ DEVICE_CAPABILITIES = {
         "type": "select",
         "config": {
             "options": ["FHD", "HD", "SD"],
+        },
+    },
+    "smart_alarm_duration": {
+        "type": "select",
+        "config": {
+            "options": [30, 60, 90, 120],
+        },
+    },
+    "lighting_trigger": {
+        "type": "select",
+        "config": {
+            "options": [30, 60, 90, 120],
         },
     },
     "power_mode": {
@@ -235,6 +255,14 @@ DEVICE_CAPABILITIES = {
         "type": "sensor",
         "config": {},
     },
+    "video_backend": {
+        "type": "sensor",
+        "config": {},
+    },
+    "gsm_antenna_in_use": {
+        "type": "sensor",
+        "config": {},
+    },
     "night_mode": {
         "type": "sensor",
         "config": {},
@@ -267,6 +295,27 @@ DEVICE_CAPABILITIES = {
             "pl_off": "False",
         },
     },
+    "push_to_talk_available": {
+        "type": "binary_sensor",
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+        },
+    },
+    "homekit_capable": {
+        "type": "binary_sensor",
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+        },
+    },
+    "lighting_state": {
+        "type": "switch",
+        "config": {
+            "pl_on": "opened",
+            "pl_off": "closed",
+        },
+    },
     "shutter_state": {
         "type": "switch",
         "config": {
@@ -295,7 +344,35 @@ DEVICE_CAPABILITIES = {
             "pl_off": "False",
         },
     },
+    "lighting_wired": {
+        "type": "switch",
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+        },
+    },
+    "siren_disabled": {
+        "type": "switch",
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+        },
+    },
+    "human_detect_enabled": {
+        "type": "switch",
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+        },
+    },
     "siren_on_camera_detection_disabled": {
+        "type": "switch",
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+        },
+    },
+    "auto_rotate_enabled": {
         "type": "switch",
         "config": {
             "pl_on": "True",
@@ -317,6 +394,13 @@ DEVICE_CAPABILITIES = {
         },
     },
     "light_enabled": {
+        "type": "switch",
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+        },
+    },
+    "code_required_to_arm": {
         "type": "switch",
         "config": {
             "pl_on": "True",
@@ -359,6 +443,13 @@ DEVICE_CAPABILITIES = {
         },
     },
     "recalibrateable": {
+        "type": "binary_sensor",
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+        },
+    },
+    "is_full_gsm": {
         "type": "binary_sensor",
         "config": {
             "pl_on": "True",
@@ -503,12 +594,18 @@ def ha_discovery_devices(
     device_config = {}
     device_type = DEVICE_CAPABILITIES.get(sensor_name).get("type")
 
+    update_available = device.update_available
+    if update_available is False:
+        update_available = "(Up to Date)"
+    else:
+        update_available = f"(New Version Available: {update_available})"
+
     device_info = {
         "identifiers": [device.id],
         "manufacturer": "Somfy",
         "model": device.device_definition.get("label"),
         "name": device.label,
-        "sw_version": device.version,
+        "sw_version": f"{device.version} {update_available}",
     }
 
     command_topic = f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/{sensor_name}/command"
