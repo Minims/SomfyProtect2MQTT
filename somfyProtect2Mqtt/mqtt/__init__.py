@@ -89,7 +89,7 @@ class MQTTClient:
         self.client.disconnect()
 
 
-def init_mqtt(config: dict, api: SomfyProtectApi) -> None:
+def init_mqtt(config: dict, api: SomfyProtectApi) -> MQTTClient:
     """Init MQTT
 
     Args:

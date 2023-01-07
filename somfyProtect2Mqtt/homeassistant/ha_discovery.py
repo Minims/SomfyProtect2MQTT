@@ -312,8 +312,8 @@ DEVICE_CAPABILITIES = {
     "lighting_state": {
         "type": "switch",
         "config": {
-            "pl_on": "opened",
-            "pl_off": "closed",
+            "pl_on": "True",
+            "pl_off": "False",
         },
     },
     "shutter_state": {
