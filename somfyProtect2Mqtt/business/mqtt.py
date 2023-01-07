@@ -112,10 +112,6 @@ def consume_mqtt_message(
         elif msg.topic.split("/")[3] == "shutter_state":
             site_id = msg.topic.split("/")[1]
             device_id = msg.topic.split("/")[2]
-            if text_payload == "closed":
-                text_payload = "shutter_close"
-            if text_payload == "opened":
-                text_payload = "shutter_open"
             LOGGER.info(
                 f"Message received for Site ID: {site_id}, Device ID: {device_id}, Action: {text_payload}"
             )

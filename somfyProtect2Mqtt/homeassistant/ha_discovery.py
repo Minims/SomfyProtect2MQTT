@@ -321,8 +321,10 @@ DEVICE_CAPABILITIES = {
     "shutter_state": {
         "type": "switch",
         "config": {
-            "pl_on": "opened",
-            "pl_off": "closed",
+            "state_on": "opened",
+            "state_off": "closed",
+            "pl_on": "shutter_open",
+            "pl_off": "shutter_close",
         },
     },
     "detection_enabled": {
