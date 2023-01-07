@@ -5,7 +5,7 @@ from time import sleep
 
 from homeassistant.ha_discovery import ALARM_STATUS
 from paho.mqtt import client
-from somfy_protect.api import SomfyProtectApi
+from somfy_protect.api import SomfyProtectApi, ACTION_LIST
 
 LOGGER = logging.getLogger(__name__)
 
@@ -135,6 +135,24 @@ def consume_mqtt_message(
                 site_id=site_id,
                 device_id=device_id,
             )
+
+        # Manage Actions
+        elif text_payload in ACTION_LIST:
+            site_id = msg.topic.split("/")[1]
+            device_id = msg.topic.split("/")[2]
+            if device_id:
+                LOGGER.info(
+                    f"Message received for Site ID: {site_id}, Device ID: {device_id}, Action: {text_payload}"
+                )
+                action_device = api.action_device(
+                    site_id=site_id,
+                    device_id=device_id,
+                    action=text_payload,
+                )
+            else:
+                LOGGER.info(
+                    f"Message received for Site ID: {site_id}, Action: {text_payload}"
+                )
 
         # Manage Manual Snapshot
         elif msg.topic.split("/")[3] == "snapshot":
