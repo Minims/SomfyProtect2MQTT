@@ -9,11 +9,7 @@ from requests import Response
 from requests_oauthlib import OAuth2Session
 
 from somfy_protect.api.devices.category import Category
-from somfy_protect.api.model import (
-    AvailableStatus,
-    Device,
-    Site,
-)
+from somfy_protect.api.model import AvailableStatus, Device, Site, User
 
 from somfy_protect.sso import SomfyProtectSso, read_token_from_file
 
@@ -30,12 +26,38 @@ ACTION_LIST = [
     "shutter_open",
     "shutter_close",
     "autoprotection_pause",
-    "light_on",
+    "battery_changed",
+    "change_video_backend",
+    "checkin",
+    "checkout",
+    "firmware_update_start",
+    "range_test_start",
+    "range_test_stop",
+    "garage_close",
+    "garage_learn",
+    "garage_open",
+    "gate_close",
+    "gate_learn",
+    "gate_open",
+    "light_learn",
     "light_off",
+    "light_on",
+    "mounted",
+    "prepare_push_to_talk",
     "reboot",
     "halt",
+    "rolling_shutter_down",
+    "rolling_shutter_learn",
+    "rolling_shutter_up",
+    "measure_ambient_light",
+    "stream_start",
+    "stream_stop",
+    "test_extend",
+    "test_stop",
+    "siren_3_sec",
+    "test_start",
+    "test_mfa",
     "sound_test",
-    "measure_ambiant_light",
 ]
 
 
@@ -311,3 +333,58 @@ class SomfyProtectApi:
         response = self.get(f"/v3/site/{site_id}/device/{device_id}")
         response.raise_for_status()
         return Device(**response.json())
+
+    def get_users(self, site_id: str) -> List[User]:
+        """List Users from a Site ID
+
+        Args:
+            site_id[str]: Site ID. Defaults to None.
+
+        Returns:
+            List[User]: List of User object
+        """
+        response = self.get(f"/v3/site/{site_id}/user")
+        print(response)
+        response.raise_for_status()
+        return [User(**s) for s in response.json().get("items")]
+
+    def get_user(self, site_id: str, user_id: str) -> User:
+        """Get User details
+
+        Args:
+            site_id (str): Site ID
+            user_id (str): Site ID
+
+        Returns:
+            User: User object
+        """
+        response = self.get(f"/v3/site/{site_id}/user/{user_id}")
+        print(response)
+        response.raise_for_status()
+        return User(**response.json())
+
+    def action_user(
+        self,
+        site_id: str,
+        user_id: str,
+        action: str,
+    ) -> Dict:
+        """Make an action on a User
+
+        Args:
+            site_id (str): Site ID
+            user_id (str): User ID
+            action (str): Action
+
+        Returns:
+            str: Task ID
+        """
+        if action not in ACTION_LIST:
+            raise ValueError(f"Unknown action {action}")
+
+        response = self.post(
+            f"/v3/site/{site_id}/user/{user_id}/action",
+            json={"action": action},
+        )
+        response.raise_for_status()
+        return response.json()

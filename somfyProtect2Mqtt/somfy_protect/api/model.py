@@ -47,6 +47,7 @@ class Device:
         "status",
         "diagnosis",
         "settings",
+        "update_available",
     )
 
     def __init__(
@@ -60,6 +61,7 @@ class Device:
         status: Dict,
         diagnosis: Dict,
         settings: Dict,
+        update_available: str,
         **_: Any,
     ):
         self.id = device_id  # pylint: disable=invalid-name
@@ -71,6 +73,7 @@ class Device:
         self.status = status
         self.diagnosis = diagnosis
         self.settings = settings
+        self.update_available = update_available
 
 
 class AvailableStatus(Enum):
@@ -89,3 +92,33 @@ class Status:
 
     def __init__(self, security_level: AvailableStatus):
         self.security_level = security_level
+
+
+class User:
+    """User Object"""
+
+    __slots__ = (
+        "id",
+        "display_name",
+        "display_my_presence",
+        "present",
+        "activated",
+        "geoFence",
+    )
+
+    def __init__(
+        self,
+        user_id: str,
+        display_name: str,
+        display_my_presence: str,
+        present: str,
+        activated: str,
+        geo_fence: Dict,
+        **_: Any,
+    ):
+        self.id = user_id  # pylint: disable=invalid-name
+        self.display_name = display_name
+        self.display_my_presence = display_my_presence
+        self.present = present
+        self.activated = activated
+        self.geoFence = geo_fence

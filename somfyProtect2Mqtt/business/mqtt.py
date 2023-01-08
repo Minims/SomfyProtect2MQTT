@@ -5,7 +5,7 @@ from time import sleep
 
 from homeassistant.ha_discovery import ALARM_STATUS
 from paho.mqtt import client
-from somfy_protect.api import SomfyProtectApi
+from somfy_protect.api import SomfyProtectApi, ACTION_LIST
 
 LOGGER = logging.getLogger(__name__)
 
@@ -108,33 +108,33 @@ def consume_mqtt_message(
             LOGGER.info(f"Stop the Siren On Site ID {site_id}")
             api.stop_alarm(site_id=site_id)
 
-        # Manage Camera Shutter
-        elif msg.topic.split("/")[3] == "shutter_state":
+        # Manage Actions
+        elif text_payload in ACTION_LIST:
             site_id = msg.topic.split("/")[1]
             device_id = msg.topic.split("/")[2]
-            if text_payload == "closed":
-                text_payload = "shutter_close"
-            if text_payload == "opened":
-                text_payload = "shutter_open"
-            LOGGER.info(
-                f"Message received for Site ID: {site_id}, Device ID: {device_id}, Action: {text_payload}"
-            )
-            # Update Camera Shutter via API
-            action_device = api.action_device(
-                site_id=site_id,
-                device_id=device_id,
-                action=text_payload,
-            )
-            LOGGER.debug(action_device)
-            # Read updated device
-            sleep(2)
-            update_device(
-                api=api,
-                mqtt_client=mqtt_client,
-                mqtt_config=mqtt_config,
-                site_id=site_id,
-                device_id=device_id,
-            )
+            if device_id:
+                LOGGER.info(
+                    f"Message received for Site ID: {site_id}, Device ID: {device_id}, Action: {text_payload}"
+                )
+                action_device = api.action_device(
+                    site_id=site_id,
+                    device_id=device_id,
+                    action=text_payload,
+                )
+                LOGGER.debug(action_device)
+                # Read updated device
+                sleep(1)
+                update_device(
+                    api=api,
+                    mqtt_client=mqtt_client,
+                    mqtt_config=mqtt_config,
+                    site_id=site_id,
+                    device_id=device_id,
+                )
+            else:
+                LOGGER.info(
+                    f"Message received for Site ID: {site_id}, Action: {text_payload}"
+                )
 
         # Manage Manual Snapshot
         elif msg.topic.split("/")[3] == "snapshot":
