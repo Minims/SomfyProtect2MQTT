@@ -108,30 +108,6 @@ def consume_mqtt_message(
             LOGGER.info(f"Stop the Siren On Site ID {site_id}")
             api.stop_alarm(site_id=site_id)
 
-        # Manage Camera Shutter
-        elif msg.topic.split("/")[3] == "shutter_state":
-            site_id = msg.topic.split("/")[1]
-            device_id = msg.topic.split("/")[2]
-            LOGGER.info(
-                f"Message received for Site ID: {site_id}, Device ID: {device_id}, Action: {text_payload}"
-            )
-            # Update Camera Shutter via API
-            action_device = api.action_device(
-                site_id=site_id,
-                device_id=device_id,
-                action=text_payload,
-            )
-            LOGGER.debug(action_device)
-            # Read updated device
-            sleep(2)
-            update_device(
-                api=api,
-                mqtt_client=mqtt_client,
-                mqtt_config=mqtt_config,
-                site_id=site_id,
-                device_id=device_id,
-            )
-
         # Manage Actions
         elif text_payload in ACTION_LIST:
             site_id = msg.topic.split("/")[1]
@@ -144,6 +120,16 @@ def consume_mqtt_message(
                     site_id=site_id,
                     device_id=device_id,
                     action=text_payload,
+                )
+                LOGGER.debug(action_device)
+                # Read updated device
+                sleep(1)
+                update_device(
+                    api=api,
+                    mqtt_client=mqtt_client,
+                    mqtt_config=mqtt_config,
+                    site_id=site_id,
+                    device_id=device_id,
                 )
             else:
                 LOGGER.info(
