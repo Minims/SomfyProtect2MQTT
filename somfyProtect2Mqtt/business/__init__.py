@@ -90,6 +90,42 @@ def ha_devices_config(
                         device_config.get("config").get("command_topic")
                     )
 
+            if "box" in device.device_definition.get("type"):
+                LOGGER.info(
+                    f"Found Link {device.device_definition.get('label')}"
+                )
+                reboot = ha_discovery_devices(
+                    site_id=site_id,
+                    device=device,
+                    mqtt_config=mqtt_config,
+                    sensor_name="reboot",
+                )
+                mqtt_publish(
+                    mqtt_client=mqtt_client,
+                    topic=reboot.get("topic"),
+                    payload=reboot.get("config"),
+                    retain=True,
+                )
+                mqtt_client.client.subscribe(
+                    reboot.get("config").get("command_topic")
+                )
+
+                halt = ha_discovery_devices(
+                    site_id=site_id,
+                    device=device,
+                    mqtt_config=mqtt_config,
+                    sensor_name="halt",
+                )
+                mqtt_publish(
+                    mqtt_client=mqtt_client,
+                    topic=halt.get("topic"),
+                    payload=halt.get("config"),
+                    retain=True,
+                )
+                mqtt_client.client.subscribe(
+                    halt.get("config").get("command_topic")
+                )
+
             if "camera" in device.device_definition.get(
                 "type"
             ) or "allinone" in device.device_definition.get("type"):
@@ -106,6 +142,37 @@ def ha_devices_config(
                     topic=camera_config.get("topic"),
                     payload=camera_config.get("config"),
                     retain=True,
+                )
+                reboot = ha_discovery_devices(
+                    site_id=site_id,
+                    device=device,
+                    mqtt_config=mqtt_config,
+                    sensor_name="reboot",
+                )
+                mqtt_publish(
+                    mqtt_client=mqtt_client,
+                    topic=reboot.get("topic"),
+                    payload=reboot.get("config"),
+                    retain=True,
+                )
+                mqtt_client.client.subscribe(
+                    reboot.get("config").get("command_topic")
+                )
+
+                halt = ha_discovery_devices(
+                    site_id=site_id,
+                    device=device,
+                    mqtt_config=mqtt_config,
+                    sensor_name="halt",
+                )
+                mqtt_publish(
+                    mqtt_client=mqtt_client,
+                    topic=halt.get("topic"),
+                    payload=halt.get("config"),
+                    retain=True,
+                )
+                mqtt_client.client.subscribe(
+                    halt.get("config").get("command_topic")
                 )
                 # Manual Snapshot
                 device_config = ha_discovery_devices(

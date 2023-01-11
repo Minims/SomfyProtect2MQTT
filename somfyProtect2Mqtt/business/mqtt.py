@@ -68,7 +68,6 @@ def consume_mqtt_message(
     """Compute MQTT received message"""
     try:
         text_payload = msg.payload.decode("UTF-8")
-
         # Manage Boolean
         if text_payload == "True":
             text_payload = bool(True)
