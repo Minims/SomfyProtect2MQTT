@@ -122,7 +122,7 @@ def consume_mqtt_message(
                 )
                 LOGGER.debug(action_device)
                 # Read updated device
-                sleep(1)
+                sleep(2)
                 update_device(
                     api=api,
                     mqtt_client=mqtt_client,
