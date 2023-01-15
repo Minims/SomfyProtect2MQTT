@@ -388,3 +388,35 @@ class SomfyProtectApi:
         )
         response.raise_for_status()
         return response.json()
+
+    def get_scenarios_core(
+        self,
+        site_id: str,
+    ):
+        """Get Scenarios Core
+
+        Args:
+            site_id (str): Site ID
+
+        Returns:
+            ??
+        """
+        response = self.get(f"/v3/site/{site_id}/scenario-core")
+        response.raise_for_status()
+        return response.json()
+
+    def get_scenarios(
+        self,
+        site_id: str,
+    ):
+        """Get Scenarios
+
+        Args:
+            site_id (str): Site ID
+
+        Returns:
+            ??
+        """
+        response = self.get(f"/v3/site/{site_id}/scenario")
+        response.raise_for_status()
+        return response.json()
