@@ -318,6 +318,38 @@ DEVICE_CAPABILITIES = {
             "pl_off": "light_off",
         },
     },
+    "reboot": {
+        "type": "button",
+        "config": {"payload_press": "reboot"},
+    },
+    "halt": {
+        "type": "button",
+        "config": {"payload_press": "halt"},
+    },
+    "gate": {
+        "type": "switch",
+        "config": {
+            "pl_on": "gate_open",
+            "pl_off": "gate_close",
+            "optimistic": "True",
+        },
+    },
+    "garage": {
+        "type": "switch",
+        "config": {
+            "pl_on": "garage_open",
+            "pl_off": "garage_close",
+            "optimistic": "True",
+        },
+    },
+    "rolling_shutter": {
+        "type": "switch",
+        "config": {
+            "pl_on": "rolling_shutter_up",
+            "pl_off": "rolling_shutter_down",
+            "optimistic": "True",
+        },
+    },
     "shutter_state": {
         "type": "switch",
         "config": {
@@ -640,7 +672,7 @@ def ha_discovery_devices(
                 .get("config")
                 .get(config_entry)
             )
-    if device_type in ("switch", "number", "select"):
+    if device_type in ("switch", "number", "select", "button"):
         device_config["config"]["command_topic"] = command_topic
     if sensor_name == "snapshot":
         device_config["config"].pop("value_template")

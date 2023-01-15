@@ -68,7 +68,6 @@ def consume_mqtt_message(
     """Compute MQTT received message"""
     try:
         text_payload = msg.payload.decode("UTF-8")
-
         # Manage Boolean
         if text_payload == "True":
             text_payload = bool(True)
@@ -123,7 +122,7 @@ def consume_mqtt_message(
                 )
                 LOGGER.debug(action_device)
                 # Read updated device
-                sleep(1)
+                sleep(2)
                 update_device(
                     api=api,
                     mqtt_client=mqtt_client,
