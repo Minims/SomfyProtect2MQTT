@@ -1,6 +1,15 @@
 # SomfyProtect2MQTT
 
-Somfy Protect (Home Alarm) to MQTT
+[!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/minims)
+
+Somfy Protect to MQTT
+
+Supported :
+
+- Somfy Home Alarm
+- Somfy Home Alarm Advanced
+- Somfy One
+- Somfy One+
 
 ## What is Working
 
