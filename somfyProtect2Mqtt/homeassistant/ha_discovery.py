@@ -97,13 +97,13 @@ DEVICE_CAPABILITIES = {
     "smart_alarm_duration": {
         "type": "select",
         "config": {
-            "options": ["manual", "always"],
+            "options": [30, 60, 90, 120],
         },
     },
     "lighting_trigger": {
         "type": "select",
         "config": {
-            "options": [30, 60, 90, 120],
+            "options": ["manual", "always"],
         },
     },
     "power_mode": {
