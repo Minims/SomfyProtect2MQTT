@@ -53,7 +53,7 @@ DEVICE_CAPABILITIES = {
     },
     "ambient_light_threshold": {
         "type": "number",
-        "config": {"min": 0, "max": 100},
+        "config": {"min": 0, "max": 255},
     },
     "lighting_duration": {
         "type": "number",
@@ -97,7 +97,7 @@ DEVICE_CAPABILITIES = {
     "smart_alarm_duration": {
         "type": "select",
         "config": {
-            "options": [30, 60, 90, 120],
+            "options": ["30", "60", "90", "120"],
         },
     },
     "lighting_trigger": {
