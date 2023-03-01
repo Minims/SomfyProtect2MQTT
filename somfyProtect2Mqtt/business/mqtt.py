@@ -174,4 +174,4 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
             )
 
     except Exception as exp:
-        LOGGER.error(f"Error when processing message: {exp}")
+        LOGGER.error(f"Error when processing message: {exp}: {msg.topic} => {msg.payload}")
