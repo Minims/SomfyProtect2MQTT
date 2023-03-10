@@ -37,9 +37,7 @@ def ha_sites_config(
             mqtt_config=mqtt_config,
             homeassistant_config=homeassistant_config,
         )
-        site_extended = ha_discovery_alarm_actions(
-            site=my_site, mqtt_config=mqtt_config
-        )
+        site_extended = ha_discovery_alarm_actions(site=my_site, mqtt_config=mqtt_config)
         configs = [site, site_extended]
         for site_config in configs:
             mqtt_publish(
@@ -48,9 +46,7 @@ def ha_sites_config(
                 payload=site_config.get("config"),
                 retain=True,
             )
-            mqtt_client.client.subscribe(
-                site_config.get("config").get("command_topic")
-            )
+            mqtt_client.client.subscribe(site_config.get("config").get("command_topic"))
 
 
 def ha_devices_config(
@@ -86,14 +82,10 @@ def ha_devices_config(
                     retain=True,
                 )
                 if device_config.get("config").get("command_topic"):
-                    mqtt_client.client.subscribe(
-                        device_config.get("config").get("command_topic")
-                    )
+                    mqtt_client.client.subscribe(device_config.get("config").get("command_topic"))
 
             if "box" in device.device_definition.get("type"):
-                LOGGER.info(
-                    f"Found Link {device.device_definition.get('label')}"
-                )
+                LOGGER.info(f"Found Link {device.device_definition.get('label')}")
                 reboot = ha_discovery_devices(
                     site_id=site_id,
                     device=device,
@@ -106,9 +98,7 @@ def ha_devices_config(
                     payload=reboot.get("config"),
                     retain=True,
                 )
-                mqtt_client.client.subscribe(
-                    reboot.get("config").get("command_topic")
-                )
+                mqtt_client.client.subscribe(reboot.get("config").get("command_topic"))
 
                 halt = ha_discovery_devices(
                     site_id=site_id,
@@ -122,16 +112,10 @@ def ha_devices_config(
                     payload=halt.get("config"),
                     retain=True,
                 )
-                mqtt_client.client.subscribe(
-                    halt.get("config").get("command_topic")
-                )
+                mqtt_client.client.subscribe(halt.get("config").get("command_topic"))
 
-            if "camera" in device.device_definition.get(
-                "type"
-            ) or "allinone" in device.device_definition.get("type"):
-                LOGGER.info(
-                    f"Found Camera {device.device_definition.get('label')}"
-                )
+            if "camera" in device.device_definition.get("type") or "allinone" in device.device_definition.get("type"):
+                LOGGER.info(f"Found Camera {device.device_definition.get('label')}")
                 camera_config = ha_discovery_cameras(
                     site_id=site_id,
                     device=device,
@@ -155,9 +139,7 @@ def ha_devices_config(
                     payload=reboot.get("config"),
                     retain=True,
                 )
-                mqtt_client.client.subscribe(
-                    reboot.get("config").get("command_topic")
-                )
+                mqtt_client.client.subscribe(reboot.get("config").get("command_topic"))
 
                 halt = ha_discovery_devices(
                     site_id=site_id,
@@ -171,9 +153,7 @@ def ha_devices_config(
                     payload=halt.get("config"),
                     retain=True,
                 )
-                mqtt_client.client.subscribe(
-                    halt.get("config").get("command_topic")
-                )
+                mqtt_client.client.subscribe(halt.get("config").get("command_topic"))
                 # Manual Snapshot
                 device_config = ha_discovery_devices(
                     site_id=site_id,
@@ -188,9 +168,7 @@ def ha_devices_config(
                     retain=True,
                 )
                 if device_config.get("config").get("command_topic"):
-                    mqtt_client.client.subscribe(
-                        device_config.get("config").get("command_topic")
-                    )
+                    mqtt_client.client.subscribe(device_config.get("config").get("command_topic"))
 
             # Works with Websockets
             if "remote" in device.device_definition.get("type"):
@@ -208,12 +186,8 @@ def ha_devices_config(
                     retain=True,
                 )
 
-            if "pir" in device.device_definition.get(
-                "type"
-            ) or "tag" in device.device_definition.get("type"):
-                LOGGER.info(
-                    f"Found Motion Sensor (PIR & IntelliTag) {device.device_definition.get('label')}"
-                )
+            if "pir" in device.device_definition.get("type") or "tag" in device.device_definition.get("type"):
+                LOGGER.info(f"Found Motion Sensor (PIR & IntelliTag) {device.device_definition.get('label')}")
                 pir_config = ha_discovery_devices(
                     site_id=site_id,
                     device=device,
@@ -249,11 +223,7 @@ def update_sites_status(
             mqtt_publish(
                 mqtt_client=mqtt_client,
                 topic=f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/state",
-                payload={
-                    "security_level": ALARM_STATUS.get(
-                        site.security_level, "disarmed"
-                    )
-                },
+                payload={"security_level": ALARM_STATUS.get(site.security_level, "disarmed")},
                 retain=False,
             )
         except Exception as exp:
@@ -312,12 +282,8 @@ def update_camera_snapshot(
             ]:
                 my_devices = api.get_devices(site_id=site_id, category=category)
                 for device in my_devices:
-                    api.camera_refresh_snapshot(
-                        site_id=site_id, device_id=device.id
-                    )
-                    response = api.camera_snapshot(
-                        site_id=site_id, device_id=device.id
-                    )
+                    api.camera_refresh_snapshot(site_id=site_id, device_id=device.id)
+                    response = api.camera_snapshot(site_id=site_id, device_id=device.id)
                     if response.status_code == 200:
                         # Write image to temp file
                         path = f"{device.id}.jpeg"

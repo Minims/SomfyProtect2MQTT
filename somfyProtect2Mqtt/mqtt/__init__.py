@@ -19,19 +19,13 @@ class MQTTClient:
     def __init__(self, config, api, publish_delay=1):
         self.publish_delay = publish_delay
 
-        self.client = mqtt.Client(
-            client_id=config.get("client-id", "somfy-protect")
-        )
+        self.client = mqtt.Client(client_id=config.get("client-id", "somfy-protect"))
         self.client.on_connect = self.on_connect
         self.client.on_message = self.on_message
         self.client.on_publish = self.on_publish
         self.client.on_disconnect = self.on_disconnect
-        self.client.username_pw_set(
-            config.get("username"), config.get("password")
-        )
-        self.client.connect(
-            config.get("host", "127.0.0.1"), config.get("port", 1883), 60
-        )
+        self.client.username_pw_set(config.get("username"), config.get("password"))
+        self.client.connect(config.get("host", "127.0.0.1"), config.get("port", 1883), 60)
         if config.get("ssl", False) is True:
             self.client.tls_set(cert_reqs=ssl.CERT_NONE)
             self.client.tls_insecure_set(True)
@@ -43,9 +37,7 @@ class MQTTClient:
 
         LOGGER.debug("MQTT client initialized")
 
-    def on_connect(
-        self, mqttc, obj, flags, rc
-    ):  # pylint: disable=unused-argument,invalid-name
+    def on_connect(self, mqttc, obj, flags, rc):  # pylint: disable=unused-argument,invalid-name
         """MQTT on_connect"""
         LOGGER.debug(f"Connected: {rc}")
 
@@ -63,9 +55,7 @@ class MQTTClient:
         """MQTT on_publish"""
         LOGGER.debug(f"Message published: {result}")
 
-    def on_disconnect(
-        self, userdata, rc, properties=None
-    ):  # pylint: disable=unused-argument,invalid-name
+    def on_disconnect(self, userdata, rc, properties=None):  # pylint: disable=unused-argument,invalid-name
         """MQTT on_disconnect"""
         if rc != 0:
             LOGGER.warning("Unexpected MQTT disconnection. Will auto-reconnect")

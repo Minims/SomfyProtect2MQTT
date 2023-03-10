@@ -12,9 +12,7 @@ from yaml.parser import ParserError
 LOGGER = logging.getLogger(__name__)
 
 
-def setup_logger(
-    debug: bool = False, filename: str = "/var/log/somfyProtect.log"
-) -> None:
+def setup_logger(debug: bool = False, filename: str = "/var/log/somfyProtect.log") -> None:
     """Setup Logging
     Args:
         debug (bool, optional): True if debug enabled. Defaults to False.

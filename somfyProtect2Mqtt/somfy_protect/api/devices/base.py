@@ -17,9 +17,7 @@ class SomfyProtectDevice:
 
     def refresh_state(self) -> None:
         """Refresh State"""
-        self.device = self.api.get_device(
-            site_id=self.site.id, device_id=self.device.id
-        )
+        self.device = self.api.get_device(site_id=self.site.id, device_id=self.device.id)
 
     def get_version(self) -> float:
         """Get HW/FW Version"""

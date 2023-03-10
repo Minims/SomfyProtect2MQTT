@@ -545,9 +545,7 @@ DEVICE_CAPABILITIES = {
 }
 
 
-def ha_discovery_alarm(
-    site: Site, mqtt_config: dict, homeassistant_config: dict
-):
+def ha_discovery_alarm(site: Site, mqtt_config: dict, homeassistant_config: dict):
     """Auto Discover Alarm"""
     if homeassistant_config:
         code = homeassistant_config.get("code")
@@ -605,9 +603,7 @@ def ha_discovery_alarm_actions(site: Site, mqtt_config: dict):
     }
 
     command_topic = f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site.id}/siren/command"
-    site_config[
-        "topic"
-    ] = f"{mqtt_config.get('ha_discover_prefix', 'homeassistant')}/switch/{site.id}/siren/config"
+    site_config["topic"] = f"{mqtt_config.get('ha_discover_prefix', 'homeassistant')}/switch/{site.id}/siren/config"
     site_config["config"] = {
         "name": f"{site.label} Siren",
         "unique_id": f"{site.id}_{site.label}",
@@ -644,7 +640,9 @@ def ha_discovery_devices(
         "sw_version": f"{device.version} {update_available}",
     }
 
-    command_topic = f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/{sensor_name}/command"
+    command_topic = (
+        f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/{sensor_name}/command"
+    )
     device_config[
         "topic"
     ] = f"{mqtt_config.get('ha_discover_prefix', 'homeassistant')}/{device_type}/{site_id}_{device.id}/{sensor_name}/config"
@@ -657,18 +655,11 @@ def ha_discovery_devices(
     }
 
     for config_entry in DEVICE_CAPABILITIES.get(sensor_name).get("config"):
-        device_config["config"][config_entry] = (
-            DEVICE_CAPABILITIES.get(sensor_name).get("config").get(config_entry)
-        )
+        device_config["config"][config_entry] = DEVICE_CAPABILITIES.get(sensor_name).get("config").get(config_entry)
         # Specifiy for Intellitag Sensivity
-        if (
-            device.device_definition.get("label") == "IntelliTag"
-            and sensor_name == "sensitivity"
-        ):
+        if device.device_definition.get("label") == "IntelliTag" and sensor_name == "sensitivity":
             device_config["config"][config_entry] = (
-                DEVICE_CAPABILITIES.get(
-                    f"{sensor_name}_{device.device_definition.get('label')}"
-                )
+                DEVICE_CAPABILITIES.get(f"{sensor_name}_{device.device_definition.get('label')}")
                 .get("config")
                 .get(config_entry)
             )
