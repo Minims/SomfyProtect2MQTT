@@ -36,7 +36,6 @@ def somfy_protect_wss_loop(somfy_protect_websocket):
 
 
 if __name__ == "__main__":
-
     # Read Arguments
     PARSER = argparse.ArgumentParser()
     PARSER.add_argument("--verbose", "-v", action="store_true", help="verbose mode")
