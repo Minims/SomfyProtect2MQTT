@@ -298,8 +298,8 @@ DEVICE_CAPABILITIES = {
     "device_lost": {
         "type": "device_tracker",
         "config": {
-            " payload_home": "False",
-            " payload_not_home": "True",
+            "payload_home": "False",
+            "payload_not_home": "True",
         },
     },
     "push_to_talk_available": {
@@ -538,8 +538,8 @@ DEVICE_CAPABILITIES = {
     "presence": {
         "type": "device_tracker",
         "config": {
-            " payload_home": "home",
-            " payload_not_home": "not_home",
+            "payload_home": "home",
+            "payload_not_home": "not_home",
         },
     },
     "motion_sensor": {
