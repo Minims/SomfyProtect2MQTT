@@ -48,6 +48,16 @@ def ha_sites_config(
             )
             mqtt_client.client.subscribe(site_config.get("config").get("command_topic"))
 
+        try:
+            scenarios_core = api.get_scenarios_core(site_id=my_site.id)
+            LOGGER.info(f"Scenarios Core for {my_site.label} => {scenarios_core}")
+            scenarios = api.get_scenarios(site_id=my_site.id)
+            LOGGER.info(f"Scenarios for {my_site.label} => {scenarios}")
+            LOGGER.warning(f"v4 => {api.get_site_scenario(site_id=site_id)}")
+        except Exception as exp:
+            LOGGER.warning(f"Error while getting scenarios: {exp}")
+            continue
+
 
 def ha_devices_config(
     api: SomfyProtectApi,

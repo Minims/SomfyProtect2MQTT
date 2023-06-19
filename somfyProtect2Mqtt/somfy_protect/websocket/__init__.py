@@ -5,16 +5,16 @@ import logging
 import os
 import ssl
 import time
+from signal import SIGKILL
 
-from business.mqtt import mqtt_publish, update_site, update_device
+import websocket
+from business.mqtt import mqtt_publish, update_device, update_site
 from homeassistant.ha_discovery import ALARM_STATUS
 from mqtt import MQTTClient, init_mqtt
 from oauthlib.oauth2 import LegacyApplicationClient, TokenExpiredError
 from requests_oauthlib import OAuth2Session
 from somfy_protect.api import SomfyProtectApi
 from somfy_protect.sso import SomfyProtectSso, read_token_from_file
-
-import websocket
 from websocket import WebSocketApp
 
 WEBSOCKET = "wss://websocket.myfox.io/events/websocket?token="
@@ -57,6 +57,11 @@ class SomfyProtectWebsocket:
             sslopt={"cert_reqs": ssl.CERT_NONE},
         )
 
+    def close(self):
+        """Close Websocket Connection"""
+        LOGGER.info("Closing WebSocket Connection")
+        self._websocket.close()
+
     def on_message(self, ws_app, message):
         """Handle New message received on WebSocket"""
         if "websocket.connection.ready" in message:
@@ -65,7 +70,17 @@ class SomfyProtectWebsocket:
 
         if "websocket.error.token" in message:
             LOGGER.warning("Websocket Token Error: requesting a new one")
-            self.sso.refresh_tokens()
+            token = self.sso.refresh_tokens()
+            LOGGER.info(f"New token: {token}")
+
+            LOGGER.info(f"WSS Close 1")
+            self._websocket.close()
+
+            pid = os.getpid()
+            LOGGER.info(f"Killing WebSocket PID: {pid}")
+            os.kill(pid, SIGKILL)
+
+            LOGGER.info(f"WSS Close 2")
             self._websocket.close()
 
         logging.debug(f"Message: {message}")
@@ -100,9 +115,10 @@ class SomfyProtectWebsocket:
     def on_close(self, ws_app, close_status_code, close_msg):  # pylint: disable=unused-argument,no-self-use
         """Handle Websocket Close Connection"""
         LOGGER.info("Closing websocket connection")
-        LOGGER.info("Reconnecting")
+        LOGGER.info("Reconnecting, waiting 2s")
         time.sleep(2)
         self.run_forever()
+        LOGGER.info("Running ForEver")
 
     def update_keyfob_presence(self, message):
         """Update Key Fob Presence"""

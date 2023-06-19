@@ -149,6 +149,20 @@ class SomfyProtectApi:
         response.raise_for_status()
         return Site(**response.json())
 
+    def get_site_scenario(self, site_id: str) -> Site:
+        """Get Site
+
+        Args:
+            site_id (str): Site ID
+
+
+        Returns:
+            Site: Site object
+        """
+        response = self.get(f"/v4/api/site/{site_id}/device/all/scenario")
+        response.raise_for_status()
+        return response.json()
+
     def update_security_level(self, site_id: str, security_level: AvailableStatus) -> Dict:
         """Set Alarm Security Level
 

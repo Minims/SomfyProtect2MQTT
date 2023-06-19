@@ -46,7 +46,6 @@ class SomfyProtectSso:
         token: Optional[Dict[str, str]] = read_token_from_file(),
         token_updater: Optional[Callable[[str], None]] = write_token_to_file,
     ):
-
         self.username = username
         self.password = password
         self.client_id = base64.b64decode(CLIENT_ID).decode("utf-8")

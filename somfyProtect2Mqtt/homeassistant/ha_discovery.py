@@ -288,11 +288,18 @@ DEVICE_CAPABILITIES = {
             "pl_off": "False",
         },
     },
+    # "device_lost": {
+    #     "type": "binary_sensor",
+    #     "config": {
+    #         "pl_on": "True",
+    #         "pl_off": "False",
+    #     },
+    # },
     "device_lost": {
-        "type": "binary_sensor",
+        "type": "device_tracker",
         "config": {
-            "pl_on": "True",
-            "pl_off": "False",
+            "payload_home": "False",
+            "payload_not_home": "True",
         },
     },
     "push_to_talk_available": {
@@ -531,8 +538,8 @@ DEVICE_CAPABILITIES = {
     "presence": {
         "type": "device_tracker",
         "config": {
-            " payload_home": "home",
-            " payload_not_home": "not_home",
+            "payload_home": "home",
+            "payload_not_home": "not_home",
         },
     },
     "motion_sensor": {

@@ -14,7 +14,7 @@ from somfy_protect.sso import init_sso
 from somfy_protect.api import SomfyProtectApi
 from somfy_protect.websocket import SomfyProtectWebsocket
 
-VERSION = "2023.3.0"
+VERSION = "2023.6.0"
 
 
 def somfy_protect_loop(somfy_protect_2_mqtt):
@@ -36,7 +36,6 @@ def somfy_protect_wss_loop(somfy_protect_websocket):
 
 
 if __name__ == "__main__":
-
     # Read Arguments
     PARSER = argparse.ArgumentParser()
     PARSER.add_argument("--verbose", "-v", action="store_true", help="verbose mode")
