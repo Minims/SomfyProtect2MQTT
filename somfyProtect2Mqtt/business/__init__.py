@@ -91,6 +91,15 @@ def ha_devices_config(
                     payload=device_config.get("config"),
                     retain=True,
                 )
+                if state == "device_lost":
+                    old_topic = device_config.get("topic").replace('device_tracker','binary_sensor')
+                    mqtt_publish(
+                        mqtt_client=mqtt_client,
+                        topic=old_topic,
+                        payload={},
+                        retain=True,
+                    )
+
                 if device_config.get("config").get("command_topic"):
                     mqtt_client.client.subscribe(device_config.get("config").get("command_topic"))
 
