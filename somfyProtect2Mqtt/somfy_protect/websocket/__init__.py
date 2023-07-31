@@ -59,7 +59,7 @@ class SomfyProtectWebsocket:
 
     def close(self):
         """Close Websocket Connection"""
-        LOGGER.info("Closing WebSocket Connection")
+        LOGGER.info("WebSocket Close")
         self._websocket.close()
 
     def on_message(self, ws_app, message):
@@ -69,19 +69,8 @@ class SomfyProtectWebsocket:
             return
 
         if "websocket.error.token" in message:
-            LOGGER.warning("Websocket Token Error: requesting a new one")
-            token = self.sso.refresh_tokens()
-            LOGGER.info(f"New token: {token}")
-
-            LOGGER.info(f"WSS Close 1")
             self._websocket.close()
-
-            pid = os.getpid()
-            LOGGER.info(f"Killing WebSocket PID: {pid}")
-            os.kill(pid, SIGKILL)
-
-            LOGGER.info(f"WSS Close 2")
-            self._websocket.close()
+            return
 
         logging.debug(f"Message: {message}")
 
@@ -114,11 +103,7 @@ class SomfyProtectWebsocket:
 
     def on_close(self, ws_app, close_status_code, close_msg):  # pylint: disable=unused-argument,no-self-use
         """Handle Websocket Close Connection"""
-        LOGGER.info("Closing websocket connection")
-        LOGGER.info("Reconnecting, waiting 2s")
-        time.sleep(2)
-        self.run_forever()
-        LOGGER.info("Running ForEver")
+        LOGGER.info("Websocket on_close")
 
     def update_keyfob_presence(self, message):
         """Update Key Fob Presence"""
