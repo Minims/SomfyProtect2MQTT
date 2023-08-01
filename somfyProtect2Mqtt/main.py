@@ -15,7 +15,7 @@ from somfy_protect.sso import init_sso
 from somfy_protect.api import SomfyProtectApi
 from somfy_protect.websocket import SomfyProtectWebsocket
 
-VERSION = "2023.8.0"
+VERSION = "2023.8.1"
 
 
 def somfy_protect_loop(config, mqtt_client, api):
@@ -100,7 +100,8 @@ if __name__ == "__main__":
                     ),
                 )
                 p2.start()
-                time.sleep(1)
+                p2.join()
+                # time.sleep(1)
     except Exception as exp:
         LOGGER.error(f"Force stopping application {exp}")
         # close_and_exit(SOMFY_PROTECT, 3)

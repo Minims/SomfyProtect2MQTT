@@ -90,7 +90,8 @@ class SomfyProtectWebsocket:
             "message_id": message_json["message_id"],
             "client": "Android",
         }
-        ws_app.send(json.dumps(ack))
+        send = ws_app.send(json.dumps(ack))
+        LOGGER.debug(send)
         self.default_message(message_json)
         if message_json["key"] in callbacks:
             callbacks[message_json["key"]](message_json)
@@ -172,7 +173,7 @@ class SomfyProtectWebsocket:
         payload = ({"security_level": ALARM_STATUS.get(security_level, "disarmed")},)
         topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/state"
 
-        mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=payload)
+        mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True)
 
     def alarm_trespass(self, message):
         """Alarm Triggered !!"""
@@ -218,18 +219,10 @@ class SomfyProtectWebsocket:
             payload = {"motion_sensor": "True"}
             topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/pir"
 
-            mqtt_publish(
-                mqtt_client=self.mqtt_client,
-                topic=topic,
-                payload=payload,
-            )
+            mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True)
             time.sleep(3)
             payload = {"motion_sensor": "False"}
-            mqtt_publish(
-                mqtt_client=self.mqtt_client,
-                topic=topic,
-                payload=payload,
-            )
+            mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True)
 
     def alarm_panic(self, message):
         """Report Alarm Panic"""
@@ -321,18 +314,10 @@ class SomfyProtectWebsocket:
         LOGGER.info(f"It Seems the Door {device_id} is moving")
         topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/pir"
         payload = {"motion_sensor": "True"}
-        mqtt_publish(
-            mqtt_client=self.mqtt_client,
-            topic=topic,
-            payload=payload,
-        )
+        mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True)
         time.sleep(3)
         payload = {"motion_sensor": "False"}
-        mqtt_publish(
-            mqtt_client=self.mqtt_client,
-            topic=topic,
-            payload=payload,
-        )
+        mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True)
 
     def site_device_testing_status(self, message):
         """Site Device Testing Status"""

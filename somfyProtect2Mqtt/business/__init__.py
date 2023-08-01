@@ -92,7 +92,7 @@ def ha_devices_config(
                     retain=True,
                 )
                 if state == "device_lost":
-                    old_topic = device_config.get("topic").replace('device_tracker','binary_sensor')
+                    old_topic = device_config.get("topic").replace("device_tracker", "binary_sensor")
                     mqtt_publish(
                         mqtt_client=mqtt_client,
                         topic=old_topic,
@@ -223,6 +223,7 @@ def ha_devices_config(
                     mqtt_client=mqtt_client,
                     topic=pir_config.get("config").get("state_topic"),
                     payload={"motion_sensor": "False"},
+                    retain=True,
                 )
 
 
@@ -243,7 +244,7 @@ def update_sites_status(
                 mqtt_client=mqtt_client,
                 topic=f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/state",
                 payload={"security_level": ALARM_STATUS.get(site.security_level, "disarmed")},
-                retain=False,
+                retain=True,
             )
         except Exception as exp:
             LOGGER.warning(f"Error while refreshing site: {exp}")
@@ -275,7 +276,7 @@ def update_devices_status(
                     mqtt_client=mqtt_client,
                     topic=f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/state",
                     payload=payload,
-                    retain=False,
+                    retain=True,
                 )
         except Exception as exp:
             LOGGER.warning(f"Error while refreshing devices: {exp}")
@@ -318,7 +319,7 @@ def update_camera_snapshot(
                             mqtt_client=mqtt_client,
                             topic=topic,
                             payload=byte_arr,
-                            retain=False,
+                            retain=True,
                             is_json=False,
                         )
 
