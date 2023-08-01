@@ -34,7 +34,7 @@ def update_device(api, mqtt_client, mqtt_config, site_id, device_id):
             mqtt_client=mqtt_client,
             topic=f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/state",
             payload=payload,
-            retain=False,
+            retain=True,
         )
     except Exception as exp:
         LOGGER.warning(f"Error while refreshing {device.label}: {exp}")
@@ -50,7 +50,7 @@ def update_site(api, mqtt_client, mqtt_config, site_id):
             mqtt_client=mqtt_client,
             topic=f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/state",
             payload={"security_level": ALARM_STATUS.get(site.security_level, "disarmed")},
-            retain=False,
+            retain=True,
         )
     except Exception as exp:
         LOGGER.warning(f"Error while refreshing site {site_id}: {exp}")
@@ -144,7 +144,7 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
                         mqtt_client,
                         topic,
                         byte_array,
-                        retain=False,
+                        retain=True,
                         is_json=False,
                     )
 
