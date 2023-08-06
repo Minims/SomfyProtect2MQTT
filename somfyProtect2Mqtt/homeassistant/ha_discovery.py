@@ -569,7 +569,7 @@ def ha_discovery_alarm(site: Site, mqtt_config: dict, homeassistant_config: dict
         "identifiers": [site.id],
         "manufacturer": "Somfy",
         "model": "Somfy Home Alarm",
-        "name": site.label,
+        "name": "Somfy Home Alarm",
         "sw_version": "SomfyProtect2MQTT",
     }
 
@@ -605,14 +605,14 @@ def ha_discovery_alarm_actions(site: Site, mqtt_config: dict):
         "identifiers": [site.id],
         "manufacturer": "Somfy",
         "model": "Somfy Home Alarm",
-        "name": site.label,
+        "name": "Somfy Home Alarm",
         "sw_version": "SomfyProtect2MQTT",
     }
 
     command_topic = f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site.id}/siren/command"
     site_config["topic"] = f"{mqtt_config.get('ha_discover_prefix', 'homeassistant')}/switch/{site.id}/siren/config"
     site_config["config"] = {
-        "name": f"{site.label} Siren",
+        "name": "Siren",
         "unique_id": f"{site.id}_{site.label}",
         "command_topic": command_topic,
         "device": site_info,
@@ -654,7 +654,7 @@ def ha_discovery_devices(
         "topic"
     ] = f"{mqtt_config.get('ha_discover_prefix', 'homeassistant')}/{device_type}/{site_id}_{device.id}/{sensor_name}/config"
     device_config["config"] = {
-        "name": f"{device.label} {sensor_name}",
+        "name": sensor_name,
         "unique_id": f"{device.id}_{sensor_name}",
         "state_topic": f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/state",
         "value_template": "{{ value_json." + sensor_name + " }}",
@@ -706,7 +706,7 @@ def ha_discovery_cameras(
         "topic"
     ] = f"{mqtt_config.get('ha_discover_prefix', 'homeassistant')}/camera/{site_id}_{device.id}/snapshot/config"
     camera_config["config"] = {
-        "name": f"{device.label} snapshot",
+        "name": "snapshot",
         "unique_id": f"{device.id}_snapshot",
         "topic": f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/snapshot",
         "device": device_info,
