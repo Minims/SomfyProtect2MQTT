@@ -97,6 +97,20 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
             LOGGER.info(f"Stop the Siren On Site ID {site_id}")
             api.stop_alarm(site_id=site_id)
 
+        elif text_payload in [
+            "test_smokeExtended",
+            "test_siren1s",
+            "test_armed",
+            "test_disarmed",
+            "test_intrusion",
+            "test_ok",
+        ]:
+            site_id = msg.topic.split("/")[1]
+            device_id = msg.topic.split("/")[2]
+            sound = text_payload.split("_")[1]
+            LOGGER.info(f"Test the Siren On Site ID {site_id} ({sound})")
+            api.test_siren(site_id=site_id, device_id=device_id, sound=sound)
+
         # Manage Actions
         elif text_payload in ACTION_LIST:
             site_id = msg.topic.split("/")[1]

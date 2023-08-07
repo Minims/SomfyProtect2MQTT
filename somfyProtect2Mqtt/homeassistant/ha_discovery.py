@@ -333,6 +333,30 @@ DEVICE_CAPABILITIES = {
         "type": "button",
         "config": {"payload_press": "halt"},
     },
+    "test_smokeExtended": {
+        "type": "button",
+        "config": {"payload_press": "test_smokeExtended"},
+    },
+    "test_siren1s": {
+        "type": "button",
+        "config": {"payload_press": "test_siren1s"},
+    },
+    "test_armed": {
+        "type": "button",
+        "config": {"payload_press": "test_armed"},
+    },
+    "test_disarmed": {
+        "type": "button",
+        "config": {"payload_press": "test_disarmed"},
+    },
+    "test_intrusion": {
+        "type": "button",
+        "config": {"payload_press": "test_intrusion"},
+    },
+    "test_ok": {
+        "type": "button",
+        "config": {"payload_press": "test_ok"},
+    },
     "gate": {
         "type": "switch",
         "config": {

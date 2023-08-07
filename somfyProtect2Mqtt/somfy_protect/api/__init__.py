@@ -420,3 +420,19 @@ class SomfyProtectApi:
         response = self.get(f"/v3/site/{site_id}/scenario")
         response.raise_for_status()
         return response.json()
+
+    def test_siren(self, site_id: str, device_id: str, sound: str) -> Dict:
+        """Test Siren
+
+        Args:
+            site_id (str): Site ID
+            device_id (str) Device ID
+            sound (str): Sound (smokeExtended, siren1s, armed, disarmed, intrusion, ok)
+        Returns:
+            Dict: requests Response object
+        """
+        if sound not in ["smokeExtended", "siren1s", "armed", "disarmed", "intrusion", "ok"]:
+            raise ValueError("Sound value is not valid")
+        response = self.post(f"/v3/site/{site_id}/device/{device_id}/sound/{sound}", json={})
+        response.raise_for_status()
+        return response.json()
