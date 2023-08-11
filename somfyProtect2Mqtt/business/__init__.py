@@ -204,7 +204,34 @@ def ha_devices_config(
                     payload=key_fob_config.get("config"),
                     retain=True,
                 )
-
+            if "mss_outdoor_siren" in device.device_definition.get("device_definition_id"):
+                mss_outdoor_siren = ha_discovery_devices(
+                    site_id=site_id,
+                    device=device,
+                    mqtt_config=mqtt_config,
+                    sensor_name="test_siren1s",
+                )
+                mqtt_publish(
+                    mqtt_client=mqtt_client,
+                    topic=mss_outdoor_siren.get("topic"),
+                    payload=mss_outdoor_siren.get("config"),
+                    retain=True,
+                )
+            if "mss_siren" in device.device_definition.get("device_definition_id"):
+                for sensor in ["smokeExtended", "siren1s", "armed", "disarmed", "intrusion", "ok"]:
+                    LOGGER.info(f"Found mss_siren, adding sound test: {sensor}")
+                    mss_siren = ha_discovery_devices(
+                        site_id=site_id,
+                        device=device,
+                        mqtt_config=mqtt_config,
+                        sensor_name=f"test_{sensor}",
+                    )
+                    mqtt_publish(
+                        mqtt_client=mqtt_client,
+                        topic=mss_siren.get("topic"),
+                        payload=mss_siren.get("config"),
+                        retain=True,
+                    )
             if "pir" in device.device_definition.get("type") or "tag" in device.device_definition.get("type"):
                 LOGGER.info(f"Found Motion Sensor (PIR & IntelliTag) {device.device_definition.get('label')}")
                 pir_config = ha_discovery_devices(
