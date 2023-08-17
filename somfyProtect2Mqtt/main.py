@@ -3,8 +3,6 @@
 import argparse
 import logging
 import threading
-from functools import partial
-from signal import SIGINT, SIGTERM, signal
 import time
 
 from exceptions import SomfyProtectInitError
@@ -15,7 +13,7 @@ from somfy_protect.sso import init_sso
 from somfy_protect.api import SomfyProtectApi
 from somfy_protect.websocket import SomfyProtectWebsocket
 
-VERSION = "2023.8.2"
+VERSION = "2023.8.3"
 
 
 def somfy_protect_loop(config, mqtt_client, api):
@@ -59,12 +57,6 @@ if __name__ == "__main__":
     API = SomfyProtectApi(sso=SSO)
     MQTT_CLIENT = init_mqtt(config=CONFIG, api=API)
 
-    # Trigger Ctrl-C
-    signal(SIGINT, partial(close_and_exit, SomfyProtect2Mqtt, 0))
-    signal(SIGTERM, partial(close_and_exit, SomfyProtect2Mqtt, 0))
-    signal(SIGINT, partial(close_and_exit, SomfyProtectWebsocket, 0))
-    signal(SIGTERM, partial(close_and_exit, SomfyProtectWebsocket, 0))
-
     try:
         p1 = threading.Thread(
             target=somfy_protect_loop,
@@ -101,7 +93,5 @@ if __name__ == "__main__":
                 )
                 p2.start()
                 p2.join()
-                # time.sleep(1)
     except Exception as exp:
         LOGGER.error(f"Force stopping application {exp}")
-        # close_and_exit(SOMFY_PROTECT, 3)
