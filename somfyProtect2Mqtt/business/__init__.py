@@ -1,21 +1,24 @@
 """Business Functions"""
 import logging
+import os
+from datetime import datetime
 from time import sleep
 
-from exceptions import SomfyProtectInitError
 import schedule
-from somfy_protect.api import SomfyProtectApi
-from somfy_protect.api.devices.category import Category
+from business.mqtt import mqtt_publish
+from business.watermark import insert_watermark
+from exceptions import SomfyProtectInitError
 from homeassistant.ha_discovery import (
+    ALARM_STATUS,
+    DEVICE_CAPABILITIES,
     ha_discovery_alarm,
     ha_discovery_alarm_actions,
     ha_discovery_cameras,
     ha_discovery_devices,
-    DEVICE_CAPABILITIES,
-    ALARM_STATUS,
 )
-from business.mqtt import mqtt_publish
 from mqtt import MQTTClient
+from somfy_protect.api import SomfyProtectApi
+from somfy_protect.api.devices.category import Category
 
 LOGGER = logging.getLogger(__name__)
 
@@ -332,11 +335,18 @@ def update_camera_snapshot(
                     api.camera_refresh_snapshot(site_id=site_id, device_id=device.id)
                     response = api.camera_snapshot(site_id=site_id, device_id=device.id)
                     if response.status_code == 200:
+                        now = datetime.now()
+                        timestamp = int(now.timestamp())
+
                         # Write image to temp file
-                        path = f"{device.id}.jpeg"
+                        path = f"{device.id}-{timestamp}.jpeg"
                         with open(path, "wb") as tmp_file:
                             for chunk in response:
                                 tmp_file.write(chunk)
+
+                        # Add Watermark
+                        insert_watermark(file=path, watermark=now.strftime("%Y-%m-%d %H:%M:%S"))
+
                         # Read and Push to MQTT
                         with open(path, "rb") as tmp_file:
                             image = tmp_file.read()
@@ -349,6 +359,8 @@ def update_camera_snapshot(
                             retain=True,
                             is_json=False,
                         )
+                        # Clean file
+                        os.remove(path)
 
         except Exception as exp:
             LOGGER.warning(f"Error while refreshing snapshot: {exp}")
