@@ -345,7 +345,7 @@ def update_camera_snapshot(
                                 tmp_file.write(chunk)
 
                         # Add Watermark
-                        insert_watermark(file=path, watermark=now.strftime("%Y-%m-%d %H:%M:%S"))
+                        insert_watermark(file=f"{os.getcwd()}/{path}", watermark=now.strftime("%Y-%m-%d %H:%M:%S"))
 
                         # Read and Push to MQTT
                         with open(path, "rb") as tmp_file:
