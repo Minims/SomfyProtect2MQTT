@@ -1,5 +1,5 @@
 # For more information, please refer to https://aka.ms/vscode-docker-python
-FROM python:3.9-slim
+FROM python:3.11-slim
 
 # Keeps Python from generating .pyc files in the container
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -7,18 +7,9 @@ ENV PYTHONDONTWRITEBYTECODE=1
 # Turns off buffering for easier container logging
 ENV PYTHONUNBUFFERED=1
 
-# Install packages requirements
-ARG DEBIAN_FRONTEND="noninteractive"
-
 # Install pip requirements
 COPY requirements.txt .
-
-RUN apt-get update \
-    && apt-get install --yes --no-install-recommends \
-    build-essential zlib1g-dev libjpeg62-turbo-dev \
-    && python -m pip install -r requirements.txt \
-    && apt-get autoremove --yes build-essential zlib1g-dev libjpeg62-turbo-dev \
-    && rm -rf /var/lib/apt/lists/*
+RUN python -m pip install -r requirements.txt
 
 WORKDIR /app
 COPY . /app
