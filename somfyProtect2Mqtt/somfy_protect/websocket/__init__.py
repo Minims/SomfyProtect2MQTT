@@ -9,6 +9,7 @@ from signal import SIGKILL
 
 import websocket
 from business.mqtt import mqtt_publish, update_device, update_site
+from business.streaming.camera import VideoCamera
 from homeassistant.ha_discovery import ALARM_STATUS
 from mqtt import MQTTClient, init_mqtt
 from oauthlib.oauth2 import LegacyApplicationClient, TokenExpiredError
@@ -83,6 +84,7 @@ class SomfyProtectWebsocket:
             "presence_out": self.update_keyfob_presence,
             "presence_in": self.update_keyfob_presence,
             "device.status": self.device_status,
+            "video.stream.ready": self.video_stream_ready,
         }
 
         ack = {
@@ -105,6 +107,53 @@ class SomfyProtectWebsocket:
     def on_close(self, ws_app, close_status_code, close_msg):  # pylint: disable=unused-argument,no-self-use
         """Handle Websocket Close Connection"""
         LOGGER.info("Websocket on_close")
+
+    def video_stream_ready(self, message):
+        # {
+        #    "profiles":[
+        #       "owner"
+        #    ],
+        #    "site_id":"XXX",
+        #    "key":"video.stream.ready",
+        #    "stream_url":"URL",
+        #    "device_id":"XXX",
+        #    "type":"event",
+        #    "message_id":"XXX"
+        # }
+        LOGGER.info("Stream URL Found")
+        LOGGER.info(message)
+        site_id = message.get("site_id")
+        device_id = message.get("device_id")
+        stream_url = message.get("stream_url")
+        payload = {"stream_url": stream_url}
+        topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/stream"
+
+        # ❯ ffmpeg -i rtmps:// -c:v libx264 -c:a aac -ac 1 -strict -2 -crf 18 -profile:v baseline -maxrate 400k -bufsize 1835k -pix_fmt yuv420p -flags -global_header -hls_time 10 -hls_list_size 6 -hls_wrap 10 -start_number 1 streamName.m3u8
+        mqtt_publish(
+            mqtt_client=self.mqtt_client,
+            topic=topic,
+            payload=payload,
+            retain=True,
+        )
+
+        camera = VideoCamera(url=stream_url)
+        frame=None
+        LOGGER.info("Stream Start")
+        while True:
+            frame = camera.get_frame()
+            if frame is None:
+                LOGGER.info("Stream Ended")
+                break
+            byte_arr = bytearray(frame)
+            topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/snapshot"
+            mqtt_publish(
+                mqtt_client=self.mqtt_client,
+                topic=topic,
+                payload=byte_arr,
+                retain=True,
+                is_json=False,
+            )
+
 
     def update_keyfob_presence(self, message):
         """Update Key Fob Presence"""

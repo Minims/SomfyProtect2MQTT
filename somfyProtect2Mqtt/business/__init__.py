@@ -192,6 +192,22 @@ def ha_devices_config(
                 if device_config.get("config").get("command_topic"):
                     mqtt_client.client.subscribe(device_config.get("config").get("command_topic"))
 
+                # Stream
+                stream = ha_discovery_devices(
+                    site_id=site_id,
+                    device=device,
+                    mqtt_config=mqtt_config,
+                    sensor_name="stream",
+                )
+                mqtt_publish(
+                    mqtt_client=mqtt_client,
+                    topic=stream.get("topic"),
+                    payload=stream.get("config"),
+                    retain=True,
+                )
+                if stream.get("config").get("command_topic"):
+                    mqtt_client.client.subscribe(stream.get("config").get("command_topic"))
+
             # Works with Websockets
             if "remote" in device.device_definition.get("type"):
                 LOGGER.info(f"Found {device.device_definition.get('label')}")

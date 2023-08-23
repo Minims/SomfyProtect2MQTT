@@ -559,6 +559,14 @@ DEVICE_CAPABILITIES = {
             "optimistic": "True",
         },
     },
+    "stream": {
+        "type": "switch",
+        "config": {
+            "pl_on": "stream_start",
+            "pl_off": "stream_stop",
+            "optimistic": "True",
+        },
+    },
     "presence": {
         "type": "device_tracker",
         "config": {
@@ -697,6 +705,8 @@ def ha_discovery_devices(
     if device_type in ("switch", "number", "select", "button"):
         device_config["config"]["command_topic"] = command_topic
     if sensor_name == "snapshot":
+        device_config["config"].pop("value_template")
+    if sensor_name == "stream":
         device_config["config"].pop("value_template")
     if sensor_name == "presence":
         device_config["config"][
