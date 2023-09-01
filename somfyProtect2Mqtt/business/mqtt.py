@@ -60,6 +60,7 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
     """Compute MQTT received message"""
     try:
         text_payload = msg.payload.decode("UTF-8")
+        LOGGER.info(f"Payload {text_payload}")
         # Manage Boolean
         if text_payload == "True":
             text_payload = bool(True)
