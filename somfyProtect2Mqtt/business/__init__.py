@@ -236,6 +236,8 @@ def ha_devices_config(
                     payload=mss_outdoor_siren.get("config"),
                     retain=True,
                 )
+                mqtt_client.client.subscribe(mss_outdoor_siren.get("config").get("command_topic"))
+
             if "mss_siren" in device.device_definition.get("device_definition_id"):
                 for sensor in ["smokeExtended", "siren1s", "armed", "disarmed", "intrusion", "ok"]:
                     LOGGER.info(f"Found mss_siren, adding sound test: {sensor}")
@@ -251,6 +253,8 @@ def ha_devices_config(
                         payload=mss_siren.get("config"),
                         retain=True,
                     )
+                mqtt_client.client.subscribe(mss_siren.get("config").get("command_topic"))
+
             if "pir" in device.device_definition.get("type") or "tag" in device.device_definition.get("type"):
                 LOGGER.info(f"Found Motion Sensor (PIR & IntelliTag) {device.device_definition.get('label')}")
                 pir_config = ha_discovery_devices(
