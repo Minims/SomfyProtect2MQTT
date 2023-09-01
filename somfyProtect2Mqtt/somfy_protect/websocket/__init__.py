@@ -9,6 +9,7 @@ from signal import SIGKILL
 
 import websocket
 from business.mqtt import mqtt_publish, update_device, update_site
+from business.streaming import hls
 from business.streaming.camera import VideoCamera
 from homeassistant.ha_discovery import ALARM_STATUS
 from mqtt import MQTTClient, init_mqtt
@@ -128,7 +129,6 @@ class SomfyProtectWebsocket:
         payload = {"stream_url": stream_url}
         topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/stream"
 
-        # ❯ ffmpeg -i rtmps:// -c:v libx264 -c:a aac -ac 1 -strict -2 -crf 18 -profile:v baseline -maxrate 400k -bufsize 1835k -pix_fmt yuv420p -flags -global_header -hls_time 10 -hls_list_size 6 -hls_wrap 10 -start_number 1 streamName.m3u8
         mqtt_publish(
             mqtt_client=self.mqtt_client,
             topic=topic,
@@ -136,10 +136,12 @@ class SomfyProtectWebsocket:
             retain=True,
         )
 
+        #hls(device_id=device_id, url=stream_url)
+
         camera = VideoCamera(url=stream_url)
-        frame=None
+        frame = None
         LOGGER.info("Stream Start")
-        while True:
+        while camera.is_opened():
             frame = camera.get_frame()
             if frame is None:
                 LOGGER.info("Stream Ended")
@@ -153,7 +155,7 @@ class SomfyProtectWebsocket:
                 retain=True,
                 is_json=False,
             )
-
+        camera.release()
 
     def update_keyfob_presence(self, message):
         """Update Key Fob Presence"""
