@@ -207,6 +207,9 @@ def ha_devices_config(
                 )
                 if stream.get("config").get("command_topic"):
                     mqtt_client.client.subscribe(stream.get("config").get("command_topic"))
+                    mqtt_client.client.subscribe(
+                        f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/stream"
+                    )
 
             # Works with Websockets
             if "remote" in device.device_definition.get("type"):

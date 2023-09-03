@@ -9,7 +9,6 @@ from signal import SIGKILL
 
 import websocket
 from business.mqtt import mqtt_publish, update_device, update_site
-from business.streaming import hls
 from business.streaming.camera import VideoCamera
 from homeassistant.ha_discovery import ALARM_STATUS
 from mqtt import MQTTClient, init_mqtt
@@ -126,35 +125,26 @@ class SomfyProtectWebsocket:
         site_id = message.get("site_id")
         device_id = message.get("device_id")
         stream_url = message.get("stream_url")
-        payload = {"stream_url": stream_url}
+        payload = stream_url
         topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/stream"
 
         mqtt_publish(
             mqtt_client=self.mqtt_client,
             topic=topic,
             payload=payload,
-            retain=True,
+            retain=False,
         )
 
-        #hls(device_id=device_id, url=stream_url)
-
+        LOGGER.info("Start MQTT Image")
         camera = VideoCamera(url=stream_url)
         frame = None
-        LOGGER.info("Stream Start")
         while camera.is_opened():
             frame = camera.get_frame()
             if frame is None:
-                LOGGER.info("Stream Ended")
                 break
             byte_arr = bytearray(frame)
             topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/snapshot"
-            mqtt_publish(
-                mqtt_client=self.mqtt_client,
-                topic=topic,
-                payload=byte_arr,
-                retain=True,
-                is_json=False,
-            )
+            mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=byte_arr, retain=True, is_json=False, qos=2)
         camera.release()
 
     def update_keyfob_presence(self, message):

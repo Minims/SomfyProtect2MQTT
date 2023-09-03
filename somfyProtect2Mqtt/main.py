@@ -2,6 +2,9 @@
 """Somfy Protect 2 MQTT"""
 import argparse
 import logging
+
+# import os
+# import subprocess
 import threading
 import time
 
@@ -56,6 +59,9 @@ if __name__ == "__main__":
     SSO = init_sso(config=CONFIG)
     API = SomfyProtectApi(sso=SSO)
     MQTT_CLIENT = init_mqtt(config=CONFIG, api=API)
+
+    # with open(os.devnull, "w", encoding="utf-8") as t:
+    #     subprocess.Popen(["nohup", "python3", "-m", "http.server", "8080"], stdout=t, stderr=t)
 
     try:
         p1 = threading.Thread(
