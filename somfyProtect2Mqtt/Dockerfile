@@ -15,7 +15,7 @@ COPY requirements.txt .
 
 RUN apt-get update \
     && apt-get install --yes --no-install-recommends \
-    build-essential zlib1g-dev libjpeg62-turbo-dev \
+    build-essential zlib1g-dev libjpeg62-turbo-dev ffmpeg \
     && python -m pip install -r requirements.txt \
     && apt-get autoremove --yes build-essential zlib1g-dev libjpeg62-turbo-dev \
     && rm -rf /var/lib/apt/lists/*

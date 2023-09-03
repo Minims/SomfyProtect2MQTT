@@ -26,14 +26,10 @@ Quite Everything except Video Streaming.
 - Retrieve Smoke Detector status
 - Get The temperature from PIR / Siren
 - Configure Sensors
+- Video Streaming
 - ...
 
 <img width="1012" alt="SomfyProtect" src="https://user-images.githubusercontent.com/1724785/112769160-e37df200-901f-11eb-9000-e8c463a64dd9.png">
-
-## TODO
-
-- Try to retrieve Camera Stream (You can help if you know JAVA)
-- TBD
 
 ## Installation
 
@@ -95,6 +91,30 @@ cp config/config.yaml.example config/config.yaml
 ```
 cd SomfyProtect2MQTT/somfyProtect2Mqtt
 python3 main.py
+```
+
+## Video Streaming
+
+Currently, Somfy does not provide a permanent streaming URL.
+This is a On-Demand stream, and the stream is live for about 120s.
+
+To start the stream you need:
+
+- To open the cover via the entity `switch.***_shutter_state` in the Camera Device.
+- To switch the stream ON via the entity `switch.***_stream` in the Camera Device.
+
+Here is a basic lovelace card to see your camera with bother shutter & stream button
+
+```
+camera_view: auto
+type: picture-glance
+entities:
+  - entity: switch.indoor_camera_shutter_state
+    icon: mdi:window-shutter-settings
+  - entity: switch.indoor_camera_stream
+    icon: mdi:play-pause
+camera_image: camera.indoor_camera_snapshot
+title: Indoor Camera
 ```
 
 ## Systemd (Running in background on boot)

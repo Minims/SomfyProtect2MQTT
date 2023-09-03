@@ -192,6 +192,25 @@ def ha_devices_config(
                 if device_config.get("config").get("command_topic"):
                     mqtt_client.client.subscribe(device_config.get("config").get("command_topic"))
 
+                # Stream
+                stream = ha_discovery_devices(
+                    site_id=site_id,
+                    device=device,
+                    mqtt_config=mqtt_config,
+                    sensor_name="stream",
+                )
+                mqtt_publish(
+                    mqtt_client=mqtt_client,
+                    topic=stream.get("topic"),
+                    payload=stream.get("config"),
+                    retain=True,
+                )
+                if stream.get("config").get("command_topic"):
+                    mqtt_client.client.subscribe(stream.get("config").get("command_topic"))
+                    mqtt_client.client.subscribe(
+                        f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/stream"
+                    )
+
             # Works with Websockets
             if "remote" in device.device_definition.get("type"):
                 LOGGER.info(f"Found {device.device_definition.get('label')}")
@@ -220,6 +239,8 @@ def ha_devices_config(
                     payload=mss_outdoor_siren.get("config"),
                     retain=True,
                 )
+                mqtt_client.client.subscribe(mss_outdoor_siren.get("config").get("command_topic"))
+
             if "mss_siren" in device.device_definition.get("device_definition_id"):
                 for sensor in ["smokeExtended", "siren1s", "armed", "disarmed", "intrusion", "ok"]:
                     LOGGER.info(f"Found mss_siren, adding sound test: {sensor}")
@@ -235,6 +256,8 @@ def ha_devices_config(
                         payload=mss_siren.get("config"),
                         retain=True,
                     )
+                mqtt_client.client.subscribe(mss_siren.get("config").get("command_topic"))
+
             if "pir" in device.device_definition.get("type") or "tag" in device.device_definition.get("type"):
                 LOGGER.info(f"Found Motion Sensor (PIR & IntelliTag) {device.device_definition.get('label')}")
                 pir_config = ha_discovery_devices(
