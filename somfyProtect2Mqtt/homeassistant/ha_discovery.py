@@ -618,6 +618,7 @@ def ha_discovery_alarm(site: Site, mqtt_config: dict, homeassistant_config: dict
         "payload_arm_night": "partial",
         "payload_disarm": "disarmed",
         "value_template": "{{ value_json.security_level }}",
+        "supported_features": ["arm_night", "arm_away", "trigger"],
         "device": site_info,
     }
     if code and (isinstance(code, int)):

@@ -51,18 +51,14 @@ def update_site(api, mqtt_client, mqtt_config, site_id):
         mqtt_publish(
             mqtt_client=mqtt_client,
             topic=f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/state",
-            payload={
-                "security_level": ALARM_STATUS.get(site.security_level, "disarmed")
-            },
+            payload={"security_level": ALARM_STATUS.get(site.security_level, "disarmed")},
             retain=True,
         )
     except Exception as exp:
         LOGGER.warning(f"Error while refreshing site {site_id}: {exp}")
 
 
-def consume_mqtt_message(
-    msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_client: client
-):
+def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_client: client):
     """Compute MQTT received message"""
     try:
         text_payload = msg.payload.decode("UTF-8")
@@ -134,9 +130,7 @@ def consume_mqtt_message(
             site_id = msg.topic.split("/")[1]
             device_id = msg.topic.split("/")[2]
             if device_id:
-                LOGGER.info(
-                    f"Message received for Site ID: {site_id}, Device ID: {device_id}, Action: {text_payload}"
-                )
+                LOGGER.info(f"Message received for Site ID: {site_id}, Device ID: {device_id}, Action: {text_payload}")
                 action_device = api.action_device(
                     site_id=site_id,
                     device_id=device_id,
@@ -153,9 +147,7 @@ def consume_mqtt_message(
                     device_id=device_id,
                 )
             else:
-                LOGGER.info(
-                    f"Message received for Site ID: {site_id}, Action: {text_payload}"
-                )
+                LOGGER.info(f"Message received for Site ID: {site_id}, Action: {text_payload}")
 
         # Manage Manual Snapshot
         elif msg.topic.split("/")[3] == "snapshot":
@@ -193,9 +185,7 @@ def consume_mqtt_message(
             if setting == "stream":
                 return
             device = api.get_device(site_id=site_id, device_id=device_id)
-            LOGGER.info(
-                f"Message received for Site ID: {site_id}, Device ID: {device_id}, Setting: {setting}"
-            )
+            LOGGER.info(f"Message received for Site ID: {site_id}, Device ID: {device_id}, Setting: {setting}")
             settings = device.settings
             settings["global"][setting] = text_payload
             api.update_device(
@@ -215,6 +205,4 @@ def consume_mqtt_message(
             )
 
     except Exception as exp:
-        LOGGER.error(
-            f"Error when processing message: {exp}: {msg.topic} => {msg.payload}"
-        )
+        LOGGER.error(f"Error when processing message: {exp}: {msg.topic} => {msg.payload}")
