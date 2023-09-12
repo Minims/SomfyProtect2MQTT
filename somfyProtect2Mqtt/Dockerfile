@@ -17,7 +17,7 @@ RUN apt-get update \
     && apt-get install --yes --no-install-recommends \
     python3-opencv ffmpeg \
     && python3 -m pip install -r requirements_addon.txt \
-    && sudo rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 COPY . /app
