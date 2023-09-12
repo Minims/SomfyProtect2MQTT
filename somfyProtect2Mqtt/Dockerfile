@@ -11,7 +11,7 @@ ENV PYTHONUNBUFFERED=1
 ARG DEBIAN_FRONTEND="noninteractive"
 
 # Install pip requirements
-COPY requirements.txt .
+COPY requirements_addon.txt .
 
 RUN apt-get update \
     && apt-get install --yes --no-install-recommends \
