@@ -16,7 +16,7 @@ from somfy_protect.sso import init_sso
 from somfy_protect.api import SomfyProtectApi
 from somfy_protect.websocket import SomfyProtectWebsocket
 
-VERSION = "2023.9.2"
+VERSION = "2023.9.3"
 
 
 def somfy_protect_loop(config, mqtt_client, api):
@@ -84,9 +84,9 @@ if __name__ == "__main__":
         )
         p1.start()
         p2.start()
-        p2.join()
         while True:
             if not p2.is_alive():
+                LOGGER.warning("Websocket is DEAD, restarting")
                 p2 = threading.Thread(
                     target=somfy_protect_wss_loop,
                     args=(
@@ -98,6 +98,17 @@ if __name__ == "__main__":
                     ),
                 )
                 p2.start()
-                p2.join()
+
+            if not p1.is_alive():
+                LOGGER.warning("API is DEAD, restarting")
+                p1 = threading.Thread(
+                    target=somfy_protect_loop,
+                    args=(
+                        CONFIG,
+                        MQTT_CLIENT,
+                        API,
+                    ),
+                )
+                p1.start()
     except Exception as exp:
         LOGGER.error(f"Force stopping application {exp}")

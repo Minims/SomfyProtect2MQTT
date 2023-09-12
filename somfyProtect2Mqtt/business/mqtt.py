@@ -78,11 +78,11 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
         if text_payload == "True":
             text_payload = bool(True)
 
-        elif text_payload == "False":
+        if text_payload == "False":
             text_payload = bool(False)
 
         # Manage Alarm Status
-        elif text_payload in ALARM_STATUS:
+        if text_payload in ALARM_STATUS:
             LOGGER.info(f"Security Level update ! Setting to {text_payload}")
             try:
                 site_id = msg.topic.split("/")[1]
