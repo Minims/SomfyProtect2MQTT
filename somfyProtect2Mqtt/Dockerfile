@@ -15,8 +15,9 @@ COPY requirements_addon.txt .
 
 RUN apt-get update \
     && apt-get install --yes --no-install-recommends \
-    python3-opencv ffmpeg \
+    build-essential zlib1g-dev libjpeg62-turbo-dev python3-opencv ffmpeg \
     && python3 -m pip install -r requirements_addon.txt \
+    && apt-get autoremove --yes build-essential zlib1g-dev libjpeg62-turbo-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
