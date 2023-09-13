@@ -110,5 +110,8 @@ if __name__ == "__main__":
                     ),
                 )
                 p1.start()
+
+            time.sleep(1)
+
     except Exception as exp:
         LOGGER.error(f"Force stopping application {exp}")
