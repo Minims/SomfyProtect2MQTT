@@ -137,7 +137,7 @@ class SomfyProtectWebsocket:
 
         directory = "/config/somfyprotect2mqtt"
         try:
-            os.makedirs(directory)
+            os.makedirs(directory, exist_ok=True)
             with open(f"{directory}/stream_url_{device_id}", "w", encoding="utf-8") as file:
                 file.write(stream_url)
         except OSError as exc:
