@@ -36,6 +36,7 @@ class SomfyProtectWebsocket:
     ):
         self.mqtt_client = mqtt_client
         self.mqtt_config = config.get("mqtt")
+        self.streaming_config = config.get("streaming")
         self.api = api
         self.sso = sso
 
@@ -135,17 +136,29 @@ class SomfyProtectWebsocket:
             retain=False,
         )
 
-        LOGGER.info("Start MQTT Image")
-        camera = VideoCamera(url=stream_url)
-        frame = None
-        while camera.is_opened():
-            frame = camera.get_frame()
-            if frame is None:
-                break
-            byte_arr = bytearray(frame)
-            topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/snapshot"
-            mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=byte_arr, retain=True, is_json=False, qos=2)
-        camera.release()
+        if self.streaming_config == "go2rtc":
+            directory = "/config/somfyprotect2mqtt"
+            try:
+                os.makedirs(directory, exist_ok=True)
+                with open(f"{directory}/stream_url_{device_id}", "w", encoding="utf-8") as file:
+                    file.write(stream_url)
+            except OSError as exc:
+                LOGGER.warning(f"Unable to create directory {directory}: {exc}")
+
+        if self.streaming_config == "mqtt":
+            LOGGER.info("Start MQTT Image")
+            camera = VideoCamera(url=stream_url)
+            frame = None
+            while camera.is_opened():
+                frame = camera.get_frame()
+                if frame is None:
+                    break
+                byte_arr = bytearray(frame)
+                topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/snapshot"
+                mqtt_publish(
+                    mqtt_client=self.mqtt_client, topic=topic, payload=byte_arr, retain=True, is_json=False, qos=2
+                )
+            camera.release()
 
     def update_keyfob_presence(self, message):
         """Update Key Fob Presence"""

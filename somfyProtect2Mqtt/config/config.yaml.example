@@ -30,3 +30,4 @@ mqtt:
 delay_site: 10  # seconds
 delay_device: 60  # seconds
 manual_snapshot: false
+streaming: mqtt # mqtt or go2rtc (go2rtc only work for the HA Addon)
