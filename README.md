@@ -95,6 +95,7 @@ python3 main.py
 
 ## Video Streaming
 
+1. MQTT Camera
 Currently, Somfy does not provide a permanent streaming URL.
 This is a On-Demand stream, and the stream is live for about 120s.
 
@@ -115,6 +116,41 @@ entities:
     icon: mdi:play-pause
 camera_image: camera.indoor_camera_snapshot
 title: Indoor Camera
+```
+
+2. go2rtc / WebRTC Camera
+
+Copy file config/echo/somfy.sh in HA in `/config/echo/somfy.sh`
+
+- Install HA Addon go2rtc: https://github.com/AlexxIT/go2rtc
+- Install HACS WebRTC Camera: https://github.com/AlexxIT/WebRTC
+
+Configure go2rtc:
+```
+streams:
+  somfy_indoor_camera_echo:
+    - echo:/config/echo/somfy.sh <camera device_id>
+```
+
+Add WebRTC Camera Card
+```
+type: custom:webrtc-camera
+url: somfy_indoor_camera_echo
+shortcuts:
+  services:
+    - name: Cover
+      icon: mdi:window-shutter
+      service: switch.toggle
+      service_data:
+        entity_id: switch.indoor_camera_shutter_state
+    - name: Stream
+      icon: mdi:play-pause
+      service: switch.toggle
+      service_data:
+        entity_id: switch.indoor_camera_stream
+style: >-
+  .shortcuts {left: 450px; top: 25px; right: unset; display: flex;
+  flex-direction: column; gap: 10px}
 ```
 
 ## Systemd (Running in background on boot)
