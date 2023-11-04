@@ -342,7 +342,7 @@ def update_camera_snapshot(
     mqtt_config: dict,
     my_sites_id: list,
 ) -> None:
-    """Uodate Camera Snapshot"""
+    """Update Camera Snapshot"""
     LOGGER.info("Update Camera Snapshot")
     for site_id in my_sites_id:
         try:
@@ -355,35 +355,39 @@ def update_camera_snapshot(
             ]:
                 my_devices = api.get_devices(site_id=site_id, category=category)
                 for device in my_devices:
-                    api.camera_refresh_snapshot(site_id=site_id, device_id=device.id)
-                    response = api.camera_snapshot(site_id=site_id, device_id=device.id)
-                    if response.status_code == 200:
-                        now = datetime.now()
-                        timestamp = int(now.timestamp())
+                    LOGGER.info(f"Shutter is {device.status.get('shutter_state', 'opened')}")
+                    if device.status.get("shutter_state", "opened") != "closed":
+                        api.camera_refresh_snapshot(site_id=site_id, device_id=device.id)
+                        response = api.camera_snapshot(site_id=site_id, device_id=device.id)
+                        if response.status_code == 200:
+                            now = datetime.now()
+                            timestamp = int(now.timestamp())
 
-                        # Write image to temp file
-                        path = f"{device.id}-{timestamp}.jpeg"
-                        with open(path, "wb") as tmp_file:
-                            for chunk in response:
-                                tmp_file.write(chunk)
+                            # Write image to temp file
+                            path = f"{device.id}-{timestamp}.jpeg"
+                            with open(path, "wb") as tmp_file:
+                                for chunk in response:
+                                    tmp_file.write(chunk)
 
-                        # Add Watermark
-                        insert_watermark(file=f"{os.getcwd()}/{path}", watermark=now.strftime("%Y-%m-%d %H:%M:%S"))
+                            # Add Watermark
+                            insert_watermark(file=f"{os.getcwd()}/{path}", watermark=now.strftime("%Y-%m-%d %H:%M:%S"))
 
-                        # Read and Push to MQTT
-                        with open(path, "rb") as tmp_file:
-                            image = tmp_file.read()
-                        byte_arr = bytearray(image)
-                        topic = f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/snapshot"
-                        mqtt_publish(
-                            mqtt_client=mqtt_client,
-                            topic=topic,
-                            payload=byte_arr,
-                            retain=True,
-                            is_json=False,
-                        )
-                        # Clean file
-                        os.remove(path)
+                            # Read and Push to MQTT
+                            with open(path, "rb") as tmp_file:
+                                image = tmp_file.read()
+                            byte_arr = bytearray(image)
+                            topic = (
+                                f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/snapshot"
+                            )
+                            mqtt_publish(
+                                mqtt_client=mqtt_client,
+                                topic=topic,
+                                payload=byte_arr,
+                                retain=True,
+                                is_json=False,
+                            )
+                            # Clean file
+                            os.remove(path)
 
         except Exception as exp:
             LOGGER.warning(f"Error while refreshing snapshot: {exp}")
