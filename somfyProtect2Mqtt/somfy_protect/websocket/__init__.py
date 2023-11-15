@@ -137,7 +137,7 @@ class SomfyProtectWebsocket:
         )
 
         if self.streaming_config == "go2rtc":
-            directory = "/config/somfyprotect2mqtt"
+            directory = "/homeassistant/somfyprotect2mqtt"
             try:
                 os.makedirs(directory, exist_ok=True)
                 with open(f"{directory}/stream_url_{device_id}", "w", encoding="utf-8") as file:

@@ -96,8 +96,8 @@ python3 main.py
 ## Video Streaming
 
 1. MQTT Camera
-Currently, Somfy does not provide a permanent streaming URL.
-This is a On-Demand stream, and the stream is live for about 120s.
+   Currently, Somfy does not provide a permanent streaming URL.
+   This is a On-Demand stream, and the stream is live for about 120s.
 
 To start the stream you need:
 
@@ -120,19 +120,21 @@ title: Indoor Camera
 
 2. go2rtc / WebRTC Camera
 
-Copy file config/echo/somfy.sh in HA in `/config/echo/somfy.sh`
+Copy file homeassistant/echo/somfy.sh in HA in `/homeassistant/echo/somfy.sh`
 
 - Install HA Addon go2rtc: https://github.com/AlexxIT/go2rtc
 - Install HACS WebRTC Camera: https://github.com/AlexxIT/WebRTC
 
 Configure go2rtc:
+
 ```
 streams:
   somfy_indoor_camera_echo:
-    - echo:/config/echo/somfy.sh <camera device_id>
+    - echo:/homeassistant/echo/somfy.sh <camera device_id>
 ```
 
 Add WebRTC Camera Card
+
 ```
 type: custom:webrtc-camera
 url: somfy_indoor_camera_echo

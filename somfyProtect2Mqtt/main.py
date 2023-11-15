@@ -16,7 +16,7 @@ from somfy_protect.sso import init_sso
 from somfy_protect.api import SomfyProtectApi
 from somfy_protect.websocket import SomfyProtectWebsocket
 
-VERSION = "2023.11.0"
+VERSION = "2023.11.1"
 
 
 def somfy_protect_loop(config, mqtt_client, api):

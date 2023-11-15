@@ -8,7 +8,7 @@ import logging
 import sys
 
 LOGGER = logging.getLogger(__name__)
-FOLDER = "/config/somfyProtect2mqtt"
+FOLDER = "/homeassistant/somfyProtect2mqtt"
 
 logging.basicConfig(
     level=logging.INFO,
