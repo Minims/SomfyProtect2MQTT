@@ -62,6 +62,11 @@ if __name__ == "__main__":
 
     CONFIG = read_config_file(CONFIG_FILE)
 
+    # set Debug level from config or with -v
+    DEBUG = CONFIG.get("debug", DEBUG)
+    LOG_LEVEL = logging.DEBUG if DEBUG else logging.INFO
+    LOGGER.setLevel(level=LOG_LEVEL)
+
     SSO = init_sso(config=CONFIG)
     API = SomfyProtectApi(sso=SSO)
     MQTT_CLIENT = init_mqtt(config=CONFIG, api=API)
