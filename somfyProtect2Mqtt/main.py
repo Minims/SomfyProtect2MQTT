@@ -16,13 +16,15 @@ from somfy_protect.sso import init_sso
 from somfy_protect.api import SomfyProtectApi
 from somfy_protect.websocket import SomfyProtectWebsocket
 
-VERSION = "2023.11.0"
+VERSION = "2023.12.0"
 
 
 def somfy_protect_loop(config, mqtt_client, api):
     """SomfyProtect 2 MQTT Loop"""
     try:
-        somfy_protect_api = SomfyProtect2Mqtt(api=api, mqtt_client=mqtt_client, config=config)
+        somfy_protect_api = SomfyProtect2Mqtt(
+            api=api, mqtt_client=mqtt_client, config=config
+        )
         time.sleep(1)
         somfy_protect_api.loop()
     except SomfyProtectInitError as exc:
@@ -33,7 +35,9 @@ def somfy_protect_loop(config, mqtt_client, api):
 def somfy_protect_wss_loop(sso, debug, config, mqtt_client, api):
     """SomfyProtect WSS Loop"""
     try:
-        wss = SomfyProtectWebsocket(sso=sso, debug=debug, config=config, mqtt_client=mqtt_client, api=api)
+        wss = SomfyProtectWebsocket(
+            sso=sso, debug=debug, config=config, mqtt_client=mqtt_client, api=api
+        )
         wss.run_forever()
     except Exception as exc:
         LOGGER.error(f"Force stopping WebSocket {exc}")
