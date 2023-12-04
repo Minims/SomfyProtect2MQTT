@@ -30,7 +30,8 @@ def somfy_protect_loop(config, mqtt_client, api):
         somfy_protect_api.loop()
     except SomfyProtectInitError as exc:
         LOGGER.error(f"Force stopping Api {exc}")
-        close_and_exit(somfy_protect_api, 0)
+        if somfy_protect_api:
+            close_and_exit(somfy_protect_api, 0)
 
 
 def somfy_protect_wss_loop(sso, debug, config, mqtt_client, api):
@@ -42,7 +43,8 @@ def somfy_protect_wss_loop(sso, debug, config, mqtt_client, api):
         wss.run_forever()
     except Exception as exc:
         LOGGER.error(f"Force stopping WebSocket {exc}")
-        close_and_exit(wss, 0)
+        if wss:
+            close_and_exit(wss, 0)
 
 
 if __name__ == "__main__":
