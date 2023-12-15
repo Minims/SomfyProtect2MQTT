@@ -3,6 +3,7 @@ import base64
 import json
 import logging
 import os
+import rel
 import ssl
 import time
 from signal import SIGKILL
@@ -44,8 +45,10 @@ class SomfyProtectWebsocket:
             websocket.enableTrace(True)
             LOGGER.debug(f"Opening websocket connection to {WEBSOCKET}")
         self.token = self.sso.request_token()
+        websocket.setdefaulttimeout(5)
         self._websocket = WebSocketApp(
             f"{WEBSOCKET}{self.token.get('access_token')}",
+            on_open=self.on_open,
             on_message=self.on_message,
             on_error=self.on_error,
             on_close=self.on_close,
@@ -54,8 +57,10 @@ class SomfyProtectWebsocket:
     def run_forever(self):
         """Run Forever Loop"""
         self._websocket.run_forever(
+            # dispatcher=rel,
             ping_timeout=10,
             ping_interval=30,
+            reconnect=5,
             sslopt={"cert_reqs": ssl.CERT_NONE},
         )
 
@@ -101,15 +106,19 @@ class SomfyProtectWebsocket:
         else:
             LOGGER.debug(f"Unknown message: {message}")
 
-    def on_error(self, ws_app, message):  # pylint: disable=unused-argument,no-self-use
+    def on_error(self, ws_app, error):  # pylint: disable=unused-argument,no-self-use
         """Handle Websocket Errors"""
-        LOGGER.error(f"Error in the websocket connection: {message}")
+        LOGGER.error(f"Error in the websocket connection: {error}")
+
+    def on_open(self, ws_app):
+        """Handle Websocket Open Connection"""
+        LOGGER.info("Opened connection")
 
     def on_close(
         self, ws_app, close_status_code, close_msg
     ):  # pylint: disable=unused-argument,no-self-use
         """Handle Websocket Close Connection"""
-        LOGGER.info("Websocket on_close")
+        LOGGER.info(f"Websocket on_close, status {close_status_code} => {close_msg}")
 
     def video_stream_ready(self, message):
         # {
