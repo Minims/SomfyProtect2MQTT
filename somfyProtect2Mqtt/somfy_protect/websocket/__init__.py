@@ -40,6 +40,7 @@ class SomfyProtectWebsocket:
         self.streaming_config = config.get("streaming")
         self.api = api
         self.sso = sso
+        self.time = time.time()
 
         if debug:
             websocket.enableTrace(True)
@@ -52,6 +53,8 @@ class SomfyProtectWebsocket:
             on_message=self.on_message,
             on_error=self.on_error,
             on_close=self.on_close,
+            on_ping=self.on_ping,
+            on_pong=self.on_pong,
         )
 
     def run_forever(self):
@@ -59,15 +62,26 @@ class SomfyProtectWebsocket:
         self._websocket.run_forever(
             # dispatcher=rel,
             ping_timeout=10,
-            ping_interval=30,
+            ping_interval=15,
             reconnect=5,
             sslopt={"cert_reqs": ssl.CERT_NONE},
         )
+        LOGGER.info("Running Forever")
 
     def close(self):
         """Close Websocket Connection"""
         LOGGER.info("WebSocket Close")
         self._websocket.close()
+
+    def on_ping(self, ws_app, message):
+        """Handle Ping Message"""
+        LOGGER.debug(f"Ping Message: {message}")
+
+    def on_pong(self, ws_app, message):
+        """Handle Pong Message"""
+        LOGGER.debug(f"Pong Message: {message}")
+        if (time.time() - self.time) > 3600:
+            self.close()
 
     def on_message(self, ws_app, message):
         """Handle New message received on WebSocket"""
