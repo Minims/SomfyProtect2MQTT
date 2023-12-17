@@ -3,6 +3,7 @@ import base64
 import json
 import logging
 import os
+import rel
 import ssl
 import time
 from signal import SIGKILL
@@ -39,30 +40,48 @@ class SomfyProtectWebsocket:
         self.streaming_config = config.get("streaming")
         self.api = api
         self.sso = sso
+        self.time = time.time()
 
         if debug:
             websocket.enableTrace(True)
             LOGGER.debug(f"Opening websocket connection to {WEBSOCKET}")
         self.token = self.sso.request_token()
+        websocket.setdefaulttimeout(5)
         self._websocket = WebSocketApp(
             f"{WEBSOCKET}{self.token.get('access_token')}",
+            on_open=self.on_open,
             on_message=self.on_message,
             on_error=self.on_error,
             on_close=self.on_close,
+            on_ping=self.on_ping,
+            on_pong=self.on_pong,
         )
 
     def run_forever(self):
         """Run Forever Loop"""
         self._websocket.run_forever(
+            # dispatcher=rel,
             ping_timeout=10,
-            ping_interval=20,
+            ping_interval=15,
+            reconnect=5,
             sslopt={"cert_reqs": ssl.CERT_NONE},
         )
+        LOGGER.info("Running Forever")
 
     def close(self):
         """Close Websocket Connection"""
         LOGGER.info("WebSocket Close")
         self._websocket.close()
+
+    def on_ping(self, ws_app, message):
+        """Handle Ping Message"""
+        LOGGER.debug(f"Ping Message: {message}")
+
+    def on_pong(self, ws_app, message):
+        """Handle Pong Message"""
+        LOGGER.debug(f"Pong Message: {message}")
+        if (time.time() - self.time) > 3600:
+            self.close()
 
     def on_message(self, ws_app, message):
         """Handle New message received on WebSocket"""
@@ -101,13 +120,19 @@ class SomfyProtectWebsocket:
         else:
             LOGGER.debug(f"Unknown message: {message}")
 
-    def on_error(self, ws_app, message):  # pylint: disable=unused-argument,no-self-use
+    def on_error(self, ws_app, error):  # pylint: disable=unused-argument,no-self-use
         """Handle Websocket Errors"""
-        LOGGER.error(f"Error in the websocket connection: {message}")
+        LOGGER.error(f"Error in the websocket connection: {error}")
 
-    def on_close(self, ws_app, close_status_code, close_msg):  # pylint: disable=unused-argument,no-self-use
+    def on_open(self, ws_app):
+        """Handle Websocket Open Connection"""
+        LOGGER.info("Opened connection")
+
+    def on_close(
+        self, ws_app, close_status_code, close_msg
+    ):  # pylint: disable=unused-argument,no-self-use
         """Handle Websocket Close Connection"""
-        LOGGER.info("Websocket on_close")
+        LOGGER.info(f"Websocket on_close, status {close_status_code} => {close_msg}")
 
     def video_stream_ready(self, message):
         # {
@@ -140,7 +165,9 @@ class SomfyProtectWebsocket:
             directory = "/config/somfyprotect2mqtt"
             try:
                 os.makedirs(directory, exist_ok=True)
-                with open(f"{directory}/stream_url_{device_id}", "w", encoding="utf-8") as file:
+                with open(
+                    f"{directory}/stream_url_{device_id}", "w", encoding="utf-8"
+                ) as file:
                     file.write(stream_url)
             except OSError as exc:
                 LOGGER.warning(f"Unable to create directory {directory}: {exc}")
@@ -156,7 +183,12 @@ class SomfyProtectWebsocket:
                 byte_arr = bytearray(frame)
                 topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/snapshot"
                 mqtt_publish(
-                    mqtt_client=self.mqtt_client, topic=topic, payload=byte_arr, retain=True, is_json=False, qos=2
+                    mqtt_client=self.mqtt_client,
+                    topic=topic,
+                    payload=byte_arr,
+                    retain=True,
+                    is_json=False,
+                    qos=2,
                 )
             camera.release()
 
@@ -227,7 +259,9 @@ class SomfyProtectWebsocket:
         payload = ({"security_level": ALARM_STATUS.get(security_level, "disarmed")},)
         topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/state"
 
-        mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True)
+        mqtt_publish(
+            mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True
+        )
 
     def alarm_trespass(self, message):
         """Alarm Triggered !!"""
@@ -273,10 +307,14 @@ class SomfyProtectWebsocket:
             payload = {"motion_sensor": "True"}
             topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/pir"
 
-            mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True)
+            mqtt_publish(
+                mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True
+            )
             time.sleep(3)
             payload = {"motion_sensor": "False"}
-            mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True)
+            mqtt_publish(
+                mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True
+            )
 
     def alarm_panic(self, message):
         """Report Alarm Panic"""
@@ -368,10 +406,14 @@ class SomfyProtectWebsocket:
         LOGGER.info(f"It Seems the Door {device_id} is moving")
         topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/pir"
         payload = {"motion_sensor": "True"}
-        mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True)
+        mqtt_publish(
+            mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True
+        )
         time.sleep(3)
         payload = {"motion_sensor": "False"}
-        mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True)
+        mqtt_publish(
+            mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True
+        )
 
     def site_device_testing_status(self, message):
         """Site Device Testing Status"""

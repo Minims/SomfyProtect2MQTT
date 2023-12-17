@@ -22,6 +22,8 @@ from somfy_protect.api.devices.category import Category
 
 LOGGER = logging.getLogger(__name__)
 
+DEVICE_TAG = {}
+
 
 def ha_sites_config(
     api: SomfyProtectApi,
@@ -40,7 +42,9 @@ def ha_sites_config(
             mqtt_config=mqtt_config,
             homeassistant_config=homeassistant_config,
         )
-        site_extended = ha_discovery_alarm_actions(site=my_site, mqtt_config=mqtt_config)
+        site_extended = ha_discovery_alarm_actions(
+            site=my_site, mqtt_config=mqtt_config
+        )
         configs = [site, site_extended]
         for site_config in configs:
             mqtt_publish(
@@ -95,7 +99,9 @@ def ha_devices_config(
                     retain=True,
                 )
                 if state == "device_lost":
-                    old_topic = device_config.get("topic").replace("device_tracker", "binary_sensor")
+                    old_topic = device_config.get("topic").replace(
+                        "device_tracker", "binary_sensor"
+                    )
                     mqtt_publish(
                         mqtt_client=mqtt_client,
                         topic=old_topic,
@@ -104,7 +110,9 @@ def ha_devices_config(
                     )
 
                 if device_config.get("config").get("command_topic"):
-                    mqtt_client.client.subscribe(device_config.get("config").get("command_topic"))
+                    mqtt_client.client.subscribe(
+                        device_config.get("config").get("command_topic")
+                    )
 
             if "box" in device.device_definition.get("type"):
                 LOGGER.info(f"Found Link {device.device_definition.get('label')}")
@@ -136,7 +144,9 @@ def ha_devices_config(
                 )
                 mqtt_client.client.subscribe(halt.get("config").get("command_topic"))
 
-            if "camera" in device.device_definition.get("type") or "allinone" in device.device_definition.get("type"):
+            if "camera" in device.device_definition.get(
+                "type"
+            ) or "allinone" in device.device_definition.get("type"):
                 LOGGER.info(f"Found Camera {device.device_definition.get('label')}")
                 camera_config = ha_discovery_cameras(
                     site_id=site_id,
@@ -190,7 +200,9 @@ def ha_devices_config(
                     retain=True,
                 )
                 if device_config.get("config").get("command_topic"):
-                    mqtt_client.client.subscribe(device_config.get("config").get("command_topic"))
+                    mqtt_client.client.subscribe(
+                        device_config.get("config").get("command_topic")
+                    )
 
                 # Stream
                 stream = ha_discovery_devices(
@@ -206,7 +218,9 @@ def ha_devices_config(
                     retain=True,
                 )
                 if stream.get("config").get("command_topic"):
-                    mqtt_client.client.subscribe(stream.get("config").get("command_topic"))
+                    mqtt_client.client.subscribe(
+                        stream.get("config").get("command_topic")
+                    )
                     mqtt_client.client.subscribe(
                         f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/stream"
                     )
@@ -226,7 +240,9 @@ def ha_devices_config(
                     payload=key_fob_config.get("config"),
                     retain=True,
                 )
-            if "mss_outdoor_siren" in device.device_definition.get("device_definition_id"):
+            if "mss_outdoor_siren" in device.device_definition.get(
+                "device_definition_id"
+            ):
                 mss_outdoor_siren = ha_discovery_devices(
                     site_id=site_id,
                     device=device,
@@ -239,10 +255,19 @@ def ha_devices_config(
                     payload=mss_outdoor_siren.get("config"),
                     retain=True,
                 )
-                mqtt_client.client.subscribe(mss_outdoor_siren.get("config").get("command_topic"))
+                mqtt_client.client.subscribe(
+                    mss_outdoor_siren.get("config").get("command_topic")
+                )
 
             if "mss_siren" in device.device_definition.get("device_definition_id"):
-                for sensor in ["smokeExtended", "siren1s", "armed", "disarmed", "intrusion", "ok"]:
+                for sensor in [
+                    "smokeExtended",
+                    "siren1s",
+                    "armed",
+                    "disarmed",
+                    "intrusion",
+                    "ok",
+                ]:
                     LOGGER.info(f"Found mss_siren, adding sound test: {sensor}")
                     mss_siren = ha_discovery_devices(
                         site_id=site_id,
@@ -256,10 +281,16 @@ def ha_devices_config(
                         payload=mss_siren.get("config"),
                         retain=True,
                     )
-                mqtt_client.client.subscribe(mss_siren.get("config").get("command_topic"))
+                mqtt_client.client.subscribe(
+                    mss_siren.get("config").get("command_topic")
+                )
 
-            if "pir" in device.device_definition.get("type") or "tag" in device.device_definition.get("type"):
-                LOGGER.info(f"Found Motion Sensor (PIR & IntelliTag) {device.device_definition.get('label')}")
+            if "pir" in device.device_definition.get(
+                "type"
+            ) or "tag" in device.device_definition.get("type"):
+                LOGGER.info(
+                    f"Found Motion Sensor (PIR & IntelliTag) {device.device_definition.get('label')}"
+                )
                 pir_config = ha_discovery_devices(
                     site_id=site_id,
                     device=device,
@@ -296,9 +327,33 @@ def update_sites_status(
             mqtt_publish(
                 mqtt_client=mqtt_client,
                 topic=f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/state",
-                payload={"security_level": ALARM_STATUS.get(site.security_level, "disarmed")},
+                payload={
+                    "security_level": ALARM_STATUS.get(site.security_level, "disarmed")
+                },
                 retain=True,
             )
+            # history_lines = api.get_history(site_id=site_id)
+            # for history_line in history_lines:
+            #     LOGGER.info(history_line)
+            #     LOGGER.info(
+            #        f"{history_line.get('occurred_at')} - {history_line.get('message_type')} - {history_line.get('message_key')} - {history_line.get('origin')}"
+            #     )
+            #     if history_line.get("message_type") == "home_activity":
+            #         if history_line.get("message_key") == "homeActivity.user.exit":
+            #             LOGGER.info(f"OUT: {history_line.get('origin').get('user_id')}")
+            #             if DEVICE_TAG.get(history_line.get("origin").get("user_id")):
+            #                 device = api.get_device(
+            #                     site_id=site_id,
+            #                     device_id=DEVICE_TAG.get(
+            #                         history_line.get("origin").get("user_id")
+            #                     ),
+            #                 )
+            #                 LOGGER.info(device.label)
+            #         elif (
+            #             history_line.get("message_key") == "homeActivity.user.entrance"
+            #         ):
+            #             LOGGER.info(f"IN: {history_line.get('origin').get('user_id')}")
+
         except Exception as exp:
             LOGGER.warning(f"Error while refreshing site: {exp}")
             continue
@@ -317,6 +372,8 @@ def update_devices_status(
             my_devices = api.get_devices(site_id=site_id)
             for device in my_devices:
                 settings = device.settings.get("global")
+                if device.settings.get("global").get("user_id"):
+                    DEVICE_TAG[device.settings.get("global").get("user_id")] = device.id
                 status = device.status
                 status_settings = {**status, **settings}
 
@@ -355,10 +412,16 @@ def update_camera_snapshot(
             ]:
                 my_devices = api.get_devices(site_id=site_id, category=category)
                 for device in my_devices:
-                    LOGGER.info(f"Shutter is {device.status.get('shutter_state', 'opened')}")
+                    LOGGER.info(
+                        f"Shutter is {device.status.get('shutter_state', 'opened')}"
+                    )
                     if device.status.get("shutter_state", "opened") != "closed":
-                        api.camera_refresh_snapshot(site_id=site_id, device_id=device.id)
-                        response = api.camera_snapshot(site_id=site_id, device_id=device.id)
+                        api.camera_refresh_snapshot(
+                            site_id=site_id, device_id=device.id
+                        )
+                        response = api.camera_snapshot(
+                            site_id=site_id, device_id=device.id
+                        )
                         if response.status_code == 200:
                             now = datetime.now()
                             timestamp = int(now.timestamp())
@@ -370,15 +433,16 @@ def update_camera_snapshot(
                                     tmp_file.write(chunk)
 
                             # Add Watermark
-                            insert_watermark(file=f"{os.getcwd()}/{path}", watermark=now.strftime("%Y-%m-%d %H:%M:%S"))
+                            insert_watermark(
+                                file=f"{os.getcwd()}/{path}",
+                                watermark=now.strftime("%Y-%m-%d %H:%M:%S"),
+                            )
 
                             # Read and Push to MQTT
                             with open(path, "rb") as tmp_file:
                                 image = tmp_file.read()
                             byte_arr = bytearray(image)
-                            topic = (
-                                f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/snapshot"
-                            )
+                            topic = f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/snapshot"
                             mqtt_publish(
                                 mqtt_client=mqtt_client,
                                 topic=topic,
