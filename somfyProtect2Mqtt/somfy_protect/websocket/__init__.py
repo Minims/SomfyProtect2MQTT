@@ -80,7 +80,7 @@ class SomfyProtectWebsocket:
     def on_pong(self, ws_app, message):
         """Handle Pong Message"""
         LOGGER.debug(f"Pong Message: {message}")
-        if (time.time() - self.time) > 3600:
+        if (time.time() - self.time) > 1800:
             self.close()
 
     def on_message(self, ws_app, message):
