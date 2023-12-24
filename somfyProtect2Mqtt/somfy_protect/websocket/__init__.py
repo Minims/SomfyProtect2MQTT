@@ -256,9 +256,8 @@ class SomfyProtectWebsocket:
         LOGGER.info("Update Alarm Status")
         site_id = message.get("site_id")
         security_level = message.get("security_level")
-        payload = ({"security_level": ALARM_STATUS.get(security_level, "disarmed")},)
+        payload = {"security_level": ALARM_STATUS.get(security_level, "disarmed")}
         topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/state"
-
         mqtt_publish(
             mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True
         )
