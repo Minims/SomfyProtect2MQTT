@@ -323,15 +323,27 @@ def update_sites_status(
         try:
             site = api.get_site(site_id=site_id)
             LOGGER.info(f"Update {site.label} Status")
-            # Push status to MQTT
-            mqtt_publish(
-                mqtt_client=mqtt_client,
-                topic=f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/state",
-                payload={
-                    "security_level": ALARM_STATUS.get(site.security_level, "disarmed")
-                },
-                retain=True,
-            )
+
+            try:
+                # Push status to MQTT
+                mqtt_publish(
+                    mqtt_client=mqtt_client,
+                    topic=f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/state",
+                    payload={
+                        "security_level": ALARM_STATUS.get(
+                            site.security_level, "disarmed"
+                        )
+                    },
+                    retain=True,
+                )
+            except Exception as exp:
+                LOGGER.warning(f"Error while updating MQTT: {exp}")
+                continue
+
+        except Exception as exp:
+            LOGGER.warning(f"Error while refreshing site: {exp}")
+            continue
+
             # history_lines = api.get_history(site_id=site_id)
             # for history_line in history_lines:
             #     LOGGER.info(history_line)
