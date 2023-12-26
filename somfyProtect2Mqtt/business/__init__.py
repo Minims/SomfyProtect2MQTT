@@ -8,6 +8,7 @@ import schedule
 from business.mqtt import mqtt_publish
 from business.watermark import insert_watermark
 from exceptions import SomfyProtectInitError
+from http.client import RemoteDisconnected
 from homeassistant.ha_discovery import (
     ALARM_STATUS,
     DEVICE_CAPABILITIES,
@@ -339,7 +340,8 @@ def update_sites_status(
             except Exception as exp:
                 LOGGER.warning(f"Error while updating MQTT: {exp}")
                 continue
-
+        except RemoteDisconnected as exp:
+            LOGGER.info(f"Retrying...")
         except Exception as exp:
             LOGGER.warning(f"Error while refreshing site: {exp}")
             continue

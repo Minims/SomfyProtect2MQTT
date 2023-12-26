@@ -5,7 +5,6 @@ import logging
 
 # import os
 # import subprocess
-import rel
 import threading
 import time
 
