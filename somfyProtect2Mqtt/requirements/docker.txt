@@ -1,2 +1,2 @@
 -r common.txt
-opencv-python==4.8.0.76
+opencv-python==4.9.0.80
