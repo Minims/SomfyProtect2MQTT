@@ -61,7 +61,7 @@ class Device:
         status: Dict,
         diagnosis: Dict,
         settings: Dict,
-        update_available: str,
+        update_available: str = "False",
         **_: Any,
     ):
         self.id = device_id  # pylint: disable=invalid-name
