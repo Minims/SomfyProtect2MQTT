@@ -3,7 +3,6 @@ import base64
 import json
 import logging
 import os
-import rel
 import ssl
 import time
 from signal import SIGKILL

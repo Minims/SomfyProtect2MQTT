@@ -11,13 +11,13 @@ ENV PYTHONUNBUFFERED=1
 ARG DEBIAN_FRONTEND="noninteractive"
 
 # Install pip requirements
-COPY requirements.txt .
+COPY requirements .
 
 RUN apt-get update \
     && apt-get install --yes --no-install-recommends \
     build-essential zlib1g-dev libjpeg62-turbo-dev cmake libgl1 libgl1-mesa-glx libglib2.0-0 \
     && python -m pip install --upgrade pip setuptools wheel \
-    && python -m pip install -r requirements.txt \
+    && python -m pip install -r requirements/docker.txt \
     && apt-get autoremove --yes build-essential zlib1g-dev libjpeg62-turbo-dev cmake \
     && rm -rf /var/lib/apt/lists/*
 
