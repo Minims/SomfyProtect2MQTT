@@ -1,4 +1,5 @@
 """Somfy Protect Api"""
+
 import base64
 import logging
 from json import JSONDecodeError
@@ -83,17 +84,11 @@ class SomfyProtectApi:
 
         url = f"{BASE_URL}{path}"
         try:
-            return getattr(self.sso._oauth, method)(
-                url, **kwargs
-            )  # pylint: disable=protected-access
+            return getattr(self.sso._oauth, method)(url, **kwargs)  # pylint: disable=protected-access
         except TokenExpiredError:
-            self.sso._oauth.token = (
-                self.sso.refresh_tokens()
-            )  # pylint: disable=protected-access
+            self.sso._oauth.token = self.sso.refresh_tokens()  # pylint: disable=protected-access
 
-            return getattr(self.sso._oauth, method)(
-                url, **kwargs
-            )  # pylint: disable=protected-access
+            return getattr(self.sso._oauth, method)(url, **kwargs)  # pylint: disable=protected-access
 
     def get(self, path: str) -> Response:
         """Fetch an URL from the Somfy Protect API.
@@ -169,9 +164,7 @@ class SomfyProtectApi:
         response.raise_for_status()
         return response.json()
 
-    def update_security_level(
-        self, site_id: str, security_level: AvailableStatus
-    ) -> Dict:
+    def update_security_level(self, site_id: str, security_level: AvailableStatus) -> Dict:
         """Set Alarm Security Level
 
         Args:
@@ -303,9 +296,7 @@ class SomfyProtectApi:
         response.raise_for_status()
         return response.json()
 
-    def get_devices(
-        self, site_id: str, category: Optional[Category] = None
-    ) -> List[Device]:
+    def get_devices(self, site_id: str, category: Optional[Category] = None) -> List[Device]:
         """List Devices from a Site ID
 
         Args:
@@ -325,9 +316,7 @@ class SomfyProtectApi:
         devices += [
             Device(**d)
             for d in content.get("items")
-            if category is None
-            or category.value.lower()
-            in Device(**d).device_definition.get("label").lower()
+            if category is None or category.value.lower() in Device(**d).device_definition.get("label").lower()
         ]
 
         return devices
@@ -452,9 +441,7 @@ class SomfyProtectApi:
             "ok",
         ]:
             raise ValueError("Sound value is not valid")
-        response = self.post(
-            f"/v3/site/{site_id}/device/{device_id}/sound/{sound}", json={}
-        )
+        response = self.post(f"/v3/site/{site_id}/device/{device_id}/sound/{sound}", json={})
         response.raise_for_status()
         return response.json()
 

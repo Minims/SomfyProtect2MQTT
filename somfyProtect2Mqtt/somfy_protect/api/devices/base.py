@@ -1,4 +1,5 @@
 """Device Managment"""
+
 from typing import Union
 
 from somfy_protect.api.model import Device, Site
