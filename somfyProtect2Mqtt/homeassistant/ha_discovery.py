@@ -718,6 +718,10 @@ def ha_discovery_devices(
         device_config["config"][
             "state_topic"
         ] = f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/pir"
+        if device.device_definition.get("label") == "IntelliTag":
+            device_config["config"]["device_class"] = "safety"
+        if device.device_definition.get("label") == "Myfox Security Infrared Sensor":
+            device_config["config"]["device_class"] = "motion"
 
     return device_config
 
