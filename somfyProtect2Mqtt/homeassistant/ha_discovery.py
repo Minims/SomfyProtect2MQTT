@@ -426,13 +426,14 @@ DEVICE_CAPABILITIES = {
             "pl_off": "False",
         },
     },
-    "human_detect_enabled": {
-        "type": "switch",
-        "config": {
-            "pl_on": "True",
-            "pl_off": "False",
-        },
-    },
+    # It seems this feature is not enable on somfy side.
+    # "human_detect_enabled": {
+    #     "type": "switch",
+    #     "config": {
+    #         "pl_on": "True",
+    #         "pl_off": "False",
+    #     },
+    # },
     "siren_on_camera_detection_disabled": {
         "type": "switch",
         "config": {

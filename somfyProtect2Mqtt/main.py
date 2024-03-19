@@ -16,7 +16,7 @@ from somfy_protect.sso import init_sso
 from somfy_protect.api import SomfyProtectApi
 from somfy_protect.websocket import SomfyProtectWebsocket
 
-VERSION = "2024.1.0"
+VERSION = "2024.3.0"
 LOGGER = logging.getLogger(__name__)
 
 
