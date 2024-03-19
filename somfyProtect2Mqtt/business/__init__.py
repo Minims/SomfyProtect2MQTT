@@ -92,12 +92,20 @@ def ha_devices_config(
                     mqtt_config=mqtt_config,
                     sensor_name=state,
                 )
-                mqtt_publish(
-                    mqtt_client=mqtt_client,
-                    topic=device_config.get("topic"),
-                    payload=device_config.get("config"),
-                    retain=True,
-                )
+                if state in ["human_detect_enabled"]:
+                    mqtt_publish(
+                        mqtt_client=mqtt_client,
+                        topic=device_config.get("topic"),
+                        payload={},
+                        retain=True,
+                    )
+                else:
+                    mqtt_publish(
+                        mqtt_client=mqtt_client,
+                        topic=device_config.get("topic"),
+                        payload=device_config.get("config"),
+                        retain=True,
+                    )
                 if state == "device_lost":
                     old_topic = device_config.get("topic").replace("device_tracker", "binary_sensor")
                     mqtt_publish(
