@@ -1,4 +1,5 @@
 """HomeAssistant MQTT Auto Discover"""
+
 import logging
 from somfy_protect.api.model import Site, Device
 
@@ -425,13 +426,14 @@ DEVICE_CAPABILITIES = {
             "pl_off": "False",
         },
     },
-    "human_detect_enabled": {
-        "type": "switch",
-        "config": {
-            "pl_on": "True",
-            "pl_off": "False",
-        },
-    },
+    # It seems this feature is not enable on somfy side.
+    # "human_detect_enabled": {
+    #     "type": "switch",
+    #     "config": {
+    #         "pl_on": "True",
+    #         "pl_off": "False",
+    #     },
+    # },
     "siren_on_camera_detection_disabled": {
         "type": "switch",
         "config": {
@@ -606,9 +608,9 @@ def ha_discovery_alarm(site: Site, mqtt_config: dict, homeassistant_config: dict
     }
 
     command_topic = f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site.id}/command"
-    site_config[
-        "topic"
-    ] = f"{mqtt_config.get('ha_discover_prefix', 'homeassistant')}/alarm_control_panel/{site.id}/alarm/config"
+    site_config["topic"] = (
+        f"{mqtt_config.get('ha_discover_prefix', 'homeassistant')}/alarm_control_panel/{site.id}/alarm/config"
+    )
     site_config["config"] = {
         "name": site.label,
         "unique_id": f"{site.id}_{site.label}",
@@ -683,9 +685,9 @@ def ha_discovery_devices(
     command_topic = (
         f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/{sensor_name}/command"
     )
-    device_config[
-        "topic"
-    ] = f"{mqtt_config.get('ha_discover_prefix', 'homeassistant')}/{device_type}/{site_id}_{device.id}/{sensor_name}/config"
+    device_config["topic"] = (
+        f"{mqtt_config.get('ha_discover_prefix', 'homeassistant')}/{device_type}/{site_id}_{device.id}/{sensor_name}/config"
+    )
     device_config["config"] = {
         "name": sensor_name,
         "unique_id": f"{device.id}_{sensor_name}",
@@ -717,6 +719,10 @@ def ha_discovery_devices(
         device_config["config"][
             "state_topic"
         ] = f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/pir"
+        if device.device_definition.get("label") == "IntelliTag":
+            device_config["config"]["device_class"] = "safety"
+        if device.device_definition.get("label") == "Myfox Security Infrared Sensor":
+            device_config["config"]["device_class"] = "motion"
 
     return device_config
 
@@ -737,9 +743,9 @@ def ha_discovery_cameras(
         "sw_version": device.version,
     }
 
-    camera_config[
-        "topic"
-    ] = f"{mqtt_config.get('ha_discover_prefix', 'homeassistant')}/camera/{site_id}_{device.id}/snapshot/config"
+    camera_config["topic"] = (
+        f"{mqtt_config.get('ha_discover_prefix', 'homeassistant')}/camera/{site_id}_{device.id}/snapshot/config"
+    )
     camera_config["config"] = {
         "name": "snapshot",
         "unique_id": f"{device.id}_snapshot",

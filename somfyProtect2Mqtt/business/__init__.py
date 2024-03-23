@@ -1,4 +1,5 @@
 """Business Functions"""
+
 import logging
 import os
 from datetime import datetime
@@ -43,9 +44,7 @@ def ha_sites_config(
             mqtt_config=mqtt_config,
             homeassistant_config=homeassistant_config,
         )
-        site_extended = ha_discovery_alarm_actions(
-            site=my_site, mqtt_config=mqtt_config
-        )
+        site_extended = ha_discovery_alarm_actions(site=my_site, mqtt_config=mqtt_config)
         configs = [site, site_extended]
         for site_config in configs:
             mqtt_publish(
@@ -93,16 +92,22 @@ def ha_devices_config(
                     mqtt_config=mqtt_config,
                     sensor_name=state,
                 )
-                mqtt_publish(
-                    mqtt_client=mqtt_client,
-                    topic=device_config.get("topic"),
-                    payload=device_config.get("config"),
-                    retain=True,
-                )
-                if state == "device_lost":
-                    old_topic = device_config.get("topic").replace(
-                        "device_tracker", "binary_sensor"
+                if state in ["human_detect_enabled"]:
+                    mqtt_publish(
+                        mqtt_client=mqtt_client,
+                        topic=device_config.get("topic"),
+                        payload={},
+                        retain=True,
                     )
+                else:
+                    mqtt_publish(
+                        mqtt_client=mqtt_client,
+                        topic=device_config.get("topic"),
+                        payload=device_config.get("config"),
+                        retain=True,
+                    )
+                if state == "device_lost":
+                    old_topic = device_config.get("topic").replace("device_tracker", "binary_sensor")
                     mqtt_publish(
                         mqtt_client=mqtt_client,
                         topic=old_topic,
@@ -111,9 +116,7 @@ def ha_devices_config(
                     )
 
                 if device_config.get("config").get("command_topic"):
-                    mqtt_client.client.subscribe(
-                        device_config.get("config").get("command_topic")
-                    )
+                    mqtt_client.client.subscribe(device_config.get("config").get("command_topic"))
 
             if "box" in device.device_definition.get("type"):
                 LOGGER.info(f"Found Link {device.device_definition.get('label')}")
@@ -145,9 +148,7 @@ def ha_devices_config(
                 )
                 mqtt_client.client.subscribe(halt.get("config").get("command_topic"))
 
-            if "camera" in device.device_definition.get(
-                "type"
-            ) or "allinone" in device.device_definition.get("type"):
+            if "camera" in device.device_definition.get("type") or "allinone" in device.device_definition.get("type"):
                 LOGGER.info(f"Found Camera {device.device_definition.get('label')}")
                 camera_config = ha_discovery_cameras(
                     site_id=site_id,
@@ -201,9 +202,7 @@ def ha_devices_config(
                     retain=True,
                 )
                 if device_config.get("config").get("command_topic"):
-                    mqtt_client.client.subscribe(
-                        device_config.get("config").get("command_topic")
-                    )
+                    mqtt_client.client.subscribe(device_config.get("config").get("command_topic"))
 
                 # Stream
                 stream = ha_discovery_devices(
@@ -219,9 +218,7 @@ def ha_devices_config(
                     retain=True,
                 )
                 if stream.get("config").get("command_topic"):
-                    mqtt_client.client.subscribe(
-                        stream.get("config").get("command_topic")
-                    )
+                    mqtt_client.client.subscribe(stream.get("config").get("command_topic"))
                     mqtt_client.client.subscribe(
                         f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/stream"
                     )
@@ -241,9 +238,7 @@ def ha_devices_config(
                     payload=key_fob_config.get("config"),
                     retain=True,
                 )
-            if "mss_outdoor_siren" in device.device_definition.get(
-                "device_definition_id"
-            ):
+            if "mss_outdoor_siren" in device.device_definition.get("device_definition_id"):
                 mss_outdoor_siren = ha_discovery_devices(
                     site_id=site_id,
                     device=device,
@@ -256,9 +251,7 @@ def ha_devices_config(
                     payload=mss_outdoor_siren.get("config"),
                     retain=True,
                 )
-                mqtt_client.client.subscribe(
-                    mss_outdoor_siren.get("config").get("command_topic")
-                )
+                mqtt_client.client.subscribe(mss_outdoor_siren.get("config").get("command_topic"))
 
             if "mss_siren" in device.device_definition.get("device_definition_id"):
                 for sensor in [
@@ -282,16 +275,10 @@ def ha_devices_config(
                         payload=mss_siren.get("config"),
                         retain=True,
                     )
-                mqtt_client.client.subscribe(
-                    mss_siren.get("config").get("command_topic")
-                )
+                mqtt_client.client.subscribe(mss_siren.get("config").get("command_topic"))
 
-            if "pir" in device.device_definition.get(
-                "type"
-            ) or "tag" in device.device_definition.get("type"):
-                LOGGER.info(
-                    f"Found Motion Sensor (PIR & IntelliTag) {device.device_definition.get('label')}"
-                )
+            if "pir" in device.device_definition.get("type") or "tag" in device.device_definition.get("type"):
+                LOGGER.info(f"Found Motion Sensor (PIR & IntelliTag) {device.device_definition.get('label')}")
                 pir_config = ha_discovery_devices(
                     site_id=site_id,
                     device=device,
@@ -330,11 +317,7 @@ def update_sites_status(
                 mqtt_publish(
                     mqtt_client=mqtt_client,
                     topic=f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/state",
-                    payload={
-                        "security_level": ALARM_STATUS.get(
-                            site.security_level, "disarmed"
-                        )
-                    },
+                    payload={"security_level": ALARM_STATUS.get(site.security_level, "disarmed")},
                     retain=True,
                 )
             except Exception as exp:
@@ -426,16 +409,10 @@ def update_camera_snapshot(
             ]:
                 my_devices = api.get_devices(site_id=site_id, category=category)
                 for device in my_devices:
-                    LOGGER.info(
-                        f"Shutter is {device.status.get('shutter_state', 'opened')}"
-                    )
+                    LOGGER.info(f"Shutter is {device.status.get('shutter_state', 'opened')}")
                     if device.status.get("shutter_state", "opened") != "closed":
-                        api.camera_refresh_snapshot(
-                            site_id=site_id, device_id=device.id
-                        )
-                        response = api.camera_snapshot(
-                            site_id=site_id, device_id=device.id
-                        )
+                        api.camera_refresh_snapshot(site_id=site_id, device_id=device.id)
+                        response = api.camera_snapshot(site_id=site_id, device_id=device.id)
                         if response.status_code == 200:
                             now = datetime.now()
                             timestamp = int(now.timestamp())
@@ -456,7 +433,9 @@ def update_camera_snapshot(
                             with open(path, "rb") as tmp_file:
                                 image = tmp_file.read()
                             byte_arr = bytearray(image)
-                            topic = f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/snapshot"
+                            topic = (
+                                f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/snapshot"
+                            )
                             mqtt_publish(
                                 mqtt_client=mqtt_client,
                                 topic=topic,

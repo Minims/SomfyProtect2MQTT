@@ -1,4 +1,5 @@
 """Somfy Protect Websocket"""
+
 import base64
 import json
 import logging
@@ -127,9 +128,7 @@ class SomfyProtectWebsocket:
         """Handle Websocket Open Connection"""
         LOGGER.info("Opened connection")
 
-    def on_close(
-        self, ws_app, close_status_code, close_msg
-    ):  # pylint: disable=unused-argument,no-self-use
+    def on_close(self, ws_app, close_status_code, close_msg):  # pylint: disable=unused-argument,no-self-use
         """Handle Websocket Close Connection"""
         LOGGER.info(f"Websocket on_close, status {close_status_code} => {close_msg}")
 
@@ -164,9 +163,7 @@ class SomfyProtectWebsocket:
             directory = "/config/somfyprotect2mqtt"
             try:
                 os.makedirs(directory, exist_ok=True)
-                with open(
-                    f"{directory}/stream_url_{device_id}", "w", encoding="utf-8"
-                ) as file:
+                with open(f"{directory}/stream_url_{device_id}", "w", encoding="utf-8") as file:
                     file.write(stream_url)
             except OSError as exc:
                 LOGGER.warning(f"Unable to create directory {directory}: {exc}")
@@ -257,9 +254,7 @@ class SomfyProtectWebsocket:
         security_level = message.get("security_level")
         payload = {"security_level": ALARM_STATUS.get(security_level, "disarmed")}
         topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/state"
-        mqtt_publish(
-            mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True
-        )
+        mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True)
 
     def alarm_trespass(self, message):
         """Alarm Triggered !!"""
@@ -305,14 +300,10 @@ class SomfyProtectWebsocket:
             payload = {"motion_sensor": "True"}
             topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/pir"
 
-            mqtt_publish(
-                mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True
-            )
+            mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True)
             time.sleep(3)
             payload = {"motion_sensor": "False"}
-            mqtt_publish(
-                mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True
-            )
+            mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True)
 
     def alarm_panic(self, message):
         """Report Alarm Panic"""
@@ -404,14 +395,10 @@ class SomfyProtectWebsocket:
         LOGGER.info(f"It Seems the Door {device_id} is moving")
         topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/pir"
         payload = {"motion_sensor": "True"}
-        mqtt_publish(
-            mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True
-        )
+        mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True)
         time.sleep(3)
         payload = {"motion_sensor": "False"}
-        mqtt_publish(
-            mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True
-        )
+        mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True)
 
     def site_device_testing_status(self, message):
         """Site Device Testing Status"""

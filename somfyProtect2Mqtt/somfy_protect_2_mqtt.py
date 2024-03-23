@@ -1,4 +1,5 @@
 """Somfy Protect 2 Mqtt"""
+
 import logging
 from time import sleep
 
@@ -24,9 +25,7 @@ class SomfyProtect2Mqtt:
         SomfyProtectInitError: Unable to init
     """
 
-    def __init__(
-        self, api: SomfyProtectApi, mqtt_client: MQTTClient, config: dict
-    ) -> None:
+    def __init__(self, api: SomfyProtectApi, mqtt_client: MQTTClient, config: dict) -> None:
         """Init SomfyProtect2Mqtt
 
         Args:
@@ -67,9 +66,7 @@ class SomfyProtect2Mqtt:
                 LOGGER.info(f"Storing Site ID for {site.label}")
                 self.my_sites_id.append(site.id)
             else:
-                LOGGER.info(
-                    f"Site '{site.label}' is not set in configuration, Update it if you want to add this Site"
-                )
+                LOGGER.info(f"Site '{site.label}' is not set in configuration, Update it if you want to add this Site")
 
     def close(self) -> None:  # pylint: disable=no-self-use
         """Close"""

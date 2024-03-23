@@ -1,4 +1,5 @@
 """Streaming Module"""
+
 import logging
 
 import ffmpeg_streaming

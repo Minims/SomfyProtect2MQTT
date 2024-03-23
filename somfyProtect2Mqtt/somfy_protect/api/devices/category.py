@@ -1,4 +1,5 @@
 """Devices Categories"""
+
 from aenum import Enum, unique
 
 

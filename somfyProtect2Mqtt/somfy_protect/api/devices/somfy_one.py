@@ -1,4 +1,5 @@
 """Security InDoor Siren"""
+
 from typing import cast
 
 from somfy_protect.api.devices.base import SomfyProtectDevice

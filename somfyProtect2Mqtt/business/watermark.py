@@ -1,4 +1,5 @@
 """Add Watermark on Snapshot"""
+
 import logging
 import os
 

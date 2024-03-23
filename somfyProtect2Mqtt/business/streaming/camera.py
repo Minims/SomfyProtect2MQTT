@@ -1,4 +1,5 @@
 """RTMPS Camera to JPEG"""
+
 import logging
 
 import cv2
