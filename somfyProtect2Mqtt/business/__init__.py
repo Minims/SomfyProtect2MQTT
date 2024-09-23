@@ -6,7 +6,7 @@ from datetime import datetime
 from time import sleep
 
 import schedule
-from business.mqtt import mqtt_publish
+from business.mqtt import mqtt_publish, SUBSCRIBE_TOPICS
 from business.watermark import insert_watermark
 from exceptions import SomfyProtectInitError
 from http.client import RemoteDisconnected
@@ -54,6 +54,7 @@ def ha_sites_config(
                 retain=True,
             )
             mqtt_client.client.subscribe(site_config.get("config").get("command_topic"))
+            SUBSCRIBE_TOPICS.append(site_config.get("config").get("command_topic"))
 
         try:
             scenarios_core = api.get_scenarios_core(site_id=my_site.id)
@@ -117,6 +118,7 @@ def ha_devices_config(
 
                 if device_config.get("config").get("command_topic"):
                     mqtt_client.client.subscribe(device_config.get("config").get("command_topic"))
+                    SUBSCRIBE_TOPICS.append(device_config.get("config").get("command_topic"))
 
             if "box" in device.device_definition.get("type"):
                 LOGGER.info(f"Found Link {device.device_definition.get('label')}")
@@ -133,6 +135,7 @@ def ha_devices_config(
                     retain=True,
                 )
                 mqtt_client.client.subscribe(reboot.get("config").get("command_topic"))
+                SUBSCRIBE_TOPICS.append(reboot.get("config").get("command_topic"))
 
                 halt = ha_discovery_devices(
                     site_id=site_id,
@@ -147,6 +150,7 @@ def ha_devices_config(
                     retain=True,
                 )
                 mqtt_client.client.subscribe(halt.get("config").get("command_topic"))
+                SUBSCRIBE_TOPICS.append(halt.get("config").get("command_topic"))
 
             if "camera" in device.device_definition.get("type") or "allinone" in device.device_definition.get("type"):
                 LOGGER.info(f"Found Camera {device.device_definition.get('label')}")
@@ -174,6 +178,7 @@ def ha_devices_config(
                     retain=True,
                 )
                 mqtt_client.client.subscribe(reboot.get("config").get("command_topic"))
+                SUBSCRIBE_TOPICS.append(reboot.get("config").get("command_topic"))
 
                 halt = ha_discovery_devices(
                     site_id=site_id,
@@ -188,6 +193,8 @@ def ha_devices_config(
                     retain=True,
                 )
                 mqtt_client.client.subscribe(halt.get("config").get("command_topic"))
+                SUBSCRIBE_TOPICS.append(halt.get("config").get("command_topic"))
+
                 # Manual Snapshot
                 device_config = ha_discovery_devices(
                     site_id=site_id,
@@ -203,6 +210,7 @@ def ha_devices_config(
                 )
                 if device_config.get("config").get("command_topic"):
                     mqtt_client.client.subscribe(device_config.get("config").get("command_topic"))
+                    SUBSCRIBE_TOPICS.append(device_config.get("config").get("command_topic"))
 
                 # Stream
                 stream = ha_discovery_devices(
@@ -220,6 +228,10 @@ def ha_devices_config(
                 if stream.get("config").get("command_topic"):
                     mqtt_client.client.subscribe(stream.get("config").get("command_topic"))
                     mqtt_client.client.subscribe(
+                        f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/stream"
+                    )
+                    SUBSCRIBE_TOPICS.append(stream.get("config").get("command_topic"))
+                    SUBSCRIBE_TOPICS.append(
                         f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/stream"
                     )
 
@@ -252,6 +264,7 @@ def ha_devices_config(
                     retain=True,
                 )
                 mqtt_client.client.subscribe(mss_outdoor_siren.get("config").get("command_topic"))
+                SUBSCRIBE_TOPICS.append(mss_outdoor_siren.get("config").get("command_topic"))
 
             if "mss_siren" in device.device_definition.get("device_definition_id"):
                 for sensor in [
@@ -276,6 +289,7 @@ def ha_devices_config(
                         retain=True,
                     )
                 mqtt_client.client.subscribe(mss_siren.get("config").get("command_topic"))
+                SUBSCRIBE_TOPICS.append(mss_siren.get("config").get("command_topic"))
 
             if "pir" in device.device_definition.get("type") or "tag" in device.device_definition.get("type"):
                 LOGGER.info(f"Found Motion Sensor (PIR & IntelliTag) {device.device_definition.get('label')}")

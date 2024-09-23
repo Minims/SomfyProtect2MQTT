@@ -11,6 +11,7 @@ from somfy_protect.api import ACTION_LIST, SomfyProtectApi
 # from business.streaming import rtmps_to_hls
 
 LOGGER = logging.getLogger(__name__)
+SUBSCRIBE_TOPICS = []
 
 
 def mqtt_publish(mqtt_client, topic, payload, qos=0, retain=False, is_json=True):

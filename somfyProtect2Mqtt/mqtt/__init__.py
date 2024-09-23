@@ -6,7 +6,7 @@ import ssl
 from time import sleep
 
 import paho.mqtt.client as mqtt
-from business.mqtt import consume_mqtt_message
+from business.mqtt import consume_mqtt_message, SUBSCRIBE_TOPICS
 from exceptions import SomfyProtectInitError
 from homeassistant.ha_discovery import ALARM_STATUS
 from somfy_protect.api import SomfyProtectApi
@@ -68,6 +68,9 @@ class MQTTClient:
                 sleep(10)
                 self.on_disconnect  #  pylint: disable=pointless-statement
             LOGGER.info("Reconnecting to MQTT: Success")
+            for topic in SUBSCRIBE_TOPICS:
+                LOGGER.info(f"Subscribing to: {topic}")
+                self.client.subscribe(topic)
 
     def run(self):
         """MQTT run"""
