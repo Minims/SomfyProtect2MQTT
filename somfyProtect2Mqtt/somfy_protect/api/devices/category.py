@@ -9,6 +9,7 @@ class Category(Enum):
 
     LINK = "Link"
     INDOOR_CAMERA = "Somfy Indoor Camera"
+    VIDEOPHONE = "Connected Videophone"
     MYFOX_CAMERA = "Myfox security camera"
     INDOOR_SIREN = "Myfox Security Siren"
     OUTDDOR_CAMERA = "Somfy Outdoor Camera"

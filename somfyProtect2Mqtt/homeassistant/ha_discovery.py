@@ -176,6 +176,10 @@ DEVICE_CAPABILITIES = {
         "type": "sensor",
         "config": {},
     },
+    "model": {
+        "type": "sensor",
+        "config": {},
+    },
     "mfa_last_test_at": {
         "type": "sensor",
         "config": {},
@@ -304,6 +308,20 @@ DEVICE_CAPABILITIES = {
         },
     },
     "push_to_talk_available": {
+        "type": "binary_sensor",
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+        },
+    },
+    "latch_wired": {
+        "type": "binary_sensor",
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+        },
+    },
+    "gate_wired": {
         "type": "binary_sensor",
         "config": {
             "pl_on": "True",
