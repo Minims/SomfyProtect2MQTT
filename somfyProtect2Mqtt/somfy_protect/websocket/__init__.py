@@ -18,6 +18,7 @@ from requests_oauthlib import OAuth2Session
 from somfy_protect.api import SomfyProtectApi
 from somfy_protect.sso import SomfyProtectSso, read_token_from_file
 from websocket import WebSocketApp
+from aiortc import RTCPeerConnection, RTCSessionDescription, RTCIceCandidate
 
 WEBSOCKET = "wss://websocket.myfox.io/events/websocket?token="
 
@@ -127,7 +128,7 @@ class SomfyProtectWebsocket:
         LOGGER.debug(send)
         self.default_message(message_json)
         if message_json["key"] in callbacks:
-            callbacks[message_json["key"]](message_json)
+            callbacks[message_json["key"]](message_json, ws_app)
         else:
             LOGGER.debug(f"Unknown message: {message}")
 
@@ -166,6 +167,19 @@ class SomfyProtectWebsocket:
     def video_webrtc_offer(self, message):
         """WEBRTC Offer"""
         LOGGER.info(f"WEBRTC Offer: {message}")
+        offer_data = message.get("offer")
+        pc = RTCPeerConnection()
+        offer = RTCSessionDescription(sdp=offer_data.get("sdp"), type=offer_data.get("type"))
+        pc.setRemoteDescription(offer)
+        answer = pc.createAnswer()
+        pc.setLocalDescription(answer)
+        response = {
+            "type": "video.webrtc.answer",
+            "session_id": message.get("session_id"),
+            "answer": {"type": pc.localDescription.type, "sdp": pc.localDescription.sdp},
+        }
+        send = self._websocket.send(json.dumps(response))
+        LOGGER.debug(send)
 
     def video_webrtc_start(self, message):
         """WEBRTC Start"""
