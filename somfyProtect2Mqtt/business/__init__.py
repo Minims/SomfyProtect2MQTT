@@ -152,11 +152,7 @@ def ha_devices_config(
                 mqtt_client.client.subscribe(halt.get("config").get("command_topic"))
                 SUBSCRIBE_TOPICS.append(halt.get("config").get("command_topic"))
 
-            if (
-                "camera" in device.device_definition.get("type")
-                or "allinone" in device.device_definition.get("type")
-                or "videophone" in device.device_definition.get("type")
-            ):
+            if "camera" in device.device_definition.get("type") or "allinone" in device.device_definition.get("type"):
                 LOGGER.info(f"Found Camera {device.device_definition.get('label')}")
                 camera_config = ha_discovery_cameras(
                     site_id=site_id,
@@ -316,6 +312,57 @@ def ha_devices_config(
                     retain=True,
                 )
 
+            if "videophone" in device.device_definition.get("type"):
+                LOGGER.info(f"VideoPhone {device.device_definition.get('label')}")
+                ringing_config = ha_discovery_devices(
+                    site_id=site_id,
+                    device=device,
+                    mqtt_config=mqtt_config,
+                    sensor_name="ringing",
+                )
+                mqtt_publish(
+                    mqtt_client=mqtt_client,
+                    topic=pir_config.get("topic"),
+                    payload=ringing_config.get("config"),
+                    retain=True,
+                )
+                mqtt_publish(
+                    mqtt_client=mqtt_client,
+                    topic=pir_config.get("config").get("state_topic"),
+                    payload={"ringing": "False"},
+                    retain=True,
+                )
+
+                reboot = ha_discovery_devices(
+                    site_id=site_id,
+                    device=device,
+                    mqtt_config=mqtt_config,
+                    sensor_name="reboot",
+                )
+                mqtt_publish(
+                    mqtt_client=mqtt_client,
+                    topic=reboot.get("topic"),
+                    payload=reboot.get("config"),
+                    retain=True,
+                )
+                mqtt_client.client.subscribe(reboot.get("config").get("command_topic"))
+                SUBSCRIBE_TOPICS.append(reboot.get("config").get("command_topic"))
+
+                halt = ha_discovery_devices(
+                    site_id=site_id,
+                    device=device,
+                    mqtt_config=mqtt_config,
+                    sensor_name="halt",
+                )
+                mqtt_publish(
+                    mqtt_client=mqtt_client,
+                    topic=halt.get("topic"),
+                    payload=halt.get("config"),
+                    retain=True,
+                )
+                mqtt_client.client.subscribe(halt.get("config").get("command_topic"))
+                SUBSCRIBE_TOPICS.append(halt.get("config").get("command_topic"))
+
 
 def update_sites_status(
     api: SomfyProtectApi,
@@ -424,7 +471,6 @@ def update_camera_snapshot(
                 Category.MYFOX_CAMERA,
                 Category.SOMFY_ONE_PLUS,
                 Category.SOMFY_ONE,
-                Category.VIDEOPHONE,
             ]:
                 my_devices = api.get_devices(site_id=site_id, category=category)
                 for device in my_devices:

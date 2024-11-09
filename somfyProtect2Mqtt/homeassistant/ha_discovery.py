@@ -315,14 +315,14 @@ DEVICE_CAPABILITIES = {
         },
     },
     "latch_wired": {
-        "type": "binary_sensor",
+        "type": "switch",
         "config": {
             "pl_on": "True",
             "pl_off": "False",
         },
     },
     "gate_wired": {
-        "type": "binary_sensor",
+        "type": "switch",
         "config": {
             "pl_on": "True",
             "pl_off": "False",
@@ -601,6 +601,13 @@ DEVICE_CAPABILITIES = {
             "pl_off": "False",
         },
     },
+    "ringing": {
+        "type": "binary_sensor",
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+        },
+    },
 }
 
 
@@ -741,6 +748,10 @@ def ha_discovery_devices(
             device_config["config"]["device_class"] = "safety"
         if device.device_definition.get("label") == "Myfox Security Infrared Sensor":
             device_config["config"]["device_class"] = "motion"
+    if sensor_name == "ringing":
+        device_config["config"][
+            "state_topic"
+        ] = f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/ringing"
 
     return device_config
 

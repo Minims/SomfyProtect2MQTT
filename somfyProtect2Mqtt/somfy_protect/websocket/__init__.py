@@ -105,6 +105,17 @@ class SomfyProtectWebsocket:
             "presence_in": self.update_keyfob_presence,
             "device.status": self.device_status,
             "video.stream.ready": self.video_stream_ready,
+            "device.ring_door_bell": self.device_ring_door_bell,
+            "video.webrtc.offer": self.video_webrtc_offer,
+            "video.webrtc.start": self.video_webrtc_start,
+            "video.webrtc.session": self.video_webrtc_session,
+            "video.webrtc.answer": self.video_webrtc_answer,
+            "video.webrtc.candidate": self.video_webrtc_candidate,
+            "video.webrtc.turn.config": self.video_webrtc_turn_config,
+            "video.webrtc.keep_alive": self.video_webrtc_keep_alive,
+            "video.webrtc.hang_up": self.video_webrtc_hang_up,
+            "device.gate_triggered_from_mobile": self.device_gate_triggered_from_mobile,
+            "device.gate_triggered_from_monitor": self.device_gate_triggered_from_monitor,
         }
 
         ack = {
@@ -131,6 +142,58 @@ class SomfyProtectWebsocket:
     def on_close(self, ws_app, close_status_code, close_msg):  # pylint: disable=unused-argument,no-self-use
         """Handle Websocket Close Connection"""
         LOGGER.info(f"Websocket on_close, status {close_status_code} => {close_msg}")
+
+    def device_gate_triggered_from_monitor(self, message):
+        """Gate Open from Monitor"""
+        LOGGER.info(f"Gate Open from Monitor: {message}")
+
+    def device_gate_triggered_from_mobile(self, message):
+        """Gate Open from Mobile"""
+        LOGGER.info(f"Gate Open from Mobile: {message}")
+
+    def video_webrtc_hang_up(self, message):
+        """WEBRTC HangUP"""
+        LOGGER.info(f"WEBRTC HangUp: {message}")
+
+    def video_webrtc_keep_alive(self, message):
+        """WEBRTC KeepAlive"""
+        LOGGER.info(f"WEBRTC KeepAlive: {message}")
+
+    def video_webrtc_session(self, message):
+        """WEBRTC Session"""
+        LOGGER.info(f"WEBRTC Session: {message}")
+
+    def video_webrtc_offer(self, message):
+        """WEBRTC Offer"""
+        LOGGER.info(f"WEBRTC Offer: {message}")
+
+    def video_webrtc_start(self, message):
+        """WEBRTC Start"""
+        LOGGER.info(f"WEBRTC Start: {message}")
+
+    def video_webrtc_answer(self, message):
+        """WEBRTC Answer"""
+        LOGGER.info(f"WEBRTC Answer: {message}")
+
+    def video_webrtc_turn_config(self, message):
+        """WEBRTC Turn Config"""
+        LOGGER.info(f"WEBRTC Turn Config: {message}")
+
+    def video_webrtc_candidate(self, message):
+        """WEBRTC Candidate"""
+        LOGGER.info(f"WEBRTC Candidate: {message}")
+
+    def device_ring_door_bell(self, message):
+        """Someone is ringing at the door."""
+        site_id = message.get("site_id")
+        device_id = message.get("device_id")
+        LOGGER.info(f"Someone is ringing on {device_id}")
+        topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/ringing"
+        payload = {"ringing": "True"}
+        mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True)
+        time.sleep(1)
+        payload = {"ringing": "False"}
+        mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True)
 
     def video_stream_ready(self, message):
         # {
