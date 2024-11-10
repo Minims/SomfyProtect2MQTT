@@ -322,13 +322,13 @@ def ha_devices_config(
                 )
                 mqtt_publish(
                     mqtt_client=mqtt_client,
-                    topic=pir_config.get("topic"),
+                    topic=ringing_config.get("topic"),
                     payload=ringing_config.get("config"),
                     retain=True,
                 )
                 mqtt_publish(
                     mqtt_client=mqtt_client,
-                    topic=pir_config.get("config").get("state_topic"),
+                    topic=ringing_config.get("config").get("state_topic"),
                     payload={"ringing": "False"},
                     retain=True,
                 )
