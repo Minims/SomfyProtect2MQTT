@@ -315,6 +315,17 @@ def ha_devices_config(
 
             if "videophone" in device.device_definition.get("type"):
                 LOGGER.info(f"VideoPhone {device.device_definition.get('label')}")
+                camera_config = ha_discovery_cameras(
+                    site_id=site_id,
+                    device=device,
+                    mqtt_config=mqtt_config,
+                )
+                mqtt_publish(
+                    mqtt_client=mqtt_client,
+                    topic=camera_config.get("topic"),
+                    payload=camera_config.get("config"),
+                    retain=True,
+                )
                 ringing_config = ha_discovery_devices(
                     site_id=site_id,
                     device=device,
@@ -363,6 +374,36 @@ def ha_devices_config(
                 )
                 mqtt_client.client.subscribe(halt.get("config").get("command_topic"))
                 SUBSCRIBE_TOPICS.append(halt.get("config").get("command_topic"))
+
+                open_latch = ha_discovery_devices(
+                    site_id=site_id,
+                    device=device,
+                    mqtt_config=mqtt_config,
+                    sensor_name="open_latch",
+                )
+                mqtt_publish(
+                    mqtt_client=mqtt_client,
+                    topic=open_latch.get("topic"),
+                    payload=open_latch.get("config"),
+                    retain=True,
+                )
+                mqtt_client.client.subscribe(open_latch.get("config").get("command_topic"))
+                SUBSCRIBE_TOPICS.append(open_latch.get("config").get("command_topic"))
+
+                open_gate = ha_discovery_devices(
+                    site_id=site_id,
+                    device=device,
+                    mqtt_config=mqtt_config,
+                    sensor_name="_gate",
+                )
+                mqtt_publish(
+                    mqtt_client=mqtt_client,
+                    topic=open_gate.get("topic"),
+                    payload=open_gate.get("config"),
+                    retain=True,
+                )
+                mqtt_client.client.subscribe(open_gate.get("config").get("command_topic"))
+                SUBSCRIBE_TOPICS.append(open_gate.get("config").get("command_topic"))
 
 
 def update_sites_status(

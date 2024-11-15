@@ -344,6 +344,14 @@ DEVICE_CAPABILITIES = {
             "pl_off": "light_off",
         },
     },
+    "open_latch": {
+        "type": "button",
+        "config": {"payload_press": "latch"},
+    },
+    "open_gate": {
+        "type": "button",
+        "config": {"payload_press": "gate"},
+    },
     "reboot": {
         "type": "button",
         "config": {"payload_press": "reboot"},

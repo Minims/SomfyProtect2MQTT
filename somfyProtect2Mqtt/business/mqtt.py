@@ -6,7 +6,7 @@ from time import sleep
 
 from homeassistant.ha_discovery import ALARM_STATUS
 from paho.mqtt import client
-from somfy_protect.api import ACTION_LIST, SomfyProtectApi
+from somfy_protect.api import ACCESS_LIST, ACTION_LIST, SomfyProtectApi
 
 # from business.streaming import rtmps_to_hls
 
@@ -126,6 +126,19 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
             sound = text_payload.split("_")[1]
             LOGGER.info(f"Test the Siren On Site ID {site_id} ({sound})")
             api.test_siren(site_id=site_id, device_id=device_id, sound=sound)
+
+        # Manage Access
+        elif text_payload in ACCESS_LIST:
+            site_id = msg.topic.split("/")[1]
+            device_id = msg.topic.split("/")[2]
+            if device_id:
+                LOGGER.info(f"Message received for Site ID: {site_id}, Device ID: {device_id}, Access: {text_payload}")
+                trigger_access = api.trigger_access(
+                    site_id=site_id,
+                    device_id=device_id,
+                    access=text_payload,
+                )
+                LOGGER.debug(trigger_access)
 
         # Manage Actions
         elif text_payload in ACTION_LIST:

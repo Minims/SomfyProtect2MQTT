@@ -22,6 +22,7 @@ BASE_URL = "https://api.myfox.io"
 VIDEO_URL = "https://video.myfox.io"
 # (MEDIA_TYPE_VIDEO, 1, 1; MEDIA_TYPE_AUDIO, 0, 0)
 
+ACCESS_LIST = ["gate", "latch"]
 
 ACTION_LIST = [
     "shutter_open",
@@ -460,3 +461,29 @@ class SomfyProtectApi:
         response = self.get(f"/v3/site/{site_id}/history?order=-1&limit=100")
         response.raise_for_status()
         return response.json().get("items")
+
+    def trigger_access(
+        self,
+        site_id: str,
+        device_id: str,
+        access: str,
+    ) -> Dict:
+        """Make an action on a Device
+
+        Args:
+            site_id (str): Site ID
+            device_id (str): Device ID
+            access (str): Access
+
+        Returns:
+            str: Task ID
+        """
+        if access not in ACCESS_LIST:
+            raise ValueError(f"Unknown action {access}")
+
+        response = self.post(
+            f"/v3/site/{site_id}/device/{device_id}/access/trigger",
+            json={"type": access},
+        )
+        response.raise_for_status()
+        return response.json()
