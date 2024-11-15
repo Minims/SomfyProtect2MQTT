@@ -128,7 +128,7 @@ class SomfyProtectWebsocket:
         LOGGER.debug(send)
         self.default_message(message_json)
         if message_json["key"] in callbacks:
-            callbacks[message_json["key"]](message_json, ws_app)
+            callbacks[message_json["key"]](message_json)
         else:
             LOGGER.debug(f"Unknown message: {message}")
 
