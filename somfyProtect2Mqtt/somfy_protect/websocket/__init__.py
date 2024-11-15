@@ -9,6 +9,7 @@ import time
 from signal import SIGKILL
 
 import websocket
+from business import update_visiophone_snapshot
 from business.mqtt import mqtt_publish, update_device, update_site
 from business.streaming.camera import VideoCamera
 from homeassistant.ha_discovery import ALARM_STATUS
@@ -117,6 +118,8 @@ class SomfyProtectWebsocket:
             "video.webrtc.hang_up": self.video_webrtc_hang_up,
             "device.gate_triggered_from_mobile": self.device_gate_triggered_from_mobile,
             "device.gate_triggered_from_monitor": self.device_gate_triggered_from_monitor,
+            "answered_call_from_monitor": self.device_answered_call_from_monitor,
+            "answered_call_from_mobile": self.device_answered_call_from_mobile,
         }
 
         ack = {
@@ -147,6 +150,14 @@ class SomfyProtectWebsocket:
     def device_gate_triggered_from_monitor(self, message):
         """Gate Open from Monitor"""
         LOGGER.info(f"Gate Open from Monitor: {message}")
+
+    def device_answered_call_from_mobile(self, message):
+        """Answer Call from Mobile"""
+        LOGGER.info(f"Answer Call from Mobile: {message}")
+
+    def device_answered_call_from_monitor(self, message):
+        """Answer Call from Monitor"""
+        LOGGER.info(f"Answer Call from Monitor: {message}")
 
     def device_gate_triggered_from_mobile(self, message):
         """Gate Open from Mobile"""
@@ -208,6 +219,16 @@ class SomfyProtectWebsocket:
         time.sleep(1)
         payload = {"ringing": "False"}
         mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True)
+        snapshot_url = message.get("snapshot_url")
+        if snapshot_url:
+            LOGGER.info("Found a snapshot !")
+            update_visiophone_snapshot(
+                url=snapshot_url,
+                site_id=site_id,
+                device_id=device_id,
+                mqtt_client=self.mqtt_client,
+                mqtt_config=self.mqtt_config,
+            )
 
     def video_stream_ready(self, message):
         # {

@@ -19,6 +19,7 @@ from homeassistant.ha_discovery import (
     ha_discovery_devices,
 )
 from mqtt import MQTTClient
+import requests
 from somfy_protect.api import SomfyProtectApi
 from somfy_protect.api.devices.category import Category
 
@@ -514,3 +515,48 @@ def update_camera_snapshot(
         except Exception as exp:
             LOGGER.warning(f"Error while refreshing snapshot: {exp}")
             continue
+
+
+def update_visiophone_snapshot(
+    url: str,
+    site_id: str,
+    device_id: str,
+    mqtt_client: MQTTClient,
+    mqtt_config: dict,
+) -> None:
+    """Download VisioPhone Snapshot"""
+    LOGGER.info("Download VisioPhone Snapshot")
+    try:
+        response = requests.get(url, stream=True)
+        response.raise_for_status()
+
+        path = f"{device_id}-{timestamp}.jpeg"
+        with open(path, "wb") as tmp_file:
+            for chunk in response.iter_content(1024):  # Lire en morceaux de 1 KB
+                tmp_file.write(chunk)
+    except requests.exceptions.RequestException as exc:
+        LOGGER.warning(f"Error while Downloading snapshot: {exc}")
+
+    now = datetime.now()
+    timestamp = int(now.timestamp())
+
+    # Add Watermark
+    insert_watermark(
+        file=f"{os.getcwd()}/{path}",
+        watermark=now.strftime("%Y-%m-%d %H:%M:%S"),
+    )
+
+    # Read and Push to MQTT
+    with open(path, "rb") as tmp_file:
+        image = tmp_file.read()
+    byte_arr = bytearray(image)
+    topic = f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/snapshot"
+    mqtt_publish(
+        mqtt_client=mqtt_client,
+        topic=topic,
+        payload=byte_arr,
+        retain=True,
+        is_json=False,
+    )
+    # Clean file
+    os.remove(path)

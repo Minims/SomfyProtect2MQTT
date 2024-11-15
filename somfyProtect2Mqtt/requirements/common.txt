@@ -8,4 +8,5 @@ pyyaml==6.0.1
 requests-oauthlib==1.4.0
 schedule==1.2.1
 simple-http-server==0.22.3
+urllib3<2.0
 websocket-client==1.7.0
