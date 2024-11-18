@@ -430,6 +430,46 @@ def ha_devices_config(
                 mqtt_client.client.subscribe(open_gate.get("config").get("command_topic"))
                 SUBSCRIBE_TOPICS.append(open_gate.get("config").get("command_topic"))
 
+                # Manual Snapshot
+                device_config = ha_discovery_devices(
+                    site_id=site_id,
+                    device=device,
+                    mqtt_config=mqtt_config,
+                    sensor_name="snapshot",
+                )
+                mqtt_publish(
+                    mqtt_client=mqtt_client,
+                    topic=device_config.get("topic"),
+                    payload=device_config.get("config"),
+                    retain=True,
+                )
+                if device_config.get("config").get("command_topic"):
+                    mqtt_client.client.subscribe(device_config.get("config").get("command_topic"))
+                    SUBSCRIBE_TOPICS.append(device_config.get("config").get("command_topic"))
+
+                # Stream
+                stream = ha_discovery_devices(
+                    site_id=site_id,
+                    device=device,
+                    mqtt_config=mqtt_config,
+                    sensor_name="stream",
+                )
+                mqtt_publish(
+                    mqtt_client=mqtt_client,
+                    topic=stream.get("topic"),
+                    payload=stream.get("config"),
+                    retain=True,
+                )
+                if stream.get("config").get("command_topic"):
+                    mqtt_client.client.subscribe(stream.get("config").get("command_topic"))
+                    mqtt_client.client.subscribe(
+                        f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/stream"
+                    )
+                    SUBSCRIBE_TOPICS.append(stream.get("config").get("command_topic"))
+                    SUBSCRIBE_TOPICS.append(
+                        f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/stream"
+                    )
+
 
 def update_sites_status(
     api: SomfyProtectApi,
