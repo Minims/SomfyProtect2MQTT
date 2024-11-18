@@ -665,6 +665,32 @@ def ha_discovery_alarm(site: Site, mqtt_config: dict, homeassistant_config: dict
     return site_config
 
 
+def ha_discovery_history(site: Site, mqtt_config: dict):
+    """Auto Discover History"""
+    site_config = {}
+
+    site_info = {
+        "identifiers": [site.id],
+        "manufacturer": "Somfy",
+        "model": "Somfy Home Alarm",
+        "name": "Somfy Home Alarm",
+        "sw_version": "SomfyProtect2MQTT",
+    }
+
+    site_config["topic"] = f"{mqtt_config.get('ha_discover_prefix', 'homeassistant')}/text/{site.id}/history/config"
+    site_config["config"] = {
+        "name": f"{site.label}_history",
+        "unique_id": f"{site.id}_{site.label}_history",
+        "state_topic": f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site.id}/history",
+        "device": site_info,
+        "mode": "text",
+        "command_topic": f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site.id}/history",
+        "min": 0,
+        "max": 255,
+    }
+    return site_config
+
+
 def ha_discovery_alarm_actions(site: Site, mqtt_config: dict):
     """Auto Discover Actions"""
     site_config = {}

@@ -2,7 +2,8 @@
 
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
+import pytz
 from time import sleep
 
 import schedule
@@ -15,6 +16,7 @@ from homeassistant.ha_discovery import (
     DEVICE_CAPABILITIES,
     ha_discovery_alarm,
     ha_discovery_alarm_actions,
+    ha_discovery_history,
     ha_discovery_cameras,
     ha_discovery_devices,
 )
@@ -26,6 +28,7 @@ from somfy_protect.api.devices.category import Category
 LOGGER = logging.getLogger(__name__)
 
 DEVICE_TAG = {}
+HISTORY = {}
 
 
 def ha_sites_config(
@@ -57,6 +60,19 @@ def ha_sites_config(
             mqtt_client.client.subscribe(site_config.get("config").get("command_topic"))
             SUBSCRIBE_TOPICS.append(site_config.get("config").get("command_topic"))
 
+            history = ha_discovery_history(
+                site=my_site,
+                mqtt_config=mqtt_config,
+            )
+            configs = [history]
+            for history_config in configs:
+                mqtt_publish(
+                    mqtt_client=mqtt_client,
+                    topic=history_config.get("topic"),
+                    payload=history_config.get("config"),
+                    retain=True,
+                )
+
         try:
             scenarios_core = api.get_scenarios_core(site_id=my_site.id)
             LOGGER.info(f"Scenarios Core for {my_site.label} => {scenarios_core}")
@@ -66,6 +82,15 @@ def ha_sites_config(
         except Exception as exp:
             LOGGER.warning(f"Error while getting scenarios: {exp}")
             continue
+
+
+def convert_utc_to_paris(date: datetime) -> datetime:
+
+    utc_zone = pytz.utc
+    date = utc_zone.localize(date)
+    paris_zone = pytz.timezone("Europe/Paris")
+    paris_date = date.astimezone(paris_zone)
+    return paris_date
 
 
 def ha_devices_config(
@@ -436,27 +461,42 @@ def update_sites_status(
             LOGGER.warning(f"Error while refreshing site: {exp}")
             continue
 
-            # history_lines = api.get_history(site_id=site_id)
-            # for history_line in history_lines:
-            #     LOGGER.info(history_line)
-            #     LOGGER.info(
-            #        f"{history_line.get('occurred_at')} - {history_line.get('message_type')} - {history_line.get('message_key')} - {history_line.get('origin')}"
-            #     )
-            #     if history_line.get("message_type") == "home_activity":
-            #         if history_line.get("message_key") == "homeActivity.user.exit":
-            #             LOGGER.info(f"OUT: {history_line.get('origin').get('user_id')}")
-            #             if DEVICE_TAG.get(history_line.get("origin").get("user_id")):
-            #                 device = api.get_device(
-            #                     site_id=site_id,
-            #                     device_id=DEVICE_TAG.get(
-            #                         history_line.get("origin").get("user_id")
-            #                     ),
-            #                 )
-            #                 LOGGER.info(device.label)
-            #         elif (
-            #             history_line.get("message_key") == "homeActivity.user.entrance"
-            #         ):
-            #             LOGGER.info(f"IN: {history_line.get('origin').get('user_id')}")
+        try:
+            payload = {}
+            events = api.get_history(site_id=site_id)
+            for event in events:
+                if event:
+                    # LOGGER.info(event)
+                    # import sys
+                    # sys.exit(0)
+                    occurred_at = event.get("occurred_at")
+                    date_format = "%Y-%m-%dT%H:%M:%S.%fZ"
+                    occurred_at_date = datetime.strptime(occurred_at, date_format)
+                    occurred_at_date = convert_utc_to_paris(date=occurred_at_date)
+                    paris_tz = pytz.timezone("Europe/Paris")
+                    now = datetime.now(paris_tz)
+                    if now - occurred_at_date < timedelta(seconds=90):
+                        if occurred_at in HISTORY:
+                            LOGGER.info(f"History still published: {HISTORY[occurred_at]}")
+                            continue
+                        HISTORY[occurred_at] = {event.get("type"): event.get("label")}
+                        payload = f"{event.get('message_key')} {event.get('message_vars').get('userDsp')} {event.get('message_vars').get('siteLabel')}"
+                        payload = payload.replace("None", "").strip().strip('"').replace(".", " ").title()
+                        # Push status to MQTT
+                        mqtt_publish(
+                            mqtt_client=mqtt_client,
+                            topic=f"{mqtt_config.get('topic_prefix', 'myFox2mqtt')}/{site_id}/history",
+                            payload=payload,
+                            retain=True,
+                        )
+                    else:
+                        LOGGER.info(
+                            f"Event is too old {event.get('type')} {event.get('occurred_at')} {event.get('label')}"
+                        )
+
+        except Exception as exp:
+            LOGGER.warning(f"Error while getting site history: {exp}")
+            continue
 
         except Exception as exp:
             LOGGER.warning(f"Error while refreshing site: {exp}")
