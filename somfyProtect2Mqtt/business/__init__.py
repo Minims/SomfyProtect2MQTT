@@ -394,7 +394,7 @@ def ha_devices_config(
                     site_id=site_id,
                     device=device,
                     mqtt_config=mqtt_config,
-                    sensor_name="_gate",
+                    sensor_name="open_gate",
                 )
                 mqtt_publish(
                     mqtt_client=mqtt_client,
