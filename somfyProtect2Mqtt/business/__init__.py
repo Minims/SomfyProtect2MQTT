@@ -490,7 +490,7 @@ def update_sites_status(
                             retain=True,
                         )
                     else:
-                        LOGGER.info(
+                        LOGGER.debug(
                             f"Event is too old {event.get('type')} {event.get('occurred_at')} {event.get('label')}"
                         )
 
@@ -515,6 +515,15 @@ def update_devices_status(
         try:
             my_devices = api.get_devices(site_id=site_id)
             for device in my_devices:
+                if "videophone" in device.device_definition.get("type"):
+                    events = api.get_device_events(site_id=site_id, device_id=device.id)
+                    if events:
+                        for event in events:
+                            if event.get("clip_cloudfront_url"):
+                                LOGGER.info(f"Found a video: {event.get('clip_cloudfront_url')}")
+                            if event.get("snapshot_cloudfront_url"):
+                                LOGGER.info(f"Found a snapshot {event.get('snapshot_cloudfront_url')}")
+
                 settings = device.settings.get("global")
                 if device.settings.get("global").get("user_id"):
                     DEVICE_TAG[device.settings.get("global").get("user_id")] = device.id

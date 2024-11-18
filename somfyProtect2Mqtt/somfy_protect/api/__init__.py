@@ -69,7 +69,7 @@ class SomfyProtectApi:
     def __init__(self, sso: SomfyProtectSso):
         self.sso = sso
 
-    def _request(self, method: str, path: str, **kwargs: Any) -> Response:
+    def _request(self, method: str, path: str, base_url: str = BASE_URL, **kwargs: Any) -> Response:
         """Make a request.
 
         We don't use the built-in token refresh mechanism of OAuth2 session because
@@ -83,7 +83,7 @@ class SomfyProtectApi:
             Response: requests Response object
         """
 
-        url = f"{BASE_URL}{path}"
+        url = f"{base_url}{path}"
         try:
             return getattr(self.sso._oauth, method)(url, **kwargs)  # pylint: disable=protected-access
         except TokenExpiredError:
@@ -91,7 +91,7 @@ class SomfyProtectApi:
 
             return getattr(self.sso._oauth, method)(url, **kwargs)  # pylint: disable=protected-access
 
-    def get(self, path: str) -> Response:
+    def get(self, path: str, base_url: str = BASE_URL) -> Response:
         """Fetch an URL from the Somfy Protect API.
 
         Args:
@@ -100,7 +100,7 @@ class SomfyProtectApi:
         Returns:
             Response: requests Response object
         """
-        return self._request("get", path)
+        return self._request("get", path, base_url)
 
     def post(self, path: str, *, json: Dict[str, Any]) -> Response:
         """Post data to the Somfy Protect API.
@@ -459,6 +459,25 @@ class SomfyProtectApi:
             ??
         """
         response = self.get(f"/v3/site/{site_id}/history?order=-1&limit=100")
+        response.raise_for_status()
+        return response.json().get("items")
+
+    def get_device_events(
+        self,
+        site_id: str,
+        device_id: str,
+    ):
+        """Get Scenarios
+
+        Args:
+            site_id (str): Site ID
+            device_id (str): Device ID
+
+        Returns:
+            ??
+        """
+        response = self.get(f"/events/{site_id}/device/{device_id}/events", base_url=VIDEO_URL)
+        LOGGER.info(response.json())
         response.raise_for_status()
         return response.json().get("items")
 
