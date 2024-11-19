@@ -17,7 +17,7 @@ SUBSCRIBE_TOPICS = []
 def mqtt_publish(mqtt_client, topic, payload, qos=0, retain=False, is_json=True):
     """MQTT publish"""
     if is_json:
-        payload = json.dumps(payload)
+        payload = json.dumps(payload, ensure_ascii=False).encode("utf8")
     mqtt_client.client.publish(topic, payload, qos=qos, retain=retain)
 
 
