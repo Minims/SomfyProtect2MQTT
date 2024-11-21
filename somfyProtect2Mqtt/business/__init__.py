@@ -656,6 +656,9 @@ def update_visiophone_snapshot(
 ) -> None:
     """Download VisioPhone Snapshot"""
     LOGGER.info("Download VisioPhone Snapshot")
+    now = datetime.now()
+    timestamp = int(now.timestamp())
+
     try:
         response = requests.get(url, stream=True)
         response.raise_for_status()
@@ -666,9 +669,6 @@ def update_visiophone_snapshot(
                 tmp_file.write(chunk)
     except requests.exceptions.RequestException as exc:
         LOGGER.warning(f"Error while Downloading snapshot: {exc}")
-
-    now = datetime.now()
-    timestamp = int(now.timestamp())
 
     # Add Watermark
     insert_watermark(
