@@ -216,7 +216,7 @@ class SomfyProtectWebsocket:
         topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/ringing"
         payload = {"ringing": "True"}
         mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True)
-        time.sleep(1)
+        time.sleep(3)
         payload = {"ringing": "False"}
         mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True)
         snapshot_url = message.get("snapshot_url")
