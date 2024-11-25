@@ -168,7 +168,7 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
         elif msg.topic.split("/")[3] == "snapshot":
             site_id = msg.topic.split("/")[1]
             device_id = msg.topic.split("/")[2]
-            if text_payload == "True":
+            if text_payload is True:
                 LOGGER.info("Manual Snapshot")
                 api.camera_refresh_snapshot(site_id=site_id, device_id=device_id)
                 response = api.camera_snapshot(site_id=site_id, device_id=device_id)
