@@ -175,7 +175,7 @@ class SomfyProtectWebsocket:
         """WEBRTC Session"""
         LOGGER.info(f"WEBRTC Session: {message}")
 
-    def video_webrtc_offer(self, message):
+    async def video_webrtc_offer(self, message):
         """WEBRTC Offer"""
         LOGGER.info(f"WEBRTC Offer: {message}")
         offer_data = message.get("offer")
@@ -186,9 +186,9 @@ class SomfyProtectWebsocket:
         offer_type = offer_data_json.get("type")
         pc = RTCPeerConnection()
         offer = RTCSessionDescription(sdp=sdp, type=offer_type)
-        pc.setRemoteDescription(offer)
-        answer = pc.createAnswer()
-        pc.setLocalDescription(answer)
+        await pc.setRemoteDescription(offer)
+        answer = await pc.createAnswer()
+        await pc.setLocalDescription(answer)
         response = {
             "type": "video.webrtc.answer",
             "session_id": message.get("session_id"),
