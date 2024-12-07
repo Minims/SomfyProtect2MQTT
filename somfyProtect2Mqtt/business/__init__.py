@@ -687,3 +687,25 @@ def update_visiophone_snapshot(
     )
     # Clean file
     os.remove(path)
+
+
+def write_to_media_folder(url: str, site_id: str, device_id: str) -> None:
+    """Download VisioPhone Clip"""
+    LOGGER.info("Download VisioPhone Clip")
+    now = datetime.now()
+    timestamp = int(now.timestamp())
+    directory = "/media/somfyprotect2mqtt"
+
+    try:
+        os.makedirs(directory, exist_ok=True)
+
+        response = requests.get(url, stream=True)
+        response.raise_for_status()
+
+        with open(f"{directory}/visiphone-{device_id}-{timestamp}", "wb", encoding="utf-8") as file:
+            for chunk in response.iter_content(1024):  # Lire en morceaux de 1 KB
+                file.write(chunk)
+    except OSError as exc:
+        LOGGER.warning(f"Unable to create directory {directory}: {exc}")
+    except requests.exceptions.RequestException as exc:
+        LOGGER.warning(f"Error while Downloading clip: {exc}")

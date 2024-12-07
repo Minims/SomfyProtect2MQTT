@@ -9,7 +9,7 @@ import time
 from signal import SIGKILL
 
 import websocket
-from business import update_visiophone_snapshot
+from business import update_visiophone_snapshot, write_to_media_folder
 from business.mqtt import mqtt_publish, update_device, update_site
 from business.streaming.camera import VideoCamera
 from homeassistant.ha_discovery import ALARM_STATUS
@@ -252,6 +252,9 @@ class SomfyProtectWebsocket:
                 mqtt_client=self.mqtt_client,
                 mqtt_config=self.mqtt_config,
             )
+        if clip_cloudfront_url:
+            LOGGER.info("Found Clip !")
+            write_to_media_folder(url=clip_cloudfront_url)
 
     def video_stream_ready(self, message):
         # {
