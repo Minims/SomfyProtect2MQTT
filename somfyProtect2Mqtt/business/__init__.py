@@ -506,9 +506,6 @@ def update_sites_status(
             events = api.get_history(site_id=site_id)
             for event in events:
                 if event:
-                    # LOGGER.info(event)
-                    # import sys
-                    # sys.exit(0)
                     occurred_at = event.get("occurred_at")
                     date_format = "%Y-%m-%dT%H:%M:%S.%fZ"
                     occurred_at_date = datetime.strptime(occurred_at, date_format)
@@ -525,13 +522,13 @@ def update_sites_status(
                         # Push status to MQTT
                         mqtt_publish(
                             mqtt_client=mqtt_client,
-                            topic=f"{mqtt_config.get('topic_prefix', 'myFox2mqtt')}/{site_id}/history",
+                            topic=f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/history",
                             payload=payload,
                             retain=True,
                         )
                     else:
                         LOGGER.debug(
-                            f"Event is too old {event.get('type')} {event.get('occurred_at')} {event.get('label')}"
+                            f"Event is too old {event.get('message_key')} {event.get('message_vars').get('userDsp')} {event.get('message_vars').get('siteLabel')}"
                         )
 
         except Exception as exp:
