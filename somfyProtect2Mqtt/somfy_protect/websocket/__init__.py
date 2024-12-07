@@ -108,6 +108,7 @@ class SomfyProtectWebsocket:
             "device.status": self.device_status,
             "video.stream.ready": self.video_stream_ready,
             "device.ring_door_bell": self.device_ring_door_bell,
+            "device.missed_call": self.device_missed_call,
             "video.webrtc.offer": self.video_webrtc_offer,
             "video.webrtc.start": self.video_webrtc_start,
             "video.webrtc.session": self.video_webrtc_session,
@@ -229,6 +230,23 @@ class SomfyProtectWebsocket:
             LOGGER.info("Found a snapshot !")
             update_visiophone_snapshot(
                 url=snapshot_url,
+                site_id=site_id,
+                device_id=device_id,
+                mqtt_client=self.mqtt_client,
+                mqtt_config=self.mqtt_config,
+            )
+
+    def device_missed_call(self, message):
+        """Call missed."""
+        site_id = message.get("site_id")
+        device_id = message.get("device_id")
+        LOGGER.info(f"Someone has rang on {device_id}")
+        snapshot_cloudfront_url = message.get("snapshot_cloudfront_url")
+        clip_cloudfront_url = message.get("clip_cloudfront_url")
+        if snapshot_cloudfront_url:
+            LOGGER.info("Found a snapshot !")
+            update_visiophone_snapshot(
+                url=snapshot_cloudfront_url,
                 site_id=site_id,
                 device_id=device_id,
                 mqtt_client=self.mqtt_client,
