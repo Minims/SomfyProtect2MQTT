@@ -458,7 +458,8 @@ class SomfyProtectApi:
         Returns:
             ??
         """
-        response = self.get(f"/v3/site/{site_id}/history?order=-1&limit=100")
+        # response = self.get(f"/v3/site/{site_id}/history?order=-1&limit=100")
+        response = self.get(f"/v3/site/{site_id}/history")
         response.raise_for_status()
         return response.json().get("items")
 
