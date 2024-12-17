@@ -2,6 +2,7 @@
 
 import base64
 import logging
+import json
 from json import JSONDecodeError
 from typing import Any, Callable, Dict, List, Optional, Union
 
@@ -477,10 +478,11 @@ class SomfyProtectApi:
         Returns:
             ??
         """
-        response = self.get(f"/events/{site_id}/device/{device_id}/events", base_url=VIDEO_URL)
+        token = read_token_from_file().get('access_token')
+        response = self.get(f"/event/site/{site_id}/device/{device_id}/events?access_token={token}", base_url=VIDEO_URL)
         LOGGER.info(response.json())
         response.raise_for_status()
-        return response.json().get("items")
+        return response.json()
 
     def trigger_access(
         self,
