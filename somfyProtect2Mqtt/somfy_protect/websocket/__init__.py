@@ -179,11 +179,21 @@ class SomfyProtectWebsocket:
     async def video_webrtc_offer(self, message):
         """WEBRTC Offer"""
         LOGGER.info(f"WEBRTC Offer: {message}")
+        device_id = message.get("device_id")
         offer_data = message.get("offer")
         offer_data_clean = str(offer_data).strip("^('").strip("',)$")
         offer_data_json = json.loads(offer_data_clean)
         sdp = offer_data_json.get("sdp")
         LOGGER.info(f"WEBRTC SDP: {sdp}")
+
+        directory = "/config/somfyprotect2mqtt"
+        try:
+            os.makedirs(directory, exist_ok=True)
+            with open(f"{directory}/visiophone_webrtc_sdp_{device_id}", "w", encoding="utf-8") as file:
+                file.write(sdp)
+        except OSError as exc:
+            LOGGER.warning(f"Unable to create directory {directory}: {exc}")
+
         offer_type = offer_data_json.get("type")
         pc = RTCPeerConnection()
         offer = RTCSessionDescription(sdp=sdp, type=offer_type)
