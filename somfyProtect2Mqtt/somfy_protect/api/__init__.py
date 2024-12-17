@@ -478,7 +478,7 @@ class SomfyProtectApi:
         Returns:
             ??
         """
-        token = read_token_from_file().get('access_token')
+        token = read_token_from_file().get("access_token")
         response = self.get(f"/event/site/{site_id}/device/{device_id}/events?access_token={token}", base_url=VIDEO_URL)
         LOGGER.info(response.json())
         response.raise_for_status()
