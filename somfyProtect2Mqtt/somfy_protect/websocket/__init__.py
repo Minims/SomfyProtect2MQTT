@@ -19,7 +19,7 @@ from requests_oauthlib import OAuth2Session
 from somfy_protect.api import SomfyProtectApi
 from somfy_protect.sso import SomfyProtectSso, read_token_from_file
 from websocket import WebSocketApp
-from aiortc import RTCPeerConnection, RTCSessionDescription, RTCIceCandidate
+from aiortc import RTCPeerConnection, RTCSessionDescription, RTCIceCandidate, MediaStreamTrack
 
 WEBSOCKET = "wss://websocket.myfox.io/events/websocket?token="
 
@@ -180,6 +180,7 @@ class SomfyProtectWebsocket:
         """WEBRTC Offer"""
         LOGGER.info(f"WEBRTC Offer: {message}")
         device_id = message.get("device_id")
+        site_id = message.get("site_id")
         offer_data = message.get("offer")
         offer_data_clean = str(offer_data).strip("^('").strip("',)$")
         offer_data_json = json.loads(offer_data_clean)
@@ -198,6 +199,17 @@ class SomfyProtectWebsocket:
         pc = RTCPeerConnection()
         offer = RTCSessionDescription(sdp=sdp, type=offer_type)
         await pc.setRemoteDescription(offer)
+
+        topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/snapshot"
+
+        # Handle incoming video tracks
+        @pc.on("track")
+        async def on_track(track):
+            LOGGER.info(f"Track received: {track.kind}")
+            if track.kind == "video":
+                video_track = VideoStreamTrack(track, self.mqtt_client, topic)
+                pc.addTrack(video_track)
+
         answer = await pc.createAnswer()
         await pc.setLocalDescription(answer)
         response = {
@@ -739,3 +751,21 @@ class SomfyProtectWebsocket:
         # "device_id":"XXX",
         # "message_id":"XX"
         # }
+
+
+class VideoStreamTrack(MediaStreamTrack):
+    kind = "video"
+
+    def __init__(self, track, mqtt_client, mqtt_topic):
+        super().__init__()  # Base class initialization
+        self.track = track
+        self.mqtt_client = mqtt_client
+        self.mqtt_topic = mqtt_topic
+
+    async def recv(self):
+        frame = await self.track.recv()
+        # Convert frame to image (e.g., JPEG or raw bytes) for MQTT
+        frame_bytes = frame.to_ndarray(format="bgr24").tobytes()
+        # Publish to MQTT
+        self.mqtt_client.publish(self.mqtt_topic, frame_bytes)
+        return frame
