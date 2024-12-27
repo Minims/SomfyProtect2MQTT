@@ -20,6 +20,7 @@ from somfy_protect.api import SomfyProtectApi
 from somfy_protect.sso import SomfyProtectSso, read_token_from_file
 from websocket import WebSocketApp
 from aiortc import RTCPeerConnection, RTCSessionDescription, RTCIceCandidate, MediaStreamTrack
+import asyncio
 
 WEBSOCKET = "wss://websocket.myfox.io/events/websocket?token="
 
@@ -52,7 +53,7 @@ class SomfyProtectWebsocket:
         self._websocket = WebSocketApp(
             f"{WEBSOCKET}{self.token.get('access_token')}",
             on_open=self.on_open,
-            on_message=self.on_message,
+            on_message=lambda ws, msg: asyncio.run(self.on_message(ws, msg)),
             on_error=self.on_error,
             on_close=self.on_close,
             on_ping=self.on_ping,
@@ -85,7 +86,7 @@ class SomfyProtectWebsocket:
         if (time.time() - self.time) > 1800:
             self.close()
 
-    def on_message(self, ws_app, message):
+    async def on_message(self, ws_app, message):
         """Handle New message received on WebSocket"""
         if "websocket.connection.ready" in message:
             LOGGER.info("Websocket Connection is READY")
@@ -132,7 +133,11 @@ class SomfyProtectWebsocket:
         LOGGER.debug(send)
         self.default_message(message_json)
         if message_json["key"] in callbacks:
-            callbacks[message_json["key"]](message_json)
+            callback = callbacks[message_json["key"]]
+            if asyncio.iscoroutinefunction(callback):
+                await callback(message_json)
+            else:
+                callback(message_json)
         else:
             LOGGER.debug(f"Unknown message: {message}")
 
