@@ -558,8 +558,14 @@ def update_devices_status(
                         for event in events:
                             if event.get("clip_cloudfront_url"):
                                 LOGGER.info(f"Found a video: {event.get('clip_cloudfront_url')}")
+                                write_to_media_folder(
+                                    url=event.get("clip_cloudfront_url"), site_id=site_id, device_id=device.id
+                                )
                             if event.get("snapshot_cloudfront_url"):
                                 LOGGER.info(f"Found a snapshot {event.get('snapshot_cloudfront_url')}")
+                                write_to_media_folder(
+                                    url=event.get("snapshot_cloudfront_url"), site_id=site_id, device_id=device.id
+                                )
 
                 settings = device.settings.get("global")
                 if device.settings.get("global").get("user_id"):
