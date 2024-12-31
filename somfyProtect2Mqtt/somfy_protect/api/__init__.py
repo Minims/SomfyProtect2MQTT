@@ -2,6 +2,7 @@
 
 import base64
 import logging
+import json
 from json import JSONDecodeError
 from typing import Any, Callable, Dict, List, Optional, Union
 
@@ -22,6 +23,7 @@ BASE_URL = "https://api.myfox.io"
 VIDEO_URL = "https://video.myfox.io"
 # (MEDIA_TYPE_VIDEO, 1, 1; MEDIA_TYPE_AUDIO, 0, 0)
 
+ACCESS_LIST = ["gate", "latch"]
 
 ACTION_LIST = [
     "shutter_open",
@@ -68,7 +70,7 @@ class SomfyProtectApi:
     def __init__(self, sso: SomfyProtectSso):
         self.sso = sso
 
-    def _request(self, method: str, path: str, **kwargs: Any) -> Response:
+    def _request(self, method: str, path: str, base_url: str = BASE_URL, **kwargs: Any) -> Response:
         """Make a request.
 
         We don't use the built-in token refresh mechanism of OAuth2 session because
@@ -82,7 +84,7 @@ class SomfyProtectApi:
             Response: requests Response object
         """
 
-        url = f"{BASE_URL}{path}"
+        url = f"{base_url}{path}"
         try:
             return getattr(self.sso._oauth, method)(url, **kwargs)  # pylint: disable=protected-access
         except TokenExpiredError:
@@ -90,7 +92,7 @@ class SomfyProtectApi:
 
             return getattr(self.sso._oauth, method)(url, **kwargs)  # pylint: disable=protected-access
 
-    def get(self, path: str) -> Response:
+    def get(self, path: str, base_url: str = BASE_URL) -> Response:
         """Fetch an URL from the Somfy Protect API.
 
         Args:
@@ -99,7 +101,7 @@ class SomfyProtectApi:
         Returns:
             Response: requests Response object
         """
-        return self._request("get", path)
+        return self._request("get", path, base_url)
 
     def post(self, path: str, *, json: Dict[str, Any]) -> Response:
         """Post data to the Somfy Protect API.
@@ -457,6 +459,53 @@ class SomfyProtectApi:
         Returns:
             ??
         """
-        response = self.get(f"/v3/site/{site_id}/history?order=-1&limit=100")
+        # response = self.get(f"/v3/site/{site_id}/history?order=-1&limit=100")
+        response = self.get(f"/v3/site/{site_id}/history")
         response.raise_for_status()
         return response.json().get("items")
+
+    def get_device_events(
+        self,
+        site_id: str,
+        device_id: str,
+    ):
+        """Get Scenarios
+
+        Args:
+            site_id (str): Site ID
+            device_id (str): Device ID
+
+        Returns:
+            ??
+        """
+        token = read_token_from_file().get("access_token")
+        response = self.get(f"/event/site/{site_id}/device/{device_id}/events?access_token={token}", base_url=VIDEO_URL)
+        LOGGER.info(response.json())
+        response.raise_for_status()
+        return response.json()
+
+    def trigger_access(
+        self,
+        site_id: str,
+        device_id: str,
+        access: str,
+    ) -> Dict:
+        """Make an action on a Device
+
+        Args:
+            site_id (str): Site ID
+            device_id (str): Device ID
+            access (str): Access
+
+        Returns:
+            str: Task ID
+        """
+        if access not in ACCESS_LIST:
+            raise ValueError(f"Unknown action {access}")
+
+        response = self.post(
+            f"/v3/site/{site_id}/device/{device_id}/access/trigger",
+            json={"type": access},
+        )
+        response.raise_for_status()
+        return response.json()

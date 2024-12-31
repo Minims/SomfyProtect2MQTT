@@ -9,6 +9,7 @@ import time
 from signal import SIGKILL
 
 import websocket
+from business import update_visiophone_snapshot, write_to_media_folder
 from business.mqtt import mqtt_publish, update_device, update_site
 from business.streaming.camera import VideoCamera
 from homeassistant.ha_discovery import ALARM_STATUS
@@ -18,6 +19,8 @@ from requests_oauthlib import OAuth2Session
 from somfy_protect.api import SomfyProtectApi
 from somfy_protect.sso import SomfyProtectSso, read_token_from_file
 from websocket import WebSocketApp
+from aiortc import RTCPeerConnection, RTCSessionDescription, RTCIceCandidate, MediaStreamTrack
+import asyncio
 
 WEBSOCKET = "wss://websocket.myfox.io/events/websocket?token="
 
@@ -50,7 +53,7 @@ class SomfyProtectWebsocket:
         self._websocket = WebSocketApp(
             f"{WEBSOCKET}{self.token.get('access_token')}",
             on_open=self.on_open,
-            on_message=self.on_message,
+            on_message=lambda ws, msg: asyncio.run(self.on_message(ws, msg)),
             on_error=self.on_error,
             on_close=self.on_close,
             on_ping=self.on_ping,
@@ -83,7 +86,7 @@ class SomfyProtectWebsocket:
         if (time.time() - self.time) > 1800:
             self.close()
 
-    def on_message(self, ws_app, message):
+    async def on_message(self, ws_app, message):
         """Handle New message received on WebSocket"""
         if "websocket.connection.ready" in message:
             LOGGER.info("Websocket Connection is READY")
@@ -105,6 +108,20 @@ class SomfyProtectWebsocket:
             "presence_in": self.update_keyfob_presence,
             "device.status": self.device_status,
             "video.stream.ready": self.video_stream_ready,
+            "device.ring_door_bell": self.device_ring_door_bell,
+            "device.missed_call": self.device_missed_call,
+            "video.webrtc.offer": self.video_webrtc_offer,
+            "video.webrtc.start": self.video_webrtc_start,
+            "video.webrtc.session": self.video_webrtc_session,
+            "video.webrtc.answer": self.video_webrtc_answer,
+            "video.webrtc.candidate": self.video_webrtc_candidate,
+            "video.webrtc.turn.config": self.video_webrtc_turn_config,
+            "video.webrtc.keep_alive": self.video_webrtc_keep_alive,
+            "video.webrtc.hang_up": self.video_webrtc_hang_up,
+            "device.gate_triggered_from_mobile": self.device_gate_triggered_from_mobile,
+            "device.gate_triggered_from_monitor": self.device_gate_triggered_from_monitor,
+            "answered_call_from_monitor": self.device_answered_call_from_monitor,
+            "answered_call_from_mobile": self.device_answered_call_from_mobile,
         }
 
         ack = {
@@ -116,7 +133,11 @@ class SomfyProtectWebsocket:
         LOGGER.debug(send)
         self.default_message(message_json)
         if message_json["key"] in callbacks:
-            callbacks[message_json["key"]](message_json)
+            callback = callbacks[message_json["key"]]
+            if asyncio.iscoroutinefunction(callback):
+                await callback(message_json)
+            else:
+                callback(message_json)
         else:
             LOGGER.debug(f"Unknown message: {message}")
 
@@ -131,6 +152,136 @@ class SomfyProtectWebsocket:
     def on_close(self, ws_app, close_status_code, close_msg):  # pylint: disable=unused-argument,no-self-use
         """Handle Websocket Close Connection"""
         LOGGER.info(f"Websocket on_close, status {close_status_code} => {close_msg}")
+
+    def device_gate_triggered_from_monitor(self, message):
+        """Gate Open from Monitor"""
+        LOGGER.info(f"Gate Open from Monitor: {message}")
+
+    def device_answered_call_from_mobile(self, message):
+        """Answer Call from Mobile"""
+        LOGGER.info(f"Answer Call from Mobile: {message}")
+
+    def device_answered_call_from_monitor(self, message):
+        """Answer Call from Monitor"""
+        LOGGER.info(f"Answer Call from Monitor: {message}")
+
+    def device_gate_triggered_from_mobile(self, message):
+        """Gate Open from Mobile"""
+        LOGGER.info(f"Gate Open from Mobile: {message}")
+
+    def video_webrtc_hang_up(self, message):
+        """WEBRTC HangUP"""
+        LOGGER.info(f"WEBRTC HangUp: {message}")
+
+    def video_webrtc_keep_alive(self, message):
+        """WEBRTC KeepAlive"""
+        LOGGER.info(f"WEBRTC KeepAlive: {message}")
+
+    def video_webrtc_session(self, message):
+        """WEBRTC Session"""
+        LOGGER.info(f"WEBRTC Session: {message}")
+
+    async def video_webrtc_offer(self, message):
+        """WEBRTC Offer"""
+        LOGGER.info(f"WEBRTC Offer: {message}")
+        device_id = message.get("device_id")
+        site_id = message.get("site_id")
+        offer_data = message.get("offer")
+        offer_data_clean = str(offer_data).strip("^('").strip("',)$")
+        offer_data_json = json.loads(offer_data_clean)
+        sdp = offer_data_json.get("sdp")
+        LOGGER.info(f"WEBRTC SDP: {sdp}")
+
+        directory = "/config/somfyprotect2mqtt"
+        try:
+            os.makedirs(directory, exist_ok=True)
+            with open(f"{directory}/visiophone_webrtc_sdp_{device_id}", "w", encoding="utf-8") as file:
+                file.write(sdp)
+        except OSError as exc:
+            LOGGER.warning(f"Unable to create directory {directory}: {exc}")
+
+        offer_type = offer_data_json.get("type")
+        pc = RTCPeerConnection()
+        offer = RTCSessionDescription(sdp=sdp, type=offer_type)
+        await pc.setRemoteDescription(offer)
+
+        topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/snapshot"
+
+        # Handle incoming video tracks
+        @pc.on("track")
+        async def on_track(track):
+            LOGGER.info(f"Track received: {track.kind}")
+            if track.kind == "video":
+                video_track = VideoStreamTrack(track, self.mqtt_client, topic)
+                pc.addTrack(video_track)
+
+        answer = await pc.createAnswer()
+        await pc.setLocalDescription(answer)
+        response = {
+            "type": "video.webrtc.answer",
+            "session_id": message.get("session_id"),
+            "answer": {"type": pc.localDescription.type, "sdp": pc.localDescription.sdp},
+        }
+        send = self._websocket.send(json.dumps(response))
+        LOGGER.debug(send)
+
+    def video_webrtc_start(self, message):
+        """WEBRTC Start"""
+        LOGGER.info(f"WEBRTC Start: {message}")
+
+    def video_webrtc_answer(self, message):
+        """WEBRTC Answer"""
+        LOGGER.info(f"WEBRTC Answer: {message}")
+
+    def video_webrtc_turn_config(self, message):
+        """WEBRTC Turn Config"""
+        LOGGER.info(f"WEBRTC Turn Config: {message}")
+
+    def video_webrtc_candidate(self, message):
+        """WEBRTC Candidate"""
+        LOGGER.info(f"WEBRTC Candidate: {message}")
+
+    def device_ring_door_bell(self, message):
+        """Someone is ringing at the door."""
+        site_id = message.get("site_id")
+        device_id = message.get("device_id")
+        LOGGER.info(f"Someone is ringing on {device_id}")
+        topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/ringing"
+        payload = {"ringing": "True"}
+        mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True)
+        time.sleep(3)
+        payload = {"ringing": "False"}
+        mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True)
+        snapshot_url = message.get("snapshot_url")
+        if snapshot_url:
+            LOGGER.info("Found a snapshot !")
+            update_visiophone_snapshot(
+                url=snapshot_url,
+                site_id=site_id,
+                device_id=device_id,
+                mqtt_client=self.mqtt_client,
+                mqtt_config=self.mqtt_config,
+            )
+
+    def device_missed_call(self, message):
+        """Call missed."""
+        site_id = message.get("site_id")
+        device_id = message.get("device_id")
+        LOGGER.info(f"Someone has rang on {device_id}")
+        snapshot_cloudfront_url = message.get("snapshot_cloudfront_url")
+        clip_cloudfront_url = message.get("clip_cloudfront_url")
+        if snapshot_cloudfront_url:
+            LOGGER.info("Found a snapshot !")
+            update_visiophone_snapshot(
+                url=snapshot_cloudfront_url,
+                site_id=site_id,
+                device_id=device_id,
+                mqtt_client=self.mqtt_client,
+                mqtt_config=self.mqtt_config,
+            )
+        if clip_cloudfront_url:
+            LOGGER.info("Found Clip !")
+            write_to_media_folder(url=clip_cloudfront_url)
 
     def video_stream_ready(self, message):
         # {
@@ -605,3 +756,21 @@ class SomfyProtectWebsocket:
         # "device_id":"XXX",
         # "message_id":"XX"
         # }
+
+
+class VideoStreamTrack(MediaStreamTrack):
+    kind = "video"
+
+    def __init__(self, track, mqtt_client, mqtt_topic):
+        super().__init__()  # Base class initialization
+        self.track = track
+        self.mqtt_client = mqtt_client
+        self.mqtt_topic = mqtt_topic
+
+    async def recv(self):
+        frame = await self.track.recv()
+        # Convert frame to image (e.g., JPEG or raw bytes) for MQTT
+        frame_bytes = frame.to_ndarray(format="bgr24").tobytes()
+        # Publish to MQTT
+        self.mqtt_client.publish(self.mqtt_topic, frame_bytes)
+        return frame

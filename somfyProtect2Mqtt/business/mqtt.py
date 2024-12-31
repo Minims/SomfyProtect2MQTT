@@ -6,7 +6,7 @@ from time import sleep
 
 from homeassistant.ha_discovery import ALARM_STATUS
 from paho.mqtt import client
-from somfy_protect.api import ACTION_LIST, SomfyProtectApi
+from somfy_protect.api import ACCESS_LIST, ACTION_LIST, SomfyProtectApi
 
 # from business.streaming import rtmps_to_hls
 
@@ -17,7 +17,7 @@ SUBSCRIBE_TOPICS = []
 def mqtt_publish(mqtt_client, topic, payload, qos=0, retain=False, is_json=True):
     """MQTT publish"""
     if is_json:
-        payload = json.dumps(payload)
+        payload = json.dumps(payload, ensure_ascii=False).encode("utf8")
     mqtt_client.client.publish(topic, payload, qos=qos, retain=retain)
 
 
@@ -127,6 +127,19 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
             LOGGER.info(f"Test the Siren On Site ID {site_id} ({sound})")
             api.test_siren(site_id=site_id, device_id=device_id, sound=sound)
 
+        # Manage Access
+        elif text_payload in ACCESS_LIST:
+            site_id = msg.topic.split("/")[1]
+            device_id = msg.topic.split("/")[2]
+            if device_id:
+                LOGGER.info(f"Message received for Site ID: {site_id}, Device ID: {device_id}, Access: {text_payload}")
+                trigger_access = api.trigger_access(
+                    site_id=site_id,
+                    device_id=device_id,
+                    access=text_payload,
+                )
+                LOGGER.debug(trigger_access)
+
         # Manage Actions
         elif text_payload in ACTION_LIST:
             site_id = msg.topic.split("/")[1]
@@ -155,7 +168,7 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
         elif msg.topic.split("/")[3] == "snapshot":
             site_id = msg.topic.split("/")[1]
             device_id = msg.topic.split("/")[2]
-            if text_payload == "True":
+            if text_payload is True:
                 LOGGER.info("Manual Snapshot")
                 api.camera_refresh_snapshot(site_id=site_id, device_id=device_id)
                 response = api.camera_snapshot(site_id=site_id, device_id=device_id)

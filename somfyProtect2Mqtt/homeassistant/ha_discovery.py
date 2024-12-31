@@ -176,6 +176,10 @@ DEVICE_CAPABILITIES = {
         "type": "sensor",
         "config": {},
     },
+    "model": {
+        "type": "sensor",
+        "config": {},
+    },
     "mfa_last_test_at": {
         "type": "sensor",
         "config": {},
@@ -310,6 +314,20 @@ DEVICE_CAPABILITIES = {
             "pl_off": "False",
         },
     },
+    "latch_wired": {
+        "type": "switch",
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+        },
+    },
+    "gate_wired": {
+        "type": "switch",
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+        },
+    },
     "homekit_capable": {
         "type": "binary_sensor",
         "config": {
@@ -325,6 +343,14 @@ DEVICE_CAPABILITIES = {
             "pl_on": "light_on",
             "pl_off": "light_off",
         },
+    },
+    "open_latch": {
+        "type": "button",
+        "config": {"payload_press": "latch"},
+    },
+    "open_gate": {
+        "type": "button",
+        "config": {"payload_press": "gate"},
     },
     "reboot": {
         "type": "button",
@@ -583,6 +609,13 @@ DEVICE_CAPABILITIES = {
             "pl_off": "False",
         },
     },
+    "ringing": {
+        "type": "binary_sensor",
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+        },
+    },
 }
 
 
@@ -629,6 +662,32 @@ def ha_discovery_alarm(site: Site, mqtt_config: dict, homeassistant_config: dict
         site_config["config"]["code_arm_required"] = False
     if not code_disarm_required:
         site_config["config"]["code_disarm_required"] = False
+    return site_config
+
+
+def ha_discovery_history(site: Site, mqtt_config: dict):
+    """Auto Discover History"""
+    site_config = {}
+
+    site_info = {
+        "identifiers": [site.id],
+        "manufacturer": "Somfy",
+        "model": "Somfy Home Alarm",
+        "name": "Somfy Home Alarm",
+        "sw_version": "SomfyProtect2MQTT",
+    }
+
+    site_config["topic"] = f"{mqtt_config.get('ha_discover_prefix', 'homeassistant')}/text/{site.id}/history/config"
+    site_config["config"] = {
+        "name": f"{site.label}_history",
+        "unique_id": f"{site.id}_{site.label}_history",
+        "state_topic": f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site.id}/history",
+        "device": site_info,
+        "mode": "text",
+        "command_topic": f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site.id}/history",
+        "min": 0,
+        "max": 255,
+    }
     return site_config
 
 
@@ -723,6 +782,10 @@ def ha_discovery_devices(
             device_config["config"]["device_class"] = "safety"
         if device.device_definition.get("label") == "Myfox Security Infrared Sensor":
             device_config["config"]["device_class"] = "motion"
+    if sensor_name == "ringing":
+        device_config["config"][
+            "state_topic"
+        ] = f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/ringing"
 
     return device_config
 

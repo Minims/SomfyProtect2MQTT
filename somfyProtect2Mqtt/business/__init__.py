@@ -2,7 +2,8 @@
 
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
+import pytz
 from time import sleep
 
 import schedule
@@ -15,16 +16,19 @@ from homeassistant.ha_discovery import (
     DEVICE_CAPABILITIES,
     ha_discovery_alarm,
     ha_discovery_alarm_actions,
+    ha_discovery_history,
     ha_discovery_cameras,
     ha_discovery_devices,
 )
 from mqtt import MQTTClient
+import requests
 from somfy_protect.api import SomfyProtectApi
 from somfy_protect.api.devices.category import Category
 
 LOGGER = logging.getLogger(__name__)
 
 DEVICE_TAG = {}
+HISTORY = {}
 
 
 def ha_sites_config(
@@ -56,6 +60,19 @@ def ha_sites_config(
             mqtt_client.client.subscribe(site_config.get("config").get("command_topic"))
             SUBSCRIBE_TOPICS.append(site_config.get("config").get("command_topic"))
 
+            history = ha_discovery_history(
+                site=my_site,
+                mqtt_config=mqtt_config,
+            )
+            configs = [history]
+            for history_config in configs:
+                mqtt_publish(
+                    mqtt_client=mqtt_client,
+                    topic=history_config.get("topic"),
+                    payload=history_config.get("config"),
+                    retain=True,
+                )
+
         try:
             scenarios_core = api.get_scenarios_core(site_id=my_site.id)
             LOGGER.info(f"Scenarios Core for {my_site.label} => {scenarios_core}")
@@ -65,6 +82,15 @@ def ha_sites_config(
         except Exception as exp:
             LOGGER.warning(f"Error while getting scenarios: {exp}")
             continue
+
+
+def convert_utc_to_paris(date: datetime) -> datetime:
+
+    utc_zone = pytz.utc
+    date = utc_zone.localize(date)
+    paris_zone = pytz.timezone("Europe/Paris")
+    paris_date = date.astimezone(paris_zone)
+    return paris_date
 
 
 def ha_devices_config(
@@ -312,6 +338,138 @@ def ha_devices_config(
                     retain=True,
                 )
 
+            if "videophone" in device.device_definition.get("type"):
+                LOGGER.info(f"VideoPhone {device.device_definition.get('label')}")
+                camera_config = ha_discovery_cameras(
+                    site_id=site_id,
+                    device=device,
+                    mqtt_config=mqtt_config,
+                )
+                mqtt_publish(
+                    mqtt_client=mqtt_client,
+                    topic=camera_config.get("topic"),
+                    payload=camera_config.get("config"),
+                    retain=True,
+                )
+                ringing_config = ha_discovery_devices(
+                    site_id=site_id,
+                    device=device,
+                    mqtt_config=mqtt_config,
+                    sensor_name="ringing",
+                )
+                mqtt_publish(
+                    mqtt_client=mqtt_client,
+                    topic=ringing_config.get("topic"),
+                    payload=ringing_config.get("config"),
+                    retain=True,
+                )
+                mqtt_publish(
+                    mqtt_client=mqtt_client,
+                    topic=ringing_config.get("config").get("state_topic"),
+                    payload={"ringing": "False"},
+                    retain=True,
+                )
+
+                reboot = ha_discovery_devices(
+                    site_id=site_id,
+                    device=device,
+                    mqtt_config=mqtt_config,
+                    sensor_name="reboot",
+                )
+                mqtt_publish(
+                    mqtt_client=mqtt_client,
+                    topic=reboot.get("topic"),
+                    payload=reboot.get("config"),
+                    retain=True,
+                )
+                mqtt_client.client.subscribe(reboot.get("config").get("command_topic"))
+                SUBSCRIBE_TOPICS.append(reboot.get("config").get("command_topic"))
+
+                halt = ha_discovery_devices(
+                    site_id=site_id,
+                    device=device,
+                    mqtt_config=mqtt_config,
+                    sensor_name="halt",
+                )
+                mqtt_publish(
+                    mqtt_client=mqtt_client,
+                    topic=halt.get("topic"),
+                    payload=halt.get("config"),
+                    retain=True,
+                )
+                mqtt_client.client.subscribe(halt.get("config").get("command_topic"))
+                SUBSCRIBE_TOPICS.append(halt.get("config").get("command_topic"))
+
+                open_latch = ha_discovery_devices(
+                    site_id=site_id,
+                    device=device,
+                    mqtt_config=mqtt_config,
+                    sensor_name="open_latch",
+                )
+                mqtt_publish(
+                    mqtt_client=mqtt_client,
+                    topic=open_latch.get("topic"),
+                    payload=open_latch.get("config"),
+                    retain=True,
+                )
+                mqtt_client.client.subscribe(open_latch.get("config").get("command_topic"))
+                SUBSCRIBE_TOPICS.append(open_latch.get("config").get("command_topic"))
+
+                open_gate = ha_discovery_devices(
+                    site_id=site_id,
+                    device=device,
+                    mqtt_config=mqtt_config,
+                    sensor_name="open_gate",
+                )
+                mqtt_publish(
+                    mqtt_client=mqtt_client,
+                    topic=open_gate.get("topic"),
+                    payload=open_gate.get("config"),
+                    retain=True,
+                )
+                mqtt_client.client.subscribe(open_gate.get("config").get("command_topic"))
+                SUBSCRIBE_TOPICS.append(open_gate.get("config").get("command_topic"))
+
+                # Manual Snapshot
+                device_config = ha_discovery_devices(
+                    site_id=site_id,
+                    device=device,
+                    mqtt_config=mqtt_config,
+                    sensor_name="snapshot",
+                )
+                mqtt_publish(
+                    mqtt_client=mqtt_client,
+                    topic=device_config.get("topic"),
+                    payload=device_config.get("config"),
+                    retain=True,
+                )
+                if device_config.get("config").get("command_topic"):
+                    mqtt_client.client.subscribe(device_config.get("config").get("command_topic"))
+                    SUBSCRIBE_TOPICS.append(device_config.get("config").get("command_topic"))
+
+                # Stream
+                stream = ha_discovery_devices(
+                    site_id=site_id,
+                    device=device,
+                    mqtt_config=mqtt_config,
+                    sensor_name="stream",
+                )
+                mqtt_publish(
+                    mqtt_client=mqtt_client,
+                    topic=stream.get("topic"),
+                    payload=stream.get("config"),
+                    retain=True,
+                )
+                if stream.get("config").get("command_topic"):
+                    mqtt_client.client.subscribe(stream.get("config").get("command_topic"))
+                    mqtt_client.client.subscribe(
+                        f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/stream"
+                    )
+                    SUBSCRIBE_TOPICS.append(stream.get("config").get("command_topic"))
+                    SUBSCRIBE_TOPICS.append(
+                        f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/stream"
+                    )
+
 
 def update_sites_status(
     api: SomfyProtectApi,
@@ -343,27 +501,39 @@ def update_sites_status(
             LOGGER.warning(f"Error while refreshing site: {exp}")
             continue
 
-            # history_lines = api.get_history(site_id=site_id)
-            # for history_line in history_lines:
-            #     LOGGER.info(history_line)
-            #     LOGGER.info(
-            #        f"{history_line.get('occurred_at')} - {history_line.get('message_type')} - {history_line.get('message_key')} - {history_line.get('origin')}"
-            #     )
-            #     if history_line.get("message_type") == "home_activity":
-            #         if history_line.get("message_key") == "homeActivity.user.exit":
-            #             LOGGER.info(f"OUT: {history_line.get('origin').get('user_id')}")
-            #             if DEVICE_TAG.get(history_line.get("origin").get("user_id")):
-            #                 device = api.get_device(
-            #                     site_id=site_id,
-            #                     device_id=DEVICE_TAG.get(
-            #                         history_line.get("origin").get("user_id")
-            #                     ),
-            #                 )
-            #                 LOGGER.info(device.label)
-            #         elif (
-            #             history_line.get("message_key") == "homeActivity.user.entrance"
-            #         ):
-            #             LOGGER.info(f"IN: {history_line.get('origin').get('user_id')}")
+        try:
+            payload = {}
+            events = api.get_history(site_id=site_id)
+            for event in events:
+                if event:
+                    occurred_at = event.get("occurred_at")
+                    date_format = "%Y-%m-%dT%H:%M:%S.%fZ"
+                    occurred_at_date = datetime.strptime(occurred_at, date_format)
+                    occurred_at_date = convert_utc_to_paris(date=occurred_at_date)
+                    paris_tz = pytz.timezone("Europe/Paris")
+                    now = datetime.now(paris_tz)
+                    if now - occurred_at_date < timedelta(seconds=90):
+                        if occurred_at in HISTORY:
+                            LOGGER.info(f"History still published: {HISTORY[occurred_at]}")
+                            continue
+                        HISTORY[occurred_at] = {event.get("type"): event.get("label")}
+                        payload = f"{event.get('message_key')} {event.get('message_vars').get('userDsp')} {event.get('message_vars').get('siteLabel')}"
+                        payload = payload.replace("None", "").strip().strip('"').replace(".", " ").title()
+                        # Push status to MQTT
+                        mqtt_publish(
+                            mqtt_client=mqtt_client,
+                            topic=f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/history",
+                            payload=payload,
+                            retain=True,
+                        )
+                    else:
+                        LOGGER.debug(
+                            f"Event is too old {event.get('message_key')} {event.get('message_vars').get('userDsp')} {event.get('message_vars').get('siteLabel')}"
+                        )
+
+        except Exception as exp:
+            LOGGER.warning(f"Error while getting site history: {exp}")
+            continue
 
         except Exception as exp:
             LOGGER.warning(f"Error while refreshing site: {exp}")
@@ -382,6 +552,21 @@ def update_devices_status(
         try:
             my_devices = api.get_devices(site_id=site_id)
             for device in my_devices:
+                if "videophone" in device.device_definition.get("type"):
+                    events = api.get_device_events(site_id=site_id, device_id=device.id)
+                    if events:
+                        for event in events:
+                            if event.get("clip_cloudfront_url"):
+                                LOGGER.info(f"Found a video: {event.get('clip_cloudfront_url')}")
+                                write_to_media_folder(
+                                    url=event.get("clip_cloudfront_url"), site_id=site_id, device_id=device.id
+                                )
+                            if event.get("snapshot_cloudfront_url"):
+                                LOGGER.info(f"Found a snapshot {event.get('snapshot_cloudfront_url')}")
+                                write_to_media_folder(
+                                    url=event.get("snapshot_cloudfront_url"), site_id=site_id, device_id=device.id
+                                )
+
                 settings = device.settings.get("global")
                 if device.settings.get("global").get("user_id"):
                     DEVICE_TAG[device.settings.get("global").get("user_id")] = device.id
@@ -463,3 +648,70 @@ def update_camera_snapshot(
         except Exception as exp:
             LOGGER.warning(f"Error while refreshing snapshot: {exp}")
             continue
+
+
+def update_visiophone_snapshot(
+    url: str,
+    site_id: str,
+    device_id: str,
+    mqtt_client: MQTTClient,
+    mqtt_config: dict,
+) -> None:
+    """Download VisioPhone Snapshot"""
+    LOGGER.info("Download VisioPhone Snapshot")
+    now = datetime.now()
+    timestamp = int(now.timestamp())
+
+    try:
+        response = requests.get(url, stream=True)
+        response.raise_for_status()
+
+        path = f"{device_id}-{timestamp}.jpeg"
+        with open(path, "wb") as tmp_file:
+            for chunk in response.iter_content(1024):  # Lire en morceaux de 1 KB
+                tmp_file.write(chunk)
+    except requests.exceptions.RequestException as exc:
+        LOGGER.warning(f"Error while Downloading snapshot: {exc}")
+
+    # Add Watermark
+    insert_watermark(
+        file=f"{os.getcwd()}/{path}",
+        watermark=now.strftime("%Y-%m-%d %H:%M:%S"),
+    )
+
+    # Read and Push to MQTT
+    with open(path, "rb") as tmp_file:
+        image = tmp_file.read()
+    byte_arr = bytearray(image)
+    topic = f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/snapshot"
+    mqtt_publish(
+        mqtt_client=mqtt_client,
+        topic=topic,
+        payload=byte_arr,
+        retain=True,
+        is_json=False,
+    )
+    # Clean file
+    os.remove(path)
+
+
+def write_to_media_folder(url: str, site_id: str, device_id: str) -> None:
+    """Download VisioPhone Clip"""
+    LOGGER.info("Download VisioPhone Clip")
+    now = datetime.now()
+    timestamp = int(now.timestamp())
+    directory = "/media/somfyprotect2mqtt"
+
+    try:
+        os.makedirs(directory, exist_ok=True)
+
+        response = requests.get(url, stream=True)
+        response.raise_for_status()
+
+        with open(f"{directory}/visiphone-{device_id}-{timestamp}", "wb", encoding="utf-8") as file:
+            for chunk in response.iter_content(1024):  # Lire en morceaux de 1 KB
+                file.write(chunk)
+    except OSError as exc:
+        LOGGER.warning(f"Unable to create directory {directory}: {exc}")
+    except requests.exceptions.RequestException as exc:
+        LOGGER.warning(f"Error while Downloading clip: {exc}")
