@@ -15,7 +15,7 @@ COPY requirements requirements/
 
 RUN apt-get update \
     && apt-get install --yes --no-install-recommends \
-    build-essential libjxl0.10 zlib1g-dev libjpeg62-turbo-dev cmake libgl1 libgl1-mesa-glx libglib2.0-0 \
+    build-essential libjxl-tools zlib1g-dev libjpeg62-turbo-dev cmake libgl1 libgl1-mesa-glx libglib2.0-0 \
     && python -m pip install --upgrade pip setuptools wheel \
     && python -m pip install -r requirements/docker.txt \
     && apt-get autoremove --yes build-essential zlib1g-dev libjpeg62-turbo-dev cmake \
