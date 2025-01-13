@@ -1,13 +1,29 @@
-aenum==3.1.15
-aiortc==1.9.0
-oauthlib==3.2.2
-paho-mqtt==1.6.1
-pillow==11.1.0
-python-ffmpeg-video-streaming==0.1.16
-pytz==2024.2
-pyyaml==6.0.2
-requests-oauthlib==2.0.0
-schedule==1.2.2
-simple-http-server==0.22.3
-urllib3==2.3.0
-websocket-client==1.8.0
+aenum==3.1.15 ; python_version >= "3.11"
+aioice==0.9.0 ; python_version >= "3.11"
+aiortc==1.9.0 ; python_version >= "3.11"
+av==12.3.0 ; python_version >= "3.11"
+certifi==2024.12.14 ; python_version >= "3.11"
+cffi==1.17.1 ; python_version >= "3.11"
+charset-normalizer==3.4.1 ; python_version >= "3.11"
+cryptography==44.0.0 ; python_version >= "3.11"
+dnspython==2.7.0 ; python_version >= "3.11"
+google-crc32c==1.6.0 ; python_version >= "3.11"
+idna==3.10 ; python_version >= "3.11"
+ifaddr==0.2.0 ; python_version >= "3.11"
+oauthlib==3.2.2 ; python_version >= "3.11"
+paho-mqtt==2.1.0 ; python_version >= "3.11"
+pillow==11.1.0 ; python_version >= "3.11"
+pycparser==2.22 ; python_version >= "3.11"
+pyee==12.1.1 ; python_version >= "3.11"
+pylibsrtp==0.10.0 ; python_version >= "3.11"
+pyopenssl==25.0.0 ; python_version >= "3.11"
+python-ffmpeg-video-streaming==0.1.16 ; python_version >= "3.11"
+pytz==2024.2 ; python_version >= "3.11"
+pyyaml==6.0.2 ; python_version >= "3.11"
+requests-oauthlib==2.0.0 ; python_version >= "3.11"
+requests==2.32.3 ; python_version >= "3.11"
+schedule==1.2.2 ; python_version >= "3.11"
+simple-http-server==0.22.3 ; python_version >= "3.11"
+typing-extensions==4.12.2 ; python_version >= "3.11"
+urllib3==2.3.0 ; python_version >= "3.11"
+websocket-client==1.8.0 ; python_version >= "3.11"

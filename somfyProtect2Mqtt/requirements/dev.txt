@@ -1,9 +1,13 @@
--r common.txt
-black==24.10.0
-coverage==7.6.10
-faker==33.3.1
-pep8==1.7.1
-pipupgrade==1.12.0
-pylint==3.3.3
-pytest==8.3.4
-unittest-xml-reporting==3.2.0
+astroid==3.3.8 ; python_version >= "3.11"
+black==24.10.0 ; python_version >= "3.11"
+click==8.1.8 ; python_version >= "3.11"
+colorama==0.4.6 ; platform_system == "Windows" and python_version >= "3.11" or sys_platform == "win32" and python_version >= "3.11"
+dill==0.3.9 ; python_version >= "3.11"
+isort==5.13.2 ; python_version >= "3.11"
+mccabe==0.7.0 ; python_version >= "3.11"
+mypy-extensions==1.0.0 ; python_version >= "3.11"
+packaging==24.2 ; python_version >= "3.11"
+pathspec==0.12.1 ; python_version >= "3.11"
+platformdirs==4.3.6 ; python_version >= "3.11"
+pylint==3.3.3 ; python_version >= "3.11"
+tomlkit==0.13.2 ; python_version >= "3.11"
