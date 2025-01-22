@@ -1,0 +1,31 @@
+brew install python@3.12
+brew install pyenv
+pyenv install 3.12.8
+pyenv local 3.12.8
+python --version
+curl -sSL https://install.python-poetry.org | python
+# Dans ~/.zshrc, export PATH="$HOME/.local/bin:$PATH"
+# source ~/.zshrc
+python -m poetry init
+
+poetry run black --line-length 120 .
+
+
+[tool.poetry.dependencies]
+python = "^3.12"
+
+[tool.black]
+line-length = 120
+
+[tool.pylint.FORMAT]
+max-line-length = 120
+
+[tool.isort]
+profile = "black"
+
+poetry add $(cat requirements.txt)
+poetry add --dev $(cat requirements-dev.txt)
+poetry install
+
+poetry shell
+python run.py
