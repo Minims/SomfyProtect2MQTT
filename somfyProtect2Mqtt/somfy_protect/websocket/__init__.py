@@ -202,6 +202,23 @@ class SomfyProtectWebsocket:
 
         offer_type = offer_data_json.get("type")
         pc = RTCPeerConnection()
+
+        @pc.on("iceconnectionstatechange")
+        async def on_iceconnectionstatechange():
+            LOGGER.info(f"ICE connection state is {pc.iceConnectionState}")
+            if pc.iceConnectionState == "failed":
+                LOGGER.error("ICE connection failed")
+                await pc.close()
+
+        # Add a timeout for ICE connection state transition
+        async def check_ice_connection_state():
+            await asyncio.sleep(10)
+            if pc.iceConnectionState == "waiting":
+                LOGGER.warning("ICE connection state stuck in WAITING, closing connection")
+                await pc.close()
+
+        asyncio.create_task(check_ice_connection_state())
+
         offer = RTCSessionDescription(sdp=sdp, type=offer_type)
         await pc.setRemoteDescription(offer)
 
