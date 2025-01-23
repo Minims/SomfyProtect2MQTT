@@ -8,7 +8,9 @@ curl -sSL https://install.python-poetry.org | python
 # source ~/.zshrc
 python -m poetry init
 
-poetry run black --line-length 120 .
+poetry run black .
+poetry run isort .
+poetry run pylint .
 
 
 [tool.poetry.dependencies]
@@ -26,6 +28,8 @@ profile = "black"
 poetry add $(cat requirements.txt)
 poetry add --dev $(cat requirements-dev.txt)
 poetry install
+poetry install --no-root
+poetry self add poetry-plugin-shell
 
 poetry shell
 python run.py

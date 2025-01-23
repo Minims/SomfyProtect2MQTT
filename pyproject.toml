@@ -1,11 +1,11 @@
 [project]
-name = "somfyprotect2mqtt"
+name = "somfyProtect2Mqtt"
 version = "2025.1.3"
 description = "Somfy Home Alarm Addon"
 authors = [
     {name = "Minims",email = "github@minims.fr"}
 ]
-packages = [{include = "somfyProtect2Mqtt"}]
+package-mode = false
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -34,7 +34,6 @@ black = "24.10.0"
 coverage = "7.6.10"
 faker = "33.3.1"
 pep8 = "1.7.1"
-pipupgrade = "1.12.0"
 pylint = "3.3.3"
 pytest = "8.3.4"
 unittest-xml-reporting = "3.2.0"
