@@ -30,6 +30,10 @@ poetry add --dev $(cat requirements-dev.txt)
 poetry install
 poetry install --no-root
 poetry self add poetry-plugin-shell
+poetry self add poetry-plugin-export
+
+poetry export --without-hashes --without dev -o somfyProtect2Mqtt/requirements/common.txt
+poetry export --without-hashes --only dev -o somfyProtect2Mqtt/requirements/dev.txt
 
 poetry shell
 python run.py

@@ -7,7 +7,7 @@ authors = [
 ]
 package-mode = false
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.11"
 dependencies = [
     "aenum (==3.1.15)",
     "aiortc (==1.9.0)",
@@ -21,7 +21,7 @@ dependencies = [
     "schedule (==1.2.2)",
     "simple-http-server (==0.22.3)",
     "urllib3 (==2.3.0)",
-    "websocket-client (==1.8.0)"
+    "websocket-client (==1.8.0)",
 ]
 
 
@@ -31,12 +31,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.group.dev.dependencies]
 black = "24.10.0"
-coverage = "7.6.10"
-faker = "33.3.1"
-pep8 = "1.7.1"
 pylint = "3.3.3"
-pytest = "8.3.4"
-unittest-xml-reporting = "3.2.0"
 isort = "^5.13.2"
 
 [tool.black]
