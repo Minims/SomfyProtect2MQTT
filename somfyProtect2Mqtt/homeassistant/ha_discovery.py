@@ -530,6 +530,14 @@ DEVICE_CAPABILITIES = {
             "pl_off": "False",
         },
     },
+    "smoke":{
+        "type": "binary_sensor",
+        "device_class": "smoke",
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+        },
+    },
     "sp_smoke_detector_alarm_muted": {
         "type": "binary_sensor",
         "config": {

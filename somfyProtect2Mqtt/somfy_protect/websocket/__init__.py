@@ -103,6 +103,8 @@ class SomfyProtectWebsocket:
             "security.level.change": self.security_level_change,
             "alarm.trespass": self.alarm_trespass,
             "alarm.panic": self.alarm_panic,
+            "alarm.domestic.fire": self.alarm_domestic_fire,
+            "alarm.domestic.fire.end": self.alarm_domestic_fire_end,
             "alarm.end": self.alarm_end,
             "presence_out": self.update_keyfob_presence,
             "presence_in": self.update_keyfob_presence,
@@ -507,6 +509,58 @@ class SomfyProtectWebsocket:
             payload=payload,
             retain=True,
         )
+
+
+    def alarm_domestic_fire(self, message):
+        """Report Alarm Fire"""
+        # {
+        # "profiles":[
+        #     "owner",
+        #     "admin",
+        #     "custom",
+        #     "family",
+        #     "neighbor"
+        # ],
+        # "site_id":"XXX",
+        # "type":"alarm",
+        # "key":"alarm.domestic.fire",
+        # "alarm_id":"XXX",
+        # "alarm_type":"fire",
+        # "devices":[
+        #     "XXX"
+        # ],
+        # "start_at":"2025-01-31T13:19:33.000000Z",
+        # "end_at":"None",
+        # "message_id":"XXX"
+        # }
+
+        LOGGER.info("Report Alarm Fire")
+        site_id = message.get("site_id")
+        payload = {"smoke": "True"}
+        for device_id in message.get("devices"):
+            topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/fire"
+
+            mqtt_publish(
+                mqtt_client=self.mqtt_client,
+                topic=topic,
+                payload=payload,
+                retain=True,
+            )
+
+    def alarm_domestic_fire_end(self, message):
+        """Report Alarm Fire End"""
+        LOGGER.info("Report Alarm Fire")
+        site_id = message.get("site_id")
+        payload = {"smoke": "False"}
+        for device_id in message.get("devices"):
+            topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/fire"
+
+            mqtt_publish(
+                mqtt_client=self.mqtt_client,
+                topic=topic,
+                payload=payload,
+                retain=True,
+            )
 
     def alarm_end(self, message):
         """Report Alarm Stop"""
