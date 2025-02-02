@@ -203,7 +203,18 @@ class SomfyProtectWebsocket:
             LOGGER.warning(f"Unable to create directory {directory}: {exc}")
 
         offer_type = offer_data_json.get("type")
-        pc = RTCPeerConnection()
+
+        stun_servers = [
+            {"urls": "stun:stun.l.google.com:19302"},
+            {"urls": "stun:stun1.l.google.com:19302"},
+            {"urls": "stun:stun2.l.google.com:19302"},
+            {"urls": "stun:stun3.l.google.com:19302"},
+            {"urls": "stun:stun4.l.google.com:19302"},
+        ]
+
+        ice_servers = stun_servers
+
+        pc = RTCPeerConnection(configuration={"iceServers": ice_servers})
 
         @pc.on("iceconnectionstatechange")
         async def on_iceconnectionstatechange():
@@ -211,6 +222,14 @@ class SomfyProtectWebsocket:
             if pc.iceConnectionState == "failed":
                 LOGGER.error("ICE connection failed")
                 await pc.close()
+
+        @pc.on("icegatheringstatechange")
+        async def on_icegatheringstatechange():
+            LOGGER.info(f"ICE gathering state is {pc.iceGatheringState}")
+
+        @pc.on("connectionstatechange")
+        async def on_connectionstatechange():
+            LOGGER.info(f"Connection state is {pc.connectionState}")
 
         # Add a timeout for ICE connection state transition
         async def check_ice_connection_state():
