@@ -212,9 +212,9 @@ class SomfyProtectWebsocket:
             {"urls": "stun:stun4.l.google.com:19302"},
         ]
 
-        ice_servers = stun_servers
+        ice_servers = {"iceServers": stun_servers}
 
-        pc = RTCPeerConnection(configuration={"iceServers": ice_servers})
+        pc = RTCPeerConnection(ice_servers)
 
         @pc.on("iceconnectionstatechange")
         async def on_iceconnectionstatechange():
