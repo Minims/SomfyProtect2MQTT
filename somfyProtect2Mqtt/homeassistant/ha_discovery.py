@@ -530,7 +530,7 @@ DEVICE_CAPABILITIES = {
             "pl_off": "False",
         },
     },
-    "smoke":{
+    "smoke": {
         "type": "binary_sensor",
         "device_class": "smoke",
         "config": {

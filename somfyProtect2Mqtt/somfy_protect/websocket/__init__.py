@@ -1,5 +1,6 @@
 """Somfy Protect Websocket"""
 
+import asyncio
 import base64
 import json
 import logging
@@ -9,6 +10,14 @@ import time
 from signal import SIGKILL
 
 import websocket
+from aiortc import (
+    MediaStreamTrack,
+    RTCConfiguration,
+    RTCIceCandidate,
+    RTCIceServer,
+    RTCPeerConnection,
+    RTCSessionDescription,
+)
 from business import update_visiophone_snapshot, write_to_media_folder
 from business.mqtt import mqtt_publish, update_device, update_site
 from business.streaming.camera import VideoCamera
@@ -19,8 +28,6 @@ from requests_oauthlib import OAuth2Session
 from somfy_protect.api import SomfyProtectApi
 from somfy_protect.sso import SomfyProtectSso, read_token_from_file
 from websocket import WebSocketApp
-from aiortc import RTCPeerConnection, RTCSessionDescription, RTCIceCandidate, MediaStreamTrack
-import asyncio
 
 WEBSOCKET = "wss://websocket.myfox.io/events/websocket?token="
 
@@ -204,17 +211,7 @@ class SomfyProtectWebsocket:
 
         offer_type = offer_data_json.get("type")
 
-        stun_servers = [
-            {"urls": "stun:stun.l.google.com:19302"},
-            {"urls": "stun:stun1.l.google.com:19302"},
-            {"urls": "stun:stun2.l.google.com:19302"},
-            {"urls": "stun:stun3.l.google.com:19302"},
-            {"urls": "stun:stun4.l.google.com:19302"},
-        ]
-
-        ice_servers = {"iceServers": stun_servers}
-
-        pc = RTCPeerConnection(ice_servers)
+        pc = RTCPeerConnection(configuration=RTCConfiguration([RTCIceServer(urls="stun:stun.l.google:19302")]))
 
         @pc.on("iceconnectionstatechange")
         async def on_iceconnectionstatechange():
@@ -528,7 +525,6 @@ class SomfyProtectWebsocket:
             payload=payload,
             retain=True,
         )
-
 
     def alarm_domestic_fire(self, message):
         """Report Alarm Fire"""
