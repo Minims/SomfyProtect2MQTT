@@ -1,5 +1,6 @@
 """Somfy Protect Websocket"""
 
+import asyncio
 import base64
 import json
 import logging
@@ -9,6 +10,14 @@ import time
 from signal import SIGKILL
 
 import websocket
+from aiortc import (
+    MediaStreamTrack,
+    RTCConfiguration,
+    RTCIceCandidate,
+    RTCIceServer,
+    RTCPeerConnection,
+    RTCSessionDescription,
+)
 from business import update_visiophone_snapshot, write_to_media_folder
 from business.mqtt import mqtt_publish, update_device, update_site
 from business.streaming.camera import VideoCamera
@@ -19,8 +28,6 @@ from requests_oauthlib import OAuth2Session
 from somfy_protect.api import SomfyProtectApi
 from somfy_protect.sso import SomfyProtectSso, read_token_from_file
 from websocket import WebSocketApp
-from aiortc import RTCPeerConnection, RTCSessionDescription, RTCIceCandidate, MediaStreamTrack
-import asyncio
 
 WEBSOCKET = "wss://websocket.myfox.io/events/websocket?token="
 
@@ -103,6 +110,8 @@ class SomfyProtectWebsocket:
             "security.level.change": self.security_level_change,
             "alarm.trespass": self.alarm_trespass,
             "alarm.panic": self.alarm_panic,
+            "alarm.domestic.fire": self.alarm_domestic_fire,
+            "alarm.domestic.fire.end": self.alarm_domestic_fire_end,
             "alarm.end": self.alarm_end,
             "presence_out": self.update_keyfob_presence,
             "presence_in": self.update_keyfob_presence,
@@ -201,7 +210,8 @@ class SomfyProtectWebsocket:
             LOGGER.warning(f"Unable to create directory {directory}: {exc}")
 
         offer_type = offer_data_json.get("type")
-        pc = RTCPeerConnection()
+
+        pc = RTCPeerConnection(configuration=RTCConfiguration([RTCIceServer(urls="stun:stun.l.google:19302")]))
 
         @pc.on("iceconnectionstatechange")
         async def on_iceconnectionstatechange():
@@ -209,6 +219,14 @@ class SomfyProtectWebsocket:
             if pc.iceConnectionState == "failed":
                 LOGGER.error("ICE connection failed")
                 await pc.close()
+
+        @pc.on("icegatheringstatechange")
+        async def on_icegatheringstatechange():
+            LOGGER.info(f"ICE gathering state is {pc.iceGatheringState}")
+
+        @pc.on("connectionstatechange")
+        async def on_connectionstatechange():
+            LOGGER.info(f"Connection state is {pc.connectionState}")
 
         # Add a timeout for ICE connection state transition
         async def check_ice_connection_state():
@@ -507,6 +525,57 @@ class SomfyProtectWebsocket:
             payload=payload,
             retain=True,
         )
+
+    def alarm_domestic_fire(self, message):
+        """Report Alarm Fire"""
+        # {
+        # "profiles":[
+        #     "owner",
+        #     "admin",
+        #     "custom",
+        #     "family",
+        #     "neighbor"
+        # ],
+        # "site_id":"XXX",
+        # "type":"alarm",
+        # "key":"alarm.domestic.fire",
+        # "alarm_id":"XXX",
+        # "alarm_type":"fire",
+        # "devices":[
+        #     "XXX"
+        # ],
+        # "start_at":"2025-01-31T13:19:33.000000Z",
+        # "end_at":"None",
+        # "message_id":"XXX"
+        # }
+
+        LOGGER.info("Report Alarm Fire")
+        site_id = message.get("site_id")
+        payload = {"smoke": "True"}
+        for device_id in message.get("devices"):
+            topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/fire"
+
+            mqtt_publish(
+                mqtt_client=self.mqtt_client,
+                topic=topic,
+                payload=payload,
+                retain=True,
+            )
+
+    def alarm_domestic_fire_end(self, message):
+        """Report Alarm Fire End"""
+        LOGGER.info("Report Alarm Fire")
+        site_id = message.get("site_id")
+        payload = {"smoke": "False"}
+        for device_id in message.get("devices"):
+            topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/fire"
+
+            mqtt_publish(
+                mqtt_client=self.mqtt_client,
+                topic=topic,
+                payload=payload,
+                retain=True,
+            )
 
     def alarm_end(self, message):
         """Report Alarm Stop"""

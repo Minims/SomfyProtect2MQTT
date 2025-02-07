@@ -338,6 +338,27 @@ def ha_devices_config(
                     retain=True,
                 )
 
+            if "smoke" in device.device_definition.get("type"):
+                LOGGER.info(f"Found {device.device_definition.get('label')}")
+                smoke_config = ha_discovery_devices(
+                    site_id=site_id,
+                    device=device,
+                    mqtt_config=mqtt_config,
+                    sensor_name="smoke",
+                )
+                mqtt_publish(
+                    mqtt_client=mqtt_client,
+                    topic=smoke_config.get("topic"),
+                    payload=smoke_config.get("config"),
+                    retain=True,
+                )
+                mqtt_publish(
+                    mqtt_client=mqtt_client,
+                    topic=smoke_config.get("config").get("state_topic"),
+                    payload={"smoke": "False"},
+                    retain=True,
+                )
+
             if "videophone" in device.device_definition.get("type"):
                 LOGGER.info(f"VideoPhone {device.device_definition.get('label')}")
                 camera_config = ha_discovery_cameras(
