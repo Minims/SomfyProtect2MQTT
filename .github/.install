@@ -8,6 +8,12 @@ curl -sSL https://install.python-poetry.org | python
 # source ~/.zshrc
 python -m poetry init
 
+###
+pyenv virtualenv 3.12.8 somfyProtect2Mqtt
+pyenv activate somfyProtect2Mqtt
+pyenv local somfyProtect2Mqtt
+###
+
 poetry run black .
 poetry run isort .
 poetry run pylint .
