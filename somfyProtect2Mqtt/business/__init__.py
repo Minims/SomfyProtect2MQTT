@@ -533,14 +533,14 @@ def update_sites_status(
                     occurred_at_date = convert_utc_to_paris(date=occurred_at_date)
                     paris_tz = pytz.timezone("Europe/Paris")
                     now = datetime.now(paris_tz)
-                    if now - occurred_at_date < timedelta(seconds=90):
+                    if now - occurred_at_date < timedelta(seconds=3600):
                         if occurred_at in HISTORY:
-                            LOGGER.info(f"History still published: {HISTORY[occurred_at]}")
+                            LOGGER.debug(f"History still published: {HISTORY[occurred_at]}")
                             continue
-                        HISTORY[occurred_at] = {event.get("type"): event.get("label")}
                         payload = f"{event.get('message_key')} {event.get('message_vars').get('userDsp')} {event.get('message_vars').get('siteLabel')}"
                         payload = payload.replace("None", "").strip().strip('"').replace(".", " ").title()
-                        # Push status to MQTT
+                        HISTORY[occurred_at] = payload
+                        LOGGER.info(f"Publishing History: {HISTORY[occurred_at]}")
                         mqtt_publish(
                             mqtt_client=mqtt_client,
                             topic=f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/history",
