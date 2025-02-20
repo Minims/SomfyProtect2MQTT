@@ -48,6 +48,7 @@ class Device:
         "diagnosis",
         "settings",
         "update_available",
+        "video_backend",
     )
 
     def __init__(
@@ -62,6 +63,7 @@ class Device:
         diagnosis: Dict,
         settings: Dict,
         update_available: str = "False",
+        video_backend: str = None,
         **_: Any,
     ):
         self.id = device_id  # pylint: disable=invalid-name
@@ -74,6 +76,7 @@ class Device:
         self.diagnosis = diagnosis
         self.settings = settings
         self.update_available = update_available
+        self.video_backend = video_backend
 
 
 class AvailableStatus(Enum):

@@ -261,8 +261,10 @@ DEVICE_CAPABILITIES = {
         "config": {},
     },
     "video_backend": {
-        "type": "sensor",
-        "config": {},
+        "type": "select",
+        "config": {
+            "options": ["evostream", "webrtc"],
+        },
     },
     "gsm_antenna_in_use": {
         "type": "sensor",
@@ -794,6 +796,10 @@ def ha_discovery_devices(
         device_config["config"][
             "state_topic"
         ] = f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/ringing"
+    if sensor_name == "video_backend":
+        device_config["config"][
+            "state_topic"
+        ] = f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/video_backend"
 
     return device_config
 

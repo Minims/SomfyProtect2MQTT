@@ -238,6 +238,26 @@ def ha_devices_config(
                     mqtt_client.client.subscribe(device_config.get("config").get("command_topic"))
                     SUBSCRIBE_TOPICS.append(device_config.get("config").get("command_topic"))
 
+                # Video Backend
+                video_backend = ha_discovery_devices(
+                    site_id=site_id,
+                    device=device,
+                    mqtt_config=mqtt_config,
+                    sensor_name="video_backend",
+                )
+                mqtt_publish(
+                    mqtt_client=mqtt_client,
+                    topic=video_backend.get("topic"),
+                    payload=video_backend.get("config"),
+                    retain=True,
+                )
+                if video_backend.get("config").get("command_topic"):
+                    mqtt_client.client.subscribe(video_backend.get("config").get("command_topic"))
+                    SUBSCRIBE_TOPICS.append(video_backend.get("config").get("command_topic"))
+                    SUBSCRIBE_TOPICS.append(
+                        f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/video_backend"
+                    )
+
                 # Stream
                 stream = ha_discovery_devices(
                     site_id=site_id,
@@ -573,6 +593,17 @@ def update_devices_status(
         try:
             my_devices = api.get_devices(site_id=site_id)
             for device in my_devices:
+                if "camera" in device.device_definition.get("type") or "allinone" in device.device_definition.get(
+                    "type" or "videophone" in device.device_definition.get("type")
+                ):
+                    video_backend = device.video_backend
+                    mqtt_publish(
+                        mqtt_client=mqtt_client,
+                        topic=f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/video_backend",
+                        payload={"video_backend": video_backend},
+                        retain=True,
+                    )
+
                 if "videophone" in device.device_definition.get("type"):
                     events = api.get_device_events(site_id=site_id, device_id=device.id)
                     if events:
