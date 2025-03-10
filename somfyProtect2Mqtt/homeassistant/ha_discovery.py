@@ -295,13 +295,6 @@ DEVICE_CAPABILITIES = {
             "pl_off": "False",
         },
     },
-    # "device_lost": {
-    #     "type": "binary_sensor",
-    #     "config": {
-    #         "pl_on": "True",
-    #         "pl_off": "False",
-    #     },
-    # },
     "device_lost": {
         "type": "device_tracker",
         "config": {
