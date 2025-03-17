@@ -503,6 +503,25 @@ def ha_devices_config(
                         f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/stream"
                     )
 
+                # Video Backend
+                video_backend = ha_discovery_devices(
+                    site_id=site_id,
+                    device=device,
+                    mqtt_config=mqtt_config,
+                    sensor_name="video_backend",
+                )
+                mqtt_publish(
+                    mqtt_client=mqtt_client,
+                    topic=video_backend.get("topic"),
+                    payload=video_backend.get("config"),
+                    retain=True,
+                )
+                if video_backend.get("config").get("command_topic"):
+                    mqtt_client.client.subscribe(video_backend.get("config").get("command_topic"))
+                    SUBSCRIBE_TOPICS.append(video_backend.get("config").get("command_topic"))
+                    SUBSCRIBE_TOPICS.append(
+                        f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/video_backend"
+                    )
 
 def update_sites_status(
     api: SomfyProtectApi,
