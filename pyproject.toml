@@ -1,6 +1,6 @@
 [project]
 name = "somfyProtect2Mqtt"
-version = "2025.2.3"
+version = "2025.3.0"
 description = "Somfy Home Alarm Addon"
 authors = [
     {name = "Minims",email = "github@minims.fr"}
