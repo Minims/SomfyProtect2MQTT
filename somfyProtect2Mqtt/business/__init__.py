@@ -523,6 +523,7 @@ def ha_devices_config(
                         f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/video_backend"
                     )
 
+
 def update_sites_status(
     api: SomfyProtectApi,
     mqtt_client: MQTTClient,
