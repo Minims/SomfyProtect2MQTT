@@ -40,7 +40,6 @@ class Device:
     __slots__ = (
         "id",
         "site_id",
-        "box_id",
         "label",
         "version",
         "device_definition",
@@ -48,13 +47,13 @@ class Device:
         "diagnosis",
         "settings",
         "update_available",
+        "video_backend",
     )
 
     def __init__(
         self,
         device_id: str,
         site_id: str,
-        box_id: str,
         label: str,
         version: str,
         device_definition: Dict,
@@ -62,11 +61,11 @@ class Device:
         diagnosis: Dict,
         settings: Dict,
         update_available: str = "False",
+        video_backend: str = None,
         **_: Any,
     ):
         self.id = device_id  # pylint: disable=invalid-name
         self.site_id = site_id
-        self.box_id = box_id
         self.label = label
         self.version = version
         self.device_definition = device_definition
@@ -74,6 +73,7 @@ class Device:
         self.diagnosis = diagnosis
         self.settings = settings
         self.update_available = update_available
+        self.video_backend = video_backend
 
 
 class AvailableStatus(Enum):

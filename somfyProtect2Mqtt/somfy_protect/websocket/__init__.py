@@ -138,8 +138,7 @@ class SomfyProtectWebsocket:
             "message_id": message_json["message_id"],
             "client": "Android",
         }
-        send = ws_app.send(json.dumps(ack))
-        LOGGER.debug(send)
+        self.send_websocket_message(ack)
         self.default_message(message_json)
         if message_json["key"] in callbacks:
             callback = callbacks[message_json["key"]]
@@ -199,15 +198,6 @@ class SomfyProtectWebsocket:
         offer_data_clean = str(offer_data).strip("^('").strip("',)$")
         offer_data_json = json.loads(offer_data_clean)
         sdp = offer_data_json.get("sdp")
-        LOGGER.info(f"WEBRTC SDP: {sdp}")
-
-        directory = "/config/somfyprotect2mqtt"
-        try:
-            os.makedirs(directory, exist_ok=True)
-            with open(f"{directory}/visiophone_webrtc_sdp_{device_id}", "w", encoding="utf-8") as file:
-                file.write(sdp)
-        except OSError as exc:
-            LOGGER.warning(f"Unable to create directory {directory}: {exc}")
 
         offer_type = offer_data_json.get("type")
 
@@ -227,6 +217,17 @@ class SomfyProtectWebsocket:
         @pc.on("connectionstatechange")
         async def on_connectionstatechange():
             LOGGER.info(f"Connection state is {pc.connectionState}")
+            if pc.connectionState == "connected":
+                LOGGER.info("WebRTC connection established")
+            elif pc.connectionState == "failed":
+                LOGGER.error("WebRTC connection failed")
+                await pc.close()
+
+        @pc.on("icecandidate")
+        async def on_icecandidate(candidate):
+            if candidate:
+                LOGGER.info(f"ICE candidate: {candidate}")
+                self.send_ice_candidate(candidate, message.get("session_id"))
 
         # Add a timeout for ICE connection state transition
         async def check_ice_connection_state():
@@ -256,9 +257,24 @@ class SomfyProtectWebsocket:
             "type": "video.webrtc.answer",
             "session_id": message.get("session_id"),
             "answer": {"type": pc.localDescription.type, "sdp": pc.localDescription.sdp},
+            "forward": True,
         }
-        send = self._websocket.send(json.dumps(response))
-        LOGGER.debug(send)
+        self.send_websocket_message(response)
+        LOGGER.debug(f"Send Response")
+
+    def send_ice_candidate(self, candidate, session_id):
+        """Send ICE candidate via WebSocket"""
+        message = {
+            "key": "video.webrtc.candidate",
+            "session_id": session_id,
+            "candidate": {
+                "sdpMid": candidate.sdpMid,
+                "sdpMLineIndex": candidate.sdpMLineIndex,
+                "sdp": candidate.candidate,
+            },
+            "forward": True,
+        }
+        self.send_websocket_message(message)
 
     def video_webrtc_start(self, message):
         """WEBRTC Start"""
@@ -842,6 +858,15 @@ class SomfyProtectWebsocket:
         # "device_id":"XXX",
         # "message_id":"XX"
         # }
+
+    def send_websocket_message(self, message: dict):
+        """Send a message via the WebSocket connection"""
+        if self._websocket and self._websocket.sock and self._websocket.sock.connected:
+            self._websocket.send(json.dumps(message))
+            LOGGER.debug(f"Sent on Websocket: {message}")
+        else:
+            LOGGER.warning(f"WebSocket is not connected. Unable to send message: {message}")
+        return
 
 
 class VideoStreamTrack(MediaStreamTrack):

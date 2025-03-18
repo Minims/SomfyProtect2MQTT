@@ -24,6 +24,10 @@ class SomfyProtectDevice:
         """Get HW/FW Version"""
         return self.device.version
 
+    def get_video_backend(self) -> str:
+        """Get Video Backend"""
+        return self.device.video_backend
+
     def get_status(self, status_name: str) -> Union[str, int, float]:
         """Get a Status for the current device.
 

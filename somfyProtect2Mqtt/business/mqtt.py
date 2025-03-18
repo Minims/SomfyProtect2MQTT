@@ -114,6 +114,17 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
             api.stop_alarm(site_id=site_id)
 
         elif text_payload in [
+            "evostream",
+            "webrtc",
+        ]:
+            site_id = msg.topic.split("/")[1]
+            device_id = msg.topic.split("/")[2]
+            LOGGER.info(f"Update Video Backend To ({text_payload})")
+            action_device = api.action_device(
+                site_id=site_id, device_id=device_id, action="change_video_backend", video_backend=text_payload
+            )
+
+        elif text_payload in [
             "test_smokeExtended",
             "test_siren1s",
             "test_armed",

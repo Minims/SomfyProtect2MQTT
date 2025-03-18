@@ -213,6 +213,7 @@ class SomfyProtectApi:
         site_id: str,
         device_id: str,
         action: str,
+        video_backend: Optional[str] = None,
     ) -> Dict:
         """Make an action on a Device
 
@@ -227,10 +228,16 @@ class SomfyProtectApi:
         if action not in ACTION_LIST:
             raise ValueError(f"Unknown action {action}")
 
-        response = self.post(
-            f"/v3/site/{site_id}/device/{device_id}/action",
-            json={"action": action},
-        )
+        if video_backend:
+            response = self.post(
+                f"/v3/site/{site_id}/device/{device_id}/action",
+                json={"action": action, "video_backend": video_backend},
+            )
+        else:
+            response = self.post(
+                f"/v3/site/{site_id}/device/{device_id}/action",
+                json={"action": action},
+            )
         response.raise_for_status()
         return response.json()
 
