@@ -353,7 +353,7 @@ DEVICE_CAPABILITIES = {
     },
     "halt": {
         "type": "button",
-        "config": {"payload_press": "halt", "icon": "mdi:mdi:stop-circle"},
+        "config": {"payload_press": "halt", "icon": "mdi:stop-circle"},
     },
     "test_smokeExtended": {
         "type": "button",
