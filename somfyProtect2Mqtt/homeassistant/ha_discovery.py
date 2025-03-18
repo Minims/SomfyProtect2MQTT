@@ -349,11 +349,11 @@ DEVICE_CAPABILITIES = {
     },
     "reboot": {
         "type": "button",
-        "config": {"payload_press": "reboot"},
+        "config": {"payload_press": "reboot", "icon": "mdi:restart"},
     },
     "halt": {
         "type": "button",
-        "config": {"payload_press": "halt"},
+        "config": {"payload_press": "halt", "icon": "mdi:mdi:stop-circle"},
     },
     "test_smokeExtended": {
         "type": "button",
@@ -410,6 +410,7 @@ DEVICE_CAPABILITIES = {
             "state_off": "closed",
             "pl_on": "shutter_open",
             "pl_off": "shutter_close",
+            "icon": "mdi:window-shutter",
         },
     },
     "detection_enabled": {
@@ -421,10 +422,7 @@ DEVICE_CAPABILITIES = {
     },
     "led_enabled": {
         "type": "switch",
-        "config": {
-            "pl_on": "True",
-            "pl_off": "False",
-        },
+        "config": {"pl_on": "True", "pl_off": "False", "icon": "mdi:led-on"},
     },
     "hdr_enabled": {
         "type": "switch",
