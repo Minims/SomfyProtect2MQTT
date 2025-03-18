@@ -40,7 +40,6 @@ class Device:
     __slots__ = (
         "id",
         "site_id",
-        "box_id",
         "label",
         "version",
         "device_definition",
@@ -55,7 +54,6 @@ class Device:
         self,
         device_id: str,
         site_id: str,
-        box_id: str,
         label: str,
         version: str,
         device_definition: Dict,
@@ -68,7 +66,6 @@ class Device:
     ):
         self.id = device_id  # pylint: disable=invalid-name
         self.site_id = site_id
-        self.box_id = box_id
         self.label = label
         self.version = version
         self.device_definition = device_definition
