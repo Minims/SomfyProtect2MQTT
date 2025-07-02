@@ -772,7 +772,7 @@ def write_to_media_folder(url: str, site_id: str, device_id: str) -> None:
         response = requests.get(url, stream=True)
         response.raise_for_status()
 
-        with open(f"{directory}/visiphone-{device_id}-{timestamp}", "wb", encoding="utf-8") as file:
+        with open(f"{directory}/visiphone-{device_id}-{timestamp}", "wb") as file:
             for chunk in response.iter_content(1024):  # Lire en morceaux de 1 KB
                 file.write(chunk)
     except OSError as exc:
