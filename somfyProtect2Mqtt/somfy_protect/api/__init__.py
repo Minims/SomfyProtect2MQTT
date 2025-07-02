@@ -101,6 +101,7 @@ class SomfyProtectApi:
         Returns:
             Response: requests Response object
         """
+        LOGGER.debug(f"{base_url}{path}")
         return self._request("get", path, base_url)
 
     def post(self, path: str, *, json: Dict[str, Any]) -> Response:
@@ -476,7 +477,7 @@ class SomfyProtectApi:
         site_id: str,
         device_id: str,
     ):
-        """Get Scenarios
+        """Get Device Events
 
         Args:
             site_id (str): Site ID
