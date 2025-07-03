@@ -623,12 +623,18 @@ def update_devices_status(
                             if event.get("clip_cloudfront_url"):
                                 LOGGER.info(f"Found a video: {event.get('clip_cloudfront_url')}")
                                 write_to_media_folder(
-                                    url=event.get("clip_cloudfront_url"), site_id=site_id, device_id=device.id
+                                    url=event.get("clip_cloudfront_url"),
+                                    site_id=site_id,
+                                    device_id=device.id,
+                                    media_type="video",
                                 )
                             if event.get("snapshot_cloudfront_url"):
                                 LOGGER.info(f"Found a snapshot {event.get('snapshot_cloudfront_url')}")
                                 write_to_media_folder(
-                                    url=event.get("snapshot_cloudfront_url"), site_id=site_id, device_id=device.id
+                                    url=event.get("snapshot_cloudfront_url"),
+                                    site_id=site_id,
+                                    device_id=device.id,
+                                    media_type="snapshot",
                                 )
 
                 settings = device.settings.get("global")
@@ -706,6 +712,7 @@ def update_camera_snapshot(
                                 retain=True,
                                 is_json=False,
                             )
+
                             # Clean file
                             os.remove(path)
 
@@ -759,12 +766,17 @@ def update_visiophone_snapshot(
     os.remove(path)
 
 
-def write_to_media_folder(url: str, site_id: str, device_id: str) -> None:
+def write_to_media_folder(url: str, site_id: str, device_id: str, media_type: str) -> None:
     """Download VisioPhone Clip"""
     LOGGER.info("Download VisioPhone Clip")
     now = datetime.now()
     timestamp = int(now.timestamp())
     directory = "/media/somfyprotect2mqtt"
+
+    if media_type == "video":
+        extention = "mp4"
+    if media_type == "snapshot":
+        extention = "jpeg"
 
     try:
         os.makedirs(directory, exist_ok=True)
@@ -772,10 +784,14 @@ def write_to_media_folder(url: str, site_id: str, device_id: str) -> None:
         response = requests.get(url, stream=True)
         response.raise_for_status()
 
-        with open(f"{directory}/visiphone-{device_id}-{timestamp}", "wb") as file:
+        with open(f"{directory}/visiphone-{site_id}-{device_id}-{timestamp}.{extention}", "wb") as file:
             for chunk in response.iter_content(1024):  # Lire en morceaux de 1 KB
                 file.write(chunk)
+        LOGGER.info(f"File wrote in {directory}/visiphone-{site_id}-{device_id}-{timestamp}.{extention}")
+
     except OSError as exc:
         LOGGER.warning(f"Unable to create directory {directory}: {exc}")
     except requests.exceptions.RequestException as exc:
         LOGGER.warning(f"Error while Downloading clip: {exc}")
+    finally:
+        LOGGER.info("Write Successful")
