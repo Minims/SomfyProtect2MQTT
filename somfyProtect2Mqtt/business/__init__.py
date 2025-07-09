@@ -624,16 +624,18 @@ def update_devices_status(
                                 LOGGER.info(f"Found a video: {event.get('clip_cloudfront_url')}")
                                 write_to_media_folder(
                                     url=event.get("clip_cloudfront_url"),
-                                    site_id=site_id,
-                                    device_id=device.id,
+                                    label=device.device_definition.get("label"),
+                                    event_id=event.get("event_id"),
+                                    occurred_at=event.get("occurred_at"),
                                     media_type="video",
                                 )
                             if event.get("snapshot_cloudfront_url"):
                                 LOGGER.info(f"Found a snapshot {event.get('snapshot_cloudfront_url')}")
                                 write_to_media_folder(
                                     url=event.get("snapshot_cloudfront_url"),
-                                    site_id=site_id,
-                                    device_id=device.id,
+                                    label=device.device_definition.get("label"),
+                                    event_id=event.get("event_id"),
+                                    occurred_at=event.get("occurred_at"),
                                     media_type="snapshot",
                                 )
 
@@ -766,11 +768,9 @@ def update_visiophone_snapshot(
     os.remove(path)
 
 
-def write_to_media_folder(url: str, site_id: str, device_id: str, media_type: str) -> None:
+def write_to_media_folder(url: str, label: str, event_id: str, occurred_at: str, media_type: str) -> None:
     """Download VisioPhone Clip"""
     LOGGER.info("Download VisioPhone Clip")
-    now = datetime.now()
-    timestamp = int(now.timestamp())
     directory = "/media/somfyprotect2mqtt"
 
     if media_type == "video":
@@ -784,10 +784,10 @@ def write_to_media_folder(url: str, site_id: str, device_id: str, media_type: st
         response = requests.get(url, stream=True)
         response.raise_for_status()
 
-        with open(f"{directory}/visiphone-{site_id}-{device_id}-{timestamp}.{extention}", "wb") as file:
+        with open(f"{directory}/{label}-{occurred_at}-{event_id}.{extention}", "wb") as file:
             for chunk in response.iter_content(1024):  # Lire en morceaux de 1 KB
                 file.write(chunk)
-        LOGGER.info(f"File wrote in {directory}/visiphone-{site_id}-{device_id}-{timestamp}.{extention}")
+        LOGGER.info(f"File wrote in {directory}/{label}-{occurred_at}-{event_id}.{extention}")
 
     except OSError as exc:
         LOGGER.warning(f"Unable to create directory {directory}: {exc}")
