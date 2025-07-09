@@ -619,13 +619,8 @@ def update_devices_status(
                 if "videophone" in device.device_definition.get("type"):
                     events = api.get_device_events(site_id=site_id, device_id=device.id)
                     if events:
-                        current_event = 0
-                        send_to_mqtt = False
-                        events_size = len(events)
+                        send_to_mqtt = True
                         for event in events:
-                            current_event += 1
-                            if current_event == events_size:
-                                send_to_mqtt = True
                             if event.get("clip_cloudfront_url"):
                                 LOGGER.info(f"Found a video: {event.get('clip_cloudfront_url')}")
                                 write_to_media_folder(
