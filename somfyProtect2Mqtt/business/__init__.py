@@ -619,24 +619,39 @@ def update_devices_status(
                 if "videophone" in device.device_definition.get("type"):
                     events = api.get_device_events(site_id=site_id, device_id=device.id)
                     if events:
+                        current_event = 0
+                        send_to_mqtt = False
+                        events_size = len(events)
                         for event in events:
+                            current_event += 1
+                            if current_event == events_size:
+                                send_to_mqtt = True
                             if event.get("clip_cloudfront_url"):
                                 LOGGER.info(f"Found a video: {event.get('clip_cloudfront_url')}")
                                 write_to_media_folder(
                                     url=event.get("clip_cloudfront_url"),
+                                    site_id=site_id,
+                                    device_id=device.id,
                                     label=device.device_definition.get("label"),
                                     event_id=event.get("event_id"),
                                     occurred_at=event.get("occurred_at"),
                                     media_type="video",
+                                    mqtt_client=mqtt_client,
+                                    mqtt_config=mqtt_config,
                                 )
                             if event.get("snapshot_cloudfront_url"):
                                 LOGGER.info(f"Found a snapshot {event.get('snapshot_cloudfront_url')}")
                                 write_to_media_folder(
                                     url=event.get("snapshot_cloudfront_url"),
+                                    site_id=site_id,
+                                    device_id=device.id,
                                     label=device.device_definition.get("label"),
                                     event_id=event.get("event_id"),
                                     occurred_at=event.get("occurred_at"),
                                     media_type="snapshot",
+                                    mqtt_client=mqtt_client,
+                                    mqtt_config=mqtt_config,
+                                    send_to_mqtt=send_to_mqtt,
                                 )
 
                 settings = device.settings.get("global")
@@ -768,7 +783,18 @@ def update_visiophone_snapshot(
     os.remove(path)
 
 
-def write_to_media_folder(url: str, label: str, event_id: str, occurred_at: str, media_type: str) -> None:
+def write_to_media_folder(
+    url: str,
+    site_id: str,
+    device_id: str,
+    label: str,
+    event_id: str,
+    occurred_at: str,
+    media_type: str,
+    mqtt_client: MQTTClient,
+    mqtt_config: dict,
+    send_to_mqtt: bool = False,
+) -> None:
     """Download VisioPhone Clip"""
     LOGGER.info("Download VisioPhone Clip")
     directory = "/media/somfyprotect2mqtt"
@@ -784,10 +810,26 @@ def write_to_media_folder(url: str, label: str, event_id: str, occurred_at: str,
         response = requests.get(url, stream=True)
         response.raise_for_status()
 
-        with open(f"{directory}/{label}-{occurred_at}-{event_id}.{extention}", "wb") as file:
+        path = f"{directory}/{label}-{occurred_at}-{event_id}.{extention}"
+
+        with open(path, "wb") as file:
             for chunk in response.iter_content(1024):  # Lire en morceaux de 1 KB
                 file.write(chunk)
-        LOGGER.info(f"File wrote in {directory}/{label}-{occurred_at}-{event_id}.{extention}")
+        LOGGER.info(f"File wrote in {path}")
+
+        if send_to_mqtt and media_type == "snapshot":
+            # Read and Push to MQTT
+            with open(path, "rb") as tmp_file:
+                image = tmp_file.read()
+            byte_arr = bytearray(image)
+            topic = f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/snapshot"
+            mqtt_publish(
+                mqtt_client=mqtt_client,
+                topic=topic,
+                payload=byte_arr,
+                retain=True,
+                is_json=False,
+            )
 
     except OSError as exc:
         LOGGER.warning(f"Unable to create directory {directory}: {exc}")
