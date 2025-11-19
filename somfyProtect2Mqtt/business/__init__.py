@@ -371,6 +371,24 @@ def ha_devices_config(
                     retain=True,
                 )
 
+            if "doorlock" in device.device_definition.get("type"):
+                LOGGER.info(f"DoorLock {device.device_definition.get('label')}")
+
+                open_door = ha_discovery_devices(
+                    site_id=site_id,
+                    device=device,
+                    mqtt_config=mqtt_config,
+                    sensor_name="open_door",
+                )
+                mqtt_publish(
+                    mqtt_client=mqtt_client,
+                    topic=open_door.get("topic"),
+                    payload=open_door.get("config"),
+                    retain=True,
+                )
+                mqtt_client.client.subscribe(open_door.get("config").get("command_topic"))
+                SUBSCRIBE_TOPICS.append(open_door.get("config").get("command_topic"))
+
             if "videophone" in device.device_definition.get("type"):
                 LOGGER.info(f"VideoPhone {device.device_definition.get('label')}")
                 camera_config = ha_discovery_cameras(

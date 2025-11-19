@@ -23,7 +23,7 @@ BASE_URL = "https://api.myfox.io"
 VIDEO_URL = "https://video.myfox.io"
 # (MEDIA_TYPE_VIDEO, 1, 1; MEDIA_TYPE_AUDIO, 0, 0)
 
-ACCESS_LIST = ["gate", "latch"]
+ACCESS_LIST = ["gate", "latch", "lock", "unlock", "force_lock"]
 
 ACTION_LIST = [
     "shutter_open",

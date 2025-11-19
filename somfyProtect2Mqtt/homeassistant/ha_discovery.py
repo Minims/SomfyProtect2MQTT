@@ -347,6 +347,12 @@ DEVICE_CAPABILITIES = {
         "type": "button",
         "config": {"payload_press": "gate"},
     },
+    "open_door": {
+        "type": "select",
+        "config": {
+            "options": ["lock", "unlock", "force_lock"],
+        },
+    },
     "reboot": {
         "type": "button",
         "config": {"payload_press": "reboot", "icon": "mdi:restart"},
