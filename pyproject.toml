@@ -1,38 +1,35 @@
-[project]
+[tool.poetry]
 name = "somfyProtect2Mqtt"
 version = "2025.12.0"
 description = "Somfy Home Alarm Addon"
-authors = [
-    {name = "Minims",email = "github@minims.fr"}
-]
-package-mode = false
+authors = ["Minims <github@minims.fr>"]
 readme = "README.md"
-requires-python = ">=3.11"
-dependencies = [
-    "aenum (>=3.1.15)",
-    "aiortc (>=1.9.0)",
-    "oauthlib (>=3.2.2)",
-    "paho-mqtt (>=2.1.0)",
-    "pillow (>=11.1.0)",
-    "python-ffmpeg-video-streaming (>=0.1.16)",
-    "pytz (>=2024.2)",
-    "pyyaml (>=6.0.2)",
-    "requests-oauthlib (>=2.0.0)",
-    "schedule (>=1.2.2)",
-    "simple-http-server (>=0.22.3)",
-    "urllib3 (>=2.3.0)",
-    "websocket-client (>=1.8.0)",
-]
+package-mode = false
 
-
-[build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
-build-backend = "poetry.core.masonry.api"
+[tool.poetry.dependencies]
+python = ">=3.11"
+aenum = ">=3.1.15"
+aiortc = ">=1.9.0"
+oauthlib = ">=3.2.2"
+paho-mqtt = ">=2.1.0"
+pillow = ">=11.1.0"
+python-ffmpeg-video-streaming = ">=0.1.16"
+pytz = ">=2024.2"
+pyyaml = ">=6.0.2"
+requests-oauthlib = ">=2.0.0"
+schedule = ">=1.2.2"
+simple-http-server = ">=0.22.3"
+urllib3 = ">=2.3.0"
+websocket-client = ">=1.8.0"
 
 [tool.poetry.group.dev.dependencies]
 black = ">=24.10.0"
 pylint = ">=3.3.3"
 isort = ">=5.13.2"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
 
 [tool.black]
 line-length = 120
