@@ -11,7 +11,7 @@ google-crc32c==1.7.1 ; python_version >= "3.11"
 idna==3.11 ; python_version >= "3.11"
 ifaddr==0.2.0 ; python_version >= "3.11"
 oauthlib==3.3.1 ; python_version >= "3.11"
-opencv-python==4.12.0.88 ; python_version >= "3.11"
+opencv-python-headless==4.10.0.84
 paho-mqtt==2.1.0 ; python_version >= "3.11"
 pillow==12.0.0 ; python_version >= "3.11"
 pycparser==2.23 ; python_version >= "3.11" and implementation_name != "PyPy"
