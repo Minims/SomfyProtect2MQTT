@@ -347,10 +347,18 @@ DEVICE_CAPABILITIES = {
         "type": "button",
         "config": {"payload_press": "gate"},
     },
+    "door_force_Lock": {
+        "type": "button",
+        "config": {"payload_press": "force_lock"},
+    },
     "open_door": {
-        "type": "select",
+        "type": "switch",
         "config": {
-            "options": ["lock", "unlock", "force_lock"],
+            "state_on": "lock",
+            "state_off": "unlock",
+            "pl_on": "lock",
+            "pl_off": "unlock",
+            "optimistic": "True",
         },
     },
     "reboot": {

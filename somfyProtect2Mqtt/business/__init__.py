@@ -371,7 +371,7 @@ def ha_devices_config(
                     retain=True,
                 )
 
-            if "doorlock" in device.device_definition.get("type"):
+            if device.device_definition.get("type") == "doorlock":
                 LOGGER.info(f"DoorLock {device.device_definition.get('label')}")
 
                 open_door = ha_discovery_devices(
@@ -388,6 +388,22 @@ def ha_devices_config(
                 )
                 mqtt_client.client.subscribe(open_door.get("config").get("command_topic"))
                 SUBSCRIBE_TOPICS.append(open_door.get("config").get("command_topic"))
+
+
+                door_force_Lock = ha_discovery_devices(
+                    site_id=site_id,
+                    device=device,
+                    mqtt_config=mqtt_config,
+                    sensor_name="door_force_Lock",
+                )
+                mqtt_publish(
+                    mqtt_client=mqtt_client,
+                    topic=door_force_Lock.get("topic"),
+                    payload=door_force_Lock.get("config"),
+                    retain=True,
+                )
+                mqtt_client.client.subscribe(door_force_Lock.get("config").get("command_topic"))
+                SUBSCRIBE_TOPICS.append(door_force_Lock.get("config").get("command_topic"))
 
             if "videophone" in device.device_definition.get("type"):
                 LOGGER.info(f"VideoPhone {device.device_definition.get('label')}")
