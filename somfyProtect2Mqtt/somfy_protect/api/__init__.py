@@ -23,7 +23,7 @@ BASE_URL = "https://api.myfox.io"
 VIDEO_URL = "https://video.myfox.io"
 # (MEDIA_TYPE_VIDEO, 1, 1; MEDIA_TYPE_AUDIO, 0, 0)
 
-ACCESS_LIST = ["gate", "latch"]
+ACCESS_LIST = ["gate", "latch", "lock", "unlock", "force_lock"]
 
 ACTION_LIST = [
     "shutter_open",
@@ -101,6 +101,7 @@ class SomfyProtectApi:
         Returns:
             Response: requests Response object
         """
+        LOGGER.debug(f"{base_url}{path}")
         return self._request("get", path, base_url)
 
     def post(self, path: str, *, json: Dict[str, Any]) -> Response:
@@ -476,7 +477,7 @@ class SomfyProtectApi:
         site_id: str,
         device_id: str,
     ):
-        """Get Scenarios
+        """Get Device Events
 
         Args:
             site_id (str): Site ID

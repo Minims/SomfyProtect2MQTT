@@ -347,6 +347,20 @@ DEVICE_CAPABILITIES = {
         "type": "button",
         "config": {"payload_press": "gate"},
     },
+    "door_force_Lock": {
+        "type": "button",
+        "config": {"payload_press": "force_lock"},
+    },
+    "open_door": {
+        "type": "switch",
+        "config": {
+            "state_on": "lock",
+            "state_off": "unlock",
+            "pl_on": "lock",
+            "pl_off": "unlock",
+            "optimistic": "True",
+        },
+    },
     "reboot": {
         "type": "button",
         "config": {"payload_press": "reboot", "icon": "mdi:restart"},
@@ -612,6 +626,74 @@ DEVICE_CAPABILITIES = {
     },
     "ringing": {
         "type": "binary_sensor",
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+        },
+    },
+    "door_lock_state": {
+        "type": "sensor",
+        "config": {},
+    },
+    "door_state": {
+        "type": "binary_sensor",
+        "config": {
+            "pl_on": "open",
+            "pl_off": "closed",
+        },
+    },
+    "is_sensor_tof_activated": {
+        "type": "binary_sensor",
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+        },
+    },
+    "gateway_id": {
+        "type": "sensor",
+        "config": {},
+    },
+    "direct_lock": {
+        "type": "switch",
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+        },
+    },
+    "auto_lock": {
+        "type": "sensor",
+        "config": {},
+    },
+    "silent_mode": {
+        "type": "switch",
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+        },
+    },
+    "open_door_alarm": {
+        "type": "switch",
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+        },
+    },
+    "lock_pick_alarm": {
+        "type": "switch",
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+        },
+    },
+    "breaking_alarm": {
+        "type": "switch",
+        "config": {
+            "pl_on": "True",
+            "pl_off": "False",
+        },
+    },
+    "is_manual_alarm": {
+        "type": "switch",
         "config": {
             "pl_on": "True",
             "pl_off": "False",
