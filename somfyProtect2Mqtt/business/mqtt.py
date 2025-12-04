@@ -1,8 +1,8 @@
 """MQTT Business"""
 
+import asyncio
 import json
 import logging
-from time import sleep
 
 from homeassistant.ha_discovery import ALARM_STATUS
 from paho.mqtt import client
@@ -12,6 +12,25 @@ from somfy_protect.api import ACCESS_LIST, ACTION_LIST, SomfyProtectApi
 
 LOGGER = logging.getLogger(__name__)
 SUBSCRIBE_TOPICS = []
+
+
+def run_async_task(coro):
+    """Run an async task safely without blocking"""
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+    if loop.is_running():
+        asyncio.ensure_future(coro)
+    else:
+        # Create a new thread to run the coroutine
+        import threading
+        def run():
+            asyncio.run(coro)
+        thread = threading.Thread(target=run, daemon=True)
+        thread.start()
 
 
 def mqtt_publish(mqtt_client, topic, payload, qos=0, retain=False, is_json=True):
@@ -60,6 +79,18 @@ def update_site(api, mqtt_client, mqtt_config, site_id):
         LOGGER.warning(f"Error while refreshing site {site_id}: {exp}")
 
 
+async def delayed_update_site(api, mqtt_client, mqtt_config, site_id, delay=1):
+    """Update site after a delay (async)"""
+    await asyncio.sleep(delay)
+    update_site(api, mqtt_client, mqtt_config, site_id)
+
+
+async def delayed_update_device(api, mqtt_client, mqtt_config, site_id, device_id, delay=1):
+    """Update device after a delay (async)"""
+    await asyncio.sleep(delay)
+    update_device(api, mqtt_client, mqtt_config, site_id, device_id)
+
+
 def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_client: client):
     """Compute MQTT received message"""
     try:
@@ -93,14 +124,13 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
                 LOGGER.warning(f"Unable to reteive Site ID: {site_id}: {exp}")
             # Update Alarm via API
             api.update_security_level(site_id=site_id, security_level=text_payload)
-            # Read updated Alarm Status
-            sleep(2)
-            update_site(
+            # Read updated Alarm Status (async)
+            run_async_task(delayed_update_site(
                 api=api,
                 mqtt_client=mqtt_client,
                 mqtt_config=mqtt_config,
                 site_id=site_id,
-            )
+            ))
 
         # Manage Siren
         elif text_payload == "panic":
@@ -163,15 +193,14 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
                     action=text_payload,
                 )
                 LOGGER.debug(action_device)
-                # Read updated device
-                sleep(2)
-                update_device(
+                # Read updated device (async)
+                run_async_task(delayed_update_device(
                     api=api,
                     mqtt_client=mqtt_client,
                     mqtt_config=mqtt_config,
                     site_id=site_id,
                     device_id=device_id,
-                )
+                ))
             else:
                 LOGGER.info(f"Message received for Site ID: {site_id}, Action: {text_payload}")
 
@@ -220,15 +249,14 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
                 device_label=device.label,
                 settings=settings,
             )
-            # Read updated device
-            sleep(2)
-            update_device(
+            # Read updated device (async)
+            run_async_task(delayed_update_device(
                 api=api,
                 mqtt_client=mqtt_client,
                 mqtt_config=mqtt_config,
                 site_id=site_id,
                 device_id=device_id,
-            )
+            ))
 
     except Exception as exp:
         LOGGER.error(f"Error when processing message: {exp}: {msg.topic} => {msg.payload}")
