@@ -354,8 +354,8 @@ DEVICE_CAPABILITIES = {
     "open_door": {
         "type": "switch",
         "config": {
-            "state_on": "lock",
-            "state_off": "unlock",
+            "state_on": "locked",
+            "state_off": "unlocked",
             "pl_on": "lock",
             "pl_off": "unlock",
             "optimistic": "True",

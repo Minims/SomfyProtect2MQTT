@@ -15,4 +15,3 @@ class DoorLockGateway(SomfyProtectDevice):
             float: Link Quality percentage
         """
         return cast(float, self.get_status("wifi_level_percent"))
-

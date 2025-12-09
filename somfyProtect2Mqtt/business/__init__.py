@@ -389,7 +389,6 @@ def ha_devices_config(
                 mqtt_client.client.subscribe(open_door.get("config").get("command_topic"))
                 SUBSCRIBE_TOPICS.append(open_door.get("config").get("command_topic"))
 
-
                 door_force_Lock = ha_discovery_devices(
                     site_id=site_id,
                     device=device,

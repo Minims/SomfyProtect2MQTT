@@ -131,6 +131,7 @@ class SomfyProtectWebsocket:
             "device.gate_triggered_from_monitor": self.device_gate_triggered_from_monitor,
             "answered_call_from_monitor": self.device_answered_call_from_monitor,
             "answered_call_from_mobile": self.device_answered_call_from_mobile,
+            "device.doorlock_triggered": self.device_doorlock_triggered,
         }
 
         ack = {
@@ -389,6 +390,37 @@ class SomfyProtectWebsocket:
                     qos=2,
                 )
             camera.release()
+
+    def device_doorlock_triggered(self, message):
+        """Update Door Lock Triggered"""
+        # {
+        # "profiles":[
+        #     "owner",
+        #     "admin"
+        # ],
+        # "site_id":"XXX",
+        # "type":"event",
+        # "key":"device.doorlock_triggered",
+        # "device_id":"XXX",
+        # "door_lock_gateway_id":"XXX",
+        # "door_lock_status":"unknown",
+        # "message_id":"XXX"
+        # }
+        LOGGER.info("Update Door Lock Triggered")
+        site_id = message.get("site_id")
+        device_id = message.get("device_id")
+        LOGGER.info(message)
+        door_lock_status = message.get("door_lock_status", "unknown")
+        if door_lock_status and door_lock_status != "unknown":
+            payload = {"open_door": door_lock_status}
+            topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/state"
+            mqtt_publish(
+                mqtt_client=self.mqtt_client,
+                topic=topic,
+                payload=payload,
+                retain=True,
+            )
+        update_device(self.api, self.mqtt_client, self.mqtt_config, site_id, device_id)
 
     def update_keyfob_presence(self, message):
         """Update Key Fob Presence"""
