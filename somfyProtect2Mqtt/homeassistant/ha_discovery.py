@@ -67,7 +67,7 @@ DEVICE_CAPABILITIES = {
     "night_vision": {
         "type": "select",
         "config": {
-            "options": ["automatic"],
+            "options": ["automatic", "on", "off"],
         },
     },
     "sensitivity_level": {
