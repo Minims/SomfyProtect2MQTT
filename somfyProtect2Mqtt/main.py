@@ -2,6 +2,8 @@
 """Somfy Protect 2 MQTT"""
 import argparse
 import logging
+import signal
+import sys
 
 # import os
 # import subprocess
@@ -18,6 +20,17 @@ from somfy_protect.websocket import SomfyProtectWebsocket
 
 VERSION = "2025.12.1"
 LOGGER = logging.getLogger(__name__)
+
+# Global flag for shutdown
+shutdown_flag = False
+
+
+def signal_handler(sig, frame):
+    """Handle shutdown signals"""
+    global shutdown_flag
+    LOGGER.info(f"Received signal {sig}, shutting down gracefully...")
+    shutdown_flag = True
+    sys.exit(0)
 
 
 def somfy_protect_loop(config, mqtt_client, api):
@@ -51,6 +64,10 @@ if __name__ == "__main__":
     ARGS = PARSER.parse_args()
     DEBUG = ARGS.verbose
     CONFIG_FILE = ARGS.configuration
+
+    # Setup signal handlers
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
 
     # Setup Logger
     setup_logger(debug=DEBUG, filename="somfyProtect2Mqtt.log")
@@ -92,6 +109,10 @@ if __name__ == "__main__":
         p1.start()
         p2.start()
         while True:
+            if shutdown_flag:
+                LOGGER.info("Shutdown requested, stopping threads...")
+                break
+
             if not p2.is_alive():
                 LOGGER.warning("Websocket is DEAD, restarting")
                 p2 = threading.Thread(
