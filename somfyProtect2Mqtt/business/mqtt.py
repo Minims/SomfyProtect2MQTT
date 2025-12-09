@@ -229,6 +229,9 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
             settings["global"][setting] = text_payload
             # Remove null values from settings before sending to API
             settings = {k: v for k, v in settings.items() if v is not None}
+            # If setting is night_vision, remove other global settings except night_vision
+            if setting == "night_vision":
+                settings["global"] = {"night_vision": text_payload}
             api.update_device(
                 site_id=site_id,
                 device_id=device_id,
