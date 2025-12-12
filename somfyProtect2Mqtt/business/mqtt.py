@@ -2,6 +2,7 @@
 
 import json
 import logging
+import threading
 from time import sleep
 
 from homeassistant.ha_discovery import ALARM_STATUS
@@ -93,14 +94,20 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
                 LOGGER.warning(f"Unable to reteive Site ID: {site_id}: {exp}")
             # Update Alarm via API
             api.update_security_level(site_id=site_id, security_level=text_payload)
-            # Read updated Alarm Status
-            sleep(2)
-            update_site(
-                api=api,
-                mqtt_client=mqtt_client,
-                mqtt_config=mqtt_config,
-                site_id=site_id,
-            )
+
+            # Read updated Alarm Status in background
+            def update_site_delayed():
+                sleep(1)
+                update_site(
+                    api=api,
+                    mqtt_client=mqtt_client,
+                    mqtt_config=mqtt_config,
+                    site_id=site_id,
+                )
+
+            thread = threading.Thread(target=update_site_delayed)
+            thread.daemon = True
+            thread.start()
 
         # Manage Siren
         elif text_payload == "panic":
@@ -163,15 +170,21 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
                     action=text_payload,
                 )
                 LOGGER.debug(action_device)
-                # Read updated device
-                sleep(2)
-                update_device(
-                    api=api,
-                    mqtt_client=mqtt_client,
-                    mqtt_config=mqtt_config,
-                    site_id=site_id,
-                    device_id=device_id,
-                )
+
+                # Read updated device in background
+                def update_device_delayed():
+                    sleep(1)
+                    update_device(
+                        api=api,
+                        mqtt_client=mqtt_client,
+                        mqtt_config=mqtt_config,
+                        site_id=site_id,
+                        device_id=device_id,
+                    )
+
+                thread = threading.Thread(target=update_device_delayed)
+                thread.daemon = True
+                thread.start()
             else:
                 LOGGER.info(f"Message received for Site ID: {site_id}, Action: {text_payload}")
 
@@ -214,21 +227,32 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
             LOGGER.info(f"Message received for Site ID: {site_id}, Device ID: {device_id}, Setting: {setting}")
             settings = device.settings
             settings["global"][setting] = text_payload
+            # Remove null values from settings before sending to API
+            settings = {k: v for k, v in settings.items() if v is not None}
+            # If setting is night_vision, remove other global settings except night_vision
+            if setting == "night_vision":
+                settings["global"] = {"night_vision": text_payload}
             api.update_device(
                 site_id=site_id,
                 device_id=device_id,
                 device_label=device.label,
                 settings=settings,
             )
-            # Read updated device
-            sleep(2)
-            update_device(
-                api=api,
-                mqtt_client=mqtt_client,
-                mqtt_config=mqtt_config,
-                site_id=site_id,
-                device_id=device_id,
-            )
+
+            # Read updated device in background
+            def update_device_delayed():
+                sleep(1)
+                update_device(
+                    api=api,
+                    mqtt_client=mqtt_client,
+                    mqtt_config=mqtt_config,
+                    site_id=site_id,
+                    device_id=device_id,
+                )
+
+            thread = threading.Thread(target=update_device_delayed)
+            thread.daemon = True
+            thread.start()
 
     except Exception as exp:
         LOGGER.error(f"Error when processing message: {exp}: {msg.topic} => {msg.payload}")

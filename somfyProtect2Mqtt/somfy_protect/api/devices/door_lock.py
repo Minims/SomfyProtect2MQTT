@@ -32,7 +32,6 @@ class DoorLock(SomfyProtectDevice):
         """
         return cast(bool, self.get_status("battery_low"))
 
-
     def is_sensor_tof_activated(self) -> bool:
         """Sensor ToF Activated
 

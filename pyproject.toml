@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "somfyProtect2Mqtt"
-version = "2025.12.0"
+version = "2025.12.1"
 description = "Somfy Home Alarm Addon"
 authors = ["Minims <github@minims.fr>"]
 readme = "README.md"
