@@ -1,32 +1,21 @@
 """Somfy Protect Websocket"""
 
 import asyncio
-import base64
 import json
 import logging
 import os
 import ssl
 import time
-from signal import SIGKILL
 
 import websocket
-from aiortc import (
-    MediaStreamTrack,
-    RTCConfiguration,
-    RTCIceCandidate,
-    RTCIceServer,
-    RTCPeerConnection,
-    RTCSessionDescription,
-)
 from business import update_visiophone_snapshot, write_to_media_folder
 from business.mqtt import mqtt_publish, update_device, update_site
 from business.streaming.camera import VideoCamera
 from homeassistant.ha_discovery import ALARM_STATUS
-from mqtt import MQTTClient, init_mqtt
-from oauthlib.oauth2 import LegacyApplicationClient, TokenExpiredError
-from requests_oauthlib import OAuth2Session
+from mqtt import MQTTClient
 from somfy_protect.api import SomfyProtectApi
-from somfy_protect.sso import SomfyProtectSso, read_token_from_file
+from somfy_protect.sso import SomfyProtectSso
+from somfy_protect.webrtc_handler import WebRTCHandler
 from websocket import WebSocketApp
 
 WEBSOCKET = "wss://websocket.myfox.io/events/websocket?token="
@@ -52,6 +41,22 @@ class SomfyProtectWebsocket:
         self.sso = sso
         self.time = time.time()
 
+        # Initialize WebRTC handler
+        self.webrtc_handler = WebRTCHandler(
+            mqtt_client=mqtt_client,
+            mqtt_config=self.mqtt_config,
+            send_websocket_callback=self.send_websocket_message,
+            streaming_config=self.streaming_config,
+        )
+
+        # Create a dedicated event loop for async operations in a separate thread
+        self.loop = asyncio.new_event_loop()
+
+        import threading
+
+        self.loop_thread = threading.Thread(target=self._run_event_loop, daemon=True)
+        self.loop_thread.start()
+
         if debug:
             websocket.enableTrace(True)
             LOGGER.debug(f"Opening websocket connection to {WEBSOCKET}")
@@ -60,12 +65,26 @@ class SomfyProtectWebsocket:
         self._websocket = WebSocketApp(
             f"{WEBSOCKET}{self.token.get('access_token')}",
             on_open=self.on_open,
-            on_message=lambda ws, msg: asyncio.run(self.on_message(ws, msg)),
+            on_message=self._on_message_wrapper,
             on_error=self.on_error,
             on_close=self.on_close,
             on_ping=self.on_ping,
             on_pong=self.on_pong,
         )
+
+    def _run_event_loop(self):
+        """Run the event loop in a dedicated thread"""
+        asyncio.set_event_loop(self.loop)
+        self.loop.run_forever()
+
+    def _on_message_wrapper(self, ws_app, message):
+        """Wrapper to handle async on_message in sync context"""
+        try:
+            # Schedule coroutine on the persistent event loop
+            future = asyncio.run_coroutine_threadsafe(self.on_message(ws_app, message), self.loop)
+            future.result()  # Wait for completion
+        except Exception as e:
+            LOGGER.error(f"Error in message wrapper: {e}")
 
     def run_forever(self):
         """Run Forever Loop"""
@@ -82,6 +101,24 @@ class SomfyProtectWebsocket:
         """Close Websocket Connection"""
         LOGGER.info("WebSocket Close")
         self._websocket.close()
+
+    def start_webrtc_stream(self, site_id: str, device_id: str, session_id: str = None):
+        """Start a WebRTC video stream session"""
+        import uuid
+
+        if not session_id:
+            session_id = str(uuid.uuid4()).replace("-", "").upper()
+
+        message = {
+            "site_id": site_id,
+            "forward": True,
+            "device_id": device_id,
+            "key": "video.webrtc.start",
+            "session_id": session_id,
+        }
+        self.send_websocket_message(message)
+        LOGGER.info(f"Sent video.webrtc.start for device {device_id}, session {session_id}")
+        return session_id
 
     def on_ping(self, ws_app, message):
         """Handle Ping Message"""
@@ -178,9 +215,11 @@ class SomfyProtectWebsocket:
         """Gate Open from Mobile"""
         LOGGER.info(f"Gate Open from Mobile: {message}")
 
-    def video_webrtc_hang_up(self, message):
+    async def video_webrtc_hang_up(self, message):
         """WEBRTC HangUP"""
         LOGGER.info(f"WEBRTC HangUp: {message}")
+        session_id = message.get("session_id")
+        await self.webrtc_handler.close_session(session_id)
 
     def video_webrtc_keep_alive(self, message):
         """WEBRTC KeepAlive"""
@@ -192,106 +231,30 @@ class SomfyProtectWebsocket:
 
     async def video_webrtc_offer(self, message):
         """WEBRTC Offer"""
-        LOGGER.info(f"WEBRTC Offer: {message}")
-        device_id = message.get("device_id")
-        site_id = message.get("site_id")
-        offer_data = message.get("offer")
-        offer_data_clean = str(offer_data).strip("^('").strip("',)$")
-        offer_data_json = json.loads(offer_data_clean)
-        sdp = offer_data_json.get("sdp")
-
-        offer_type = offer_data_json.get("type")
-
-        pc = RTCPeerConnection(configuration=RTCConfiguration([RTCIceServer(urls="stun:stun.l.google:19302")]))
-
-        @pc.on("iceconnectionstatechange")
-        async def on_iceconnectionstatechange():
-            LOGGER.info(f"ICE connection state is {pc.iceConnectionState}")
-            if pc.iceConnectionState == "failed":
-                LOGGER.error("ICE connection failed")
-                await pc.close()
-
-        @pc.on("icegatheringstatechange")
-        async def on_icegatheringstatechange():
-            LOGGER.info(f"ICE gathering state is {pc.iceGatheringState}")
-
-        @pc.on("connectionstatechange")
-        async def on_connectionstatechange():
-            LOGGER.info(f"Connection state is {pc.connectionState}")
-            if pc.connectionState == "connected":
-                LOGGER.info("WebRTC connection established")
-            elif pc.connectionState == "failed":
-                LOGGER.error("WebRTC connection failed")
-                await pc.close()
-
-        @pc.on("icecandidate")
-        async def on_icecandidate(candidate):
-            if candidate:
-                LOGGER.info(f"ICE candidate: {candidate}")
-                self.send_ice_candidate(candidate, message.get("session_id"))
-
-        # Add a timeout for ICE connection state transition
-        async def check_ice_connection_state():
-            await asyncio.sleep(10)
-            if pc.iceConnectionState == "waiting":
-                LOGGER.warning("ICE connection state stuck in WAITING, closing connection")
-                await pc.close()
-
-        asyncio.create_task(check_ice_connection_state())
-
-        offer = RTCSessionDescription(sdp=sdp, type=offer_type)
-        await pc.setRemoteDescription(offer)
-
-        topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/snapshot"
-
-        # Handle incoming video tracks
-        @pc.on("track")
-        async def on_track(track):
-            LOGGER.info(f"Track received: {track.kind}")
-            if track.kind == "video":
-                video_track = VideoStreamTrack(track, self.mqtt_client, topic)
-                pc.addTrack(video_track)
-
-        answer = await pc.createAnswer()
-        await pc.setLocalDescription(answer)
-        response = {
-            "type": "video.webrtc.answer",
-            "session_id": message.get("session_id"),
-            "answer": {"type": pc.localDescription.type, "sdp": pc.localDescription.sdp},
-            "forward": True,
-        }
-        self.send_websocket_message(response)
-        LOGGER.debug(f"Send Response")
-
-    def send_ice_candidate(self, candidate, session_id):
-        """Send ICE candidate via WebSocket"""
-        message = {
-            "key": "video.webrtc.candidate",
-            "session_id": session_id,
-            "candidate": {
-                "sdpMid": candidate.sdpMid,
-                "sdpMLineIndex": candidate.sdpMLineIndex,
-                "sdp": candidate.candidate,
-            },
-            "forward": True,
-        }
-        self.send_websocket_message(message)
+        await self.webrtc_handler.handle_offer(message)
 
     def video_webrtc_start(self, message):
-        """WEBRTC Start"""
+        """WEBRTC Start - Initiates WebRTC session"""
         LOGGER.info(f"WEBRTC Start: {message}")
+        # When we receive this from server, it means session is starting
+        # We should have already sent our start request
 
     def video_webrtc_answer(self, message):
         """WEBRTC Answer"""
         LOGGER.info(f"WEBRTC Answer: {message}")
 
     def video_webrtc_turn_config(self, message):
-        """WEBRTC Turn Config"""
+        """WEBRTC Turn Config - Store TURN server configuration"""
         LOGGER.info(f"WEBRTC Turn Config: {message}")
+        session_id = message.get("session_id")
+        turn_data = message.get("turn")
+        self.webrtc_handler.store_turn_config(session_id, turn_data)
 
-    def video_webrtc_candidate(self, message):
-        """WEBRTC Candidate"""
-        LOGGER.info(f"WEBRTC Candidate: {message}")
+    async def video_webrtc_candidate(self, message):
+        """WEBRTC Candidate - Add remote ICE candidate from camera"""
+        session_id = message.get("session_id")
+        candidate_data = message.get("candidate")
+        await self.webrtc_handler.add_remote_candidate(session_id, candidate_data)
 
     def device_ring_door_bell(self, message):
         """Someone is ringing at the door."""
@@ -899,21 +862,3 @@ class SomfyProtectWebsocket:
         else:
             LOGGER.warning(f"WebSocket is not connected. Unable to send message: {message}")
         return
-
-
-class VideoStreamTrack(MediaStreamTrack):
-    kind = "video"
-
-    def __init__(self, track, mqtt_client, mqtt_topic):
-        super().__init__()  # Base class initialization
-        self.track = track
-        self.mqtt_client = mqtt_client
-        self.mqtt_topic = mqtt_topic
-
-    async def recv(self):
-        frame = await self.track.recv()
-        # Convert frame to image (e.g., JPEG or raw bytes) for MQTT
-        frame_bytes = frame.to_ndarray(format="bgr24").tobytes()
-        # Publish to MQTT
-        self.mqtt_client.publish(self.mqtt_topic, frame_bytes)
-        return frame
