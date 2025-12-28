@@ -22,6 +22,7 @@ import logging as av_logging
 
 # Set av logging to suppress H264 decoder warnings
 av_logging.getLogger("libav.h264").setLevel(av_logging.CRITICAL)
+av_logging.getLogger("libav.swscaler").setLevel(av_logging.CRITICAL)
 av_logging.getLogger("aiortc.codecs.h264").setLevel(av_logging.WARNING)
 
 LOGGER = logging.getLogger(__name__)
