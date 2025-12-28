@@ -18,8 +18,11 @@ from business.mqtt import mqtt_publish
 
 # Suppress ffmpeg/libav warnings
 import av
+import logging as av_logging
 
-av.logging.set_level(av.logging.ERROR)
+# Set av logging to suppress H264 decoder warnings
+av_logging.getLogger("libav.h264").setLevel(av_logging.CRITICAL)
+av_logging.getLogger("aiortc.codecs.h264").setLevel(av_logging.WARNING)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -78,7 +81,7 @@ class WebRTCHandler:
         self.streaming_config = streaming_config
         self.peer_connections = {}
         self.turn_configs = {}
-        
+
         # MJPEG HTTP server for go2rtc
         self.mjpeg_frames = {}  # Store latest frame per device_id
         self.mjpeg_server = None
@@ -196,72 +199,103 @@ class WebRTCHandler:
                     topic = (
                         f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/snapshot"
                     )
+                    frame_skip_counter = 0
                     try:
                         while True:
-                            frame = await track.recv()
-                            LOGGER.debug(f"Video frame received: {frame}, size={frame.width}x{frame.height}")
-
-                            # Convert frame to JPEG and publish to MQTT
                             try:
-                                from PIL import Image
+                                frame = await track.recv()
+                                LOGGER.debug(f"Video frame received: {frame}, size={frame.width}x{frame.height}")
 
-                                # Convert directly to PIL Image (suppresses conversion warnings via av.logging)
-                                pil_img = frame.to_image()
+                                # Convert frame to JPEG and publish to MQTT
+                                try:
+                                    from PIL import Image
 
-                                # Encode as JPEG
-                                buffer = BytesIO()
-                                pil_img.save(buffer, format="JPEG", quality=85)
-                                byte_arr = bytearray(buffer.getvalue())
+                                    # Convert directly to PIL Image (suppresses conversion warnings via av.logging)
+                                    pil_img = frame.to_image()
 
-                                # Publish to MQTT
-                                mqtt_publish(
-                                    mqtt_client=self.mqtt_client,
-                                    topic=topic,
-                                    payload=byte_arr,
-                                    retain=True,
-                                    is_json=False,
-                                    qos=2,
-                                )
-                                LOGGER.debug(f"Published frame to MQTT topic: {topic}")
+                                    # Encode as JPEG
+                                    buffer = BytesIO()
+                                    pil_img.save(buffer, format="JPEG", quality=85)
+                                    byte_arr = bytearray(buffer.getvalue())
+
+                                    # Publish to MQTT
+                                    mqtt_publish(
+                                        mqtt_client=self.mqtt_client,
+                                        topic=topic,
+                                        payload=byte_arr,
+                                        retain=True,
+                                        is_json=False,
+                                        qos=2,
+                                    )
+                                    LOGGER.debug(f"Published frame to MQTT topic: {topic}")
+                                    frame_skip_counter = 0
+                                except Exception as e:
+                                    frame_skip_counter += 1
+                                    # Skip frames with decoding errors (especially at start due to missing SPS/PPS)
+                                    if frame_skip_counter <= 10:
+                                        LOGGER.debug(
+                                            f"Skipping frame due to decoding error (attempt {frame_skip_counter}): {e}"
+                                        )
+                                    else:
+                                        LOGGER.error(f"Multiple frame decoding failures: {e}")
+
                             except Exception as e:
-                                LOGGER.error(f"Error converting/publishing frame: {e}")
+                                LOGGER.error(f"Error receiving video frame: {e}")
+                                await asyncio.sleep(0.1)
 
                     except Exception as e:
                         LOGGER.error(f"Error receiving video frames: {e}")
 
                 elif self.streaming_config == "go2rtc":
                     LOGGER.info(f"Video track started, streaming MJPEG for go2rtc")
-                    
+
                     # Start MJPEG HTTP server if not already running
                     if self.mjpeg_server is None:
-                        self._start_mjpeg_server()
-                    
+                        self._start_mjpeg_server(device_id)
+
+                    frame_skip_counter = 0
                     try:
                         from PIL import Image
-                        
+
                         while True:
-                            frame = await track.recv()
-                            LOGGER.debug(f"Video frame received: {frame}, size={frame.width}x{frame.height}")
-                            
                             try:
-                                # Convert frame to JPEG
-                                pil_img = frame.to_image()
-                                buffer = BytesIO()
-                                pil_img.save(buffer, format="JPEG", quality=85)
-                                jpeg_bytes = buffer.getvalue()
-                                
-                                # Store latest frame for MJPEG server
-                                self.mjpeg_frames[device_id] = jpeg_bytes
-                                LOGGER.debug(f"Updated MJPEG frame for device {device_id}")
-                                
+                                frame = await track.recv()
+                                LOGGER.debug(f"Video frame received: {frame}, size={frame.width}x{frame.height}")
+
+                                try:
+                                    # Convert frame to JPEG
+                                    pil_img = frame.to_image()
+                                    buffer = BytesIO()
+                                    pil_img.save(buffer, format="JPEG", quality=85)
+                                    jpeg_bytes = buffer.getvalue()
+
+                                    # Store latest frame for MJPEG server
+                                    self.mjpeg_frames[device_id] = jpeg_bytes
+                                    LOGGER.debug(f"Updated MJPEG frame for device {device_id}")
+                                    frame_skip_counter = 0
+
+                                except Exception as e:
+                                    frame_skip_counter += 1
+                                    # Skip frames with decoding errors (especially at start due to missing SPS/PPS)
+                                    if frame_skip_counter <= 10:
+                                        LOGGER.debug(
+                                            f"Skipping frame due to decoding error (attempt {frame_skip_counter}): {e}"
+                                        )
+                                    else:
+                                        LOGGER.error(f"Multiple frame decoding failures: {e}")
+
                             except Exception as e:
-                                LOGGER.error(f"Error converting frame to JPEG: {e}")
-                                
-                    except Exception as e:
-                        LOGGER.error(f"Error in go2rtc MJPEG streaming: {e}")
+                                # Check if it's end of stream
+                                if "MediaStreamError" in str(type(e).__name__) or "ended" in str(e).lower():
+                                    LOGGER.info(f"Video stream ended for device {device_id}")
+                                    break
+                                LOGGER.error(f"Error receiving frame in go2rtc: {e}")
+                                LOGGER.exception("Detailed error:")
+                                await asyncio.sleep(0.1)
 
                     except Exception as e:
-                        LOGGER.error(f"Error setting up FIFO: {e}")
+                        LOGGER.info(f"MJPEG streaming stopped for device {device_id}: {e}")
+
                 else:
                     LOGGER.info(
                         f"Video track received but streaming_config is not 'mqtt' or 'go2rtc' (current: {self.streaming_config})"
@@ -416,45 +450,46 @@ class WebRTCHandler:
             except Exception as e:
                 LOGGER.error(f"Error closing peer connection: {e}")
 
-    def _start_mjpeg_server(self):
+    def _start_mjpeg_server(self, device_id):
         """Start HTTP server for MJPEG streaming"""
         from http.server import BaseHTTPRequestHandler, HTTPServer
         import threading
-        
+
         handler = self
-        
+
         class MJPEGHandler(BaseHTTPRequestHandler):
             def log_message(self, format, *args):
                 pass  # Suppress HTTP logs
-                
+
             def do_GET(self):
                 # Extract device_id from path: /camera/{device_id}
-                path_parts = self.path.strip('/').split('/')
-                if len(path_parts) >= 2 and path_parts[0] == 'camera':
+                path_parts = self.path.strip("/").split("/")
+                if len(path_parts) >= 2 and path_parts[0] == "camera":
                     device_id = path_parts[1]
-                    
+
                     self.send_response(200)
-                    self.send_header('Content-Type', 'multipart/x-mixed-replace; boundary=frame')
+                    self.send_header("Content-Type", "multipart/x-mixed-replace; boundary=frame")
                     self.end_headers()
-                    
+
                     try:
                         while True:
                             if device_id in handler.mjpeg_frames:
                                 jpeg_bytes = handler.mjpeg_frames[device_id]
-                                self.wfile.write(b'--frame\r\n')
-                                self.wfile.write(b'Content-Type: image/jpeg\r\n')
-                                self.wfile.write(f'Content-Length: {len(jpeg_bytes)}\r\n\r\n'.encode())
+                                self.wfile.write(b"--frame\r\n")
+                                self.wfile.write(b"Content-Type: image/jpeg\r\n")
+                                self.wfile.write(f"Content-Length: {len(jpeg_bytes)}\r\n\r\n".encode())
                                 self.wfile.write(jpeg_bytes)
-                                self.wfile.write(b'\r\n')
+                                self.wfile.write(b"\r\n")
                             import time
+
                             time.sleep(0.033)  # ~30 fps
                     except:
                         pass
                 else:
                     self.send_error(404)
-        
-        server = HTTPServer(('0.0.0.0', self.mjpeg_port), MJPEGHandler)
+
+        server = HTTPServer(("0.0.0.0", self.mjpeg_port), MJPEGHandler)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
         self.mjpeg_server = server
-        LOGGER.info(f"MJPEG HTTP server started on port {self.mjpeg_port}")
+        LOGGER.info(f"MJPEG HTTP server started on http://0.0.0.0:{self.mjpeg_port}/camera/{device_id}")

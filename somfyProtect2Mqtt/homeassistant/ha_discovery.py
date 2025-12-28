@@ -347,7 +347,7 @@ DEVICE_CAPABILITIES = {
         "type": "button",
         "config": {"payload_press": "gate"},
     },
-    "door_force_Lock": {
+    "door_force_lock": {
         "type": "button",
         "config": {"payload_press": "force_lock"},
     },
