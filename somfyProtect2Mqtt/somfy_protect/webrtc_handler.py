@@ -3,6 +3,7 @@
 import asyncio
 import json
 import logging
+import re
 from fractions import Fraction
 from io import BytesIO
 
@@ -16,14 +17,16 @@ from aiortc import (
 )
 from business.mqtt import mqtt_publish
 
-# Suppress ffmpeg/libav warnings
+# Suppress ffmpeg/libav warnings at C library level
 import av
-import logging as av_logging
 
-# Set av logging to suppress H264 decoder warnings
-av_logging.getLogger("libav.h264").setLevel(av_logging.CRITICAL)
-av_logging.getLogger("libav.swscaler").setLevel(av_logging.CRITICAL)
-av_logging.getLogger("aiortc.codecs.h264").setLevel(av_logging.WARNING)
+# Set PyAV logging level to ERROR to suppress FFmpeg warnings
+av.logging.set_level(av.logging.ERROR)
+
+# Also suppress Python-level warnings for aiortc
+logging.getLogger("libav.h264").setLevel(logging.CRITICAL)
+logging.getLogger("libav.swscaler").setLevel(logging.CRITICAL)
+logging.getLogger("aiortc.codecs.h264").setLevel(logging.WARNING)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -111,6 +114,17 @@ class WebRTCHandler:
         offer_data_json = json.loads(offer_data_clean)
         sdp = offer_data_json.get("sdp")
         offer_type = offer_data_json.get("type")
+
+        # Try to fix H264 decoding issues by forcing a common profile-level-id
+        new_sdp_lines = []
+        for line in sdp.splitlines():
+            if line.startswith("a=fmtp:") and "H264" in line:
+                LOGGER.info("Original H264 fmtp line: %s", line)
+                # Force a common profile-level-id
+                line = re.sub(r"profile-level-id=[^;]+", "profile-level-id=42e01f", line)
+                LOGGER.info("Modified H264 fmtp line: %s", line)
+            new_sdp_lines.append(line)
+        sdp = "\r\n".join(new_sdp_lines)
 
         # Build ICE servers configuration
         ice_servers = [RTCIceServer(urls=["stun:stun.l.google.com:19302"])]
@@ -207,11 +221,11 @@ class WebRTCHandler:
                                 frame = await track.recv()
                                 LOGGER.debug(f"Video frame received: {frame}, size={frame.width}x{frame.height}")
 
-                                # Convert frame to JPEG and publish to MQTT
+                                # Convert frame to JPEG and publish to MQTT.
                                 try:
                                     from PIL import Image
 
-                                    # Convert directly to PIL Image (suppresses conversion warnings via av.logging)
+                                    # Convert directly to PIL Image from native YUV format (more efficient)
                                     pil_img = frame.to_image()
 
                                     # Encode as JPEG
@@ -264,7 +278,7 @@ class WebRTCHandler:
                                 LOGGER.debug(f"Video frame received: {frame}, size={frame.width}x{frame.height}")
 
                                 try:
-                                    # Convert frame to JPEG
+                                    # Convert frame to JPEG from native YUV format (more efficient)
                                     pil_img = frame.to_image()
                                     buffer = BytesIO()
                                     pil_img.save(buffer, format="JPEG", quality=85)
