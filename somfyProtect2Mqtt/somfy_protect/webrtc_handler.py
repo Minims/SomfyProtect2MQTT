@@ -85,6 +85,7 @@ class WebRTCHandler:
         self.streaming_config = streaming_config
         self.peer_connections = {}
         self.turn_configs = {}
+        self.active_tasks = set()  # Track all active asyncio tasks
 
         # HLS HTTP server for go2rtc
         self.hls_muxers = {}  # Store HLS muxers per device_id
@@ -284,7 +285,9 @@ class WebRTCHandler:
 
                     # Store video track and start reading
                     self.hls_muxers[device_id]["video_track"] = track
-                    asyncio.create_task(self._read_video_frames(device_id, track))
+                    task = asyncio.create_task(self._read_video_frames(device_id, track))
+                    self.active_tasks.add(task)
+                    task.add_done_callback(self.active_tasks.discard)
 
                 else:
                     LOGGER.info(
@@ -302,7 +305,9 @@ class WebRTCHandler:
 
                     # Store audio track and start reading
                     self.hls_muxers[device_id]["audio_track"] = track
-                    asyncio.create_task(self._read_audio_frames(device_id, track))
+                    task = asyncio.create_task(self._read_audio_frames(device_id, track))
+                    self.active_tasks.add(task)
+                    task.add_done_callback(self.active_tasks.discard)
                 else:
                     LOGGER.warning(
                         f"[TRACK] Audio track received but streaming_config is '{self.streaming_config}' (not 'go2rtc')"
@@ -323,7 +328,9 @@ class WebRTCHandler:
                 LOGGER.warning(f"ICE connection timeout - state stuck at {pc.iceConnectionState}, closing connection")
                 await pc.close()
 
-        asyncio.create_task(check_ice_connection_state())
+        task = asyncio.create_task(check_ice_connection_state())
+        self.active_tasks.add(task)
+        task.add_done_callback(self.active_tasks.discard)
 
     async def _wait_for_ice_gathering(self, pc, max_wait=2):
         """Wait for ICE gathering to complete"""
@@ -455,6 +462,54 @@ class WebRTCHandler:
             except Exception as e:
                 LOGGER.error(f"Error closing peer connection: {e}")
 
+    async def cleanup(self):
+        """
+        Cleanup all WebRTC resources - peer connections, tasks, HLS server, etc.
+        Should be called when shutting down the handler.
+        """
+        LOGGER.info("Starting WebRTC handler cleanup...")
+
+        # Cancel all active tasks
+        if hasattr(self, "active_tasks") and self.active_tasks:
+            LOGGER.info(f"Cancelling {len(self.active_tasks)} active tasks")
+            for task in list(self.active_tasks):
+                if not task.done():
+                    task.cancel()
+            # Wait for tasks to finish cancellation
+            if self.active_tasks:
+                await asyncio.gather(*self.active_tasks, return_exceptions=True)
+            self.active_tasks.clear()
+
+        # Close all peer connections
+        if hasattr(self, "peer_connections") and self.peer_connections:
+            LOGGER.info(f"Closing {len(self.peer_connections)} peer connections")
+            for session_id in list(self.peer_connections.keys()):
+                try:
+                    await self.close_session(session_id)
+                except Exception as e:
+                    LOGGER.error(f"Error closing session {session_id}: {e}")
+            self.peer_connections.clear()
+
+        # Clear TURN configs
+        if hasattr(self, "turn_configs"):
+            self.turn_configs.clear()
+
+        # Clear HLS resources
+        if hasattr(self, "hls_muxers"):
+            self.hls_muxers.clear()
+        if hasattr(self, "hls_segments"):
+            self.hls_segments.clear()
+
+        # Stop HLS server if running
+        if hasattr(self, "hls_server") and self.hls_server:
+            try:
+                self.hls_server.shutdown()
+                LOGGER.info("HLS server stopped")
+            except Exception as e:
+                LOGGER.error(f"Error stopping HLS server: {e}")
+
+        LOGGER.info("WebRTC handler cleanup completed")
+
     def _start_hls_server(self, device_id=None):
         """Start HTTP server for HLS streaming"""
         from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -546,7 +601,9 @@ class WebRTCHandler:
         }
 
         # Start the muxer task
-        asyncio.create_task(self._hls_muxer_task(device_id))
+        task = asyncio.create_task(self._hls_muxer_task(device_id))
+        self.active_tasks.add(task)
+        task.add_done_callback(self.active_tasks.discard)
 
         LOGGER.info(
             f"Initialized HLS muxer for device {device_id} in {temp_dir}. "
