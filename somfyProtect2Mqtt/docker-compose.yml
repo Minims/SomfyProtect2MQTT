@@ -2,6 +2,6 @@ version: "3"
 services:
   somfyprotect2mqtt:
     build: .
-    image: somfyprotect2mqtt:v2025.12.4
+    image: somfyprotect2mqtt:v2026.1.0
     volumes:
       - ./config:/config
