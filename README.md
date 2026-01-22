@@ -1,10 +1,11 @@
 # SomfyProtect2MQTT
 
 [!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/minims)
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/minims)
 
 Somfy Protect to MQTT
 
-Supported :
+Supported:
 
 - Somfy Home Alarm
 - Somfy Home Alarm Advanced
@@ -13,21 +14,18 @@ Supported :
 
 ## What is Working
 
-Quite Everything except Video Streaming.
-
-- Retreive some status of the alarm and his devices.
+- Retrieve some status of the alarm and its devices.
 - Set security level: armed, disarmed, partial.
 - HA MQTT Discovery.
 - Stop the Alarm
 - Trigger the Alarm
 - Update Device Settings
 - Send Action to device (Open/Close Camera Shutter, Light On/Off connected to OutDoor Camera)
-- Get lastest Camera snapshot
+- Get latest Camera snapshot
 - Retrieve Smoke Detector status
 - Get The temperature from PIR / Siren
 - Configure Sensors
-- Video Streaming
-- ...
+- Video Streaming <alpha>
 
 <img width="1012" alt="SomfyProtect" src="https://user-images.githubusercontent.com/1724785/112769160-e37df200-901f-11eb-9000-e8c463a64dd9.png">
 
@@ -35,10 +33,10 @@ Quite Everything except Video Streaming.
 
 ### Requirements
 
-- Use a somfy dedicated user for homeassistant.
-- This dedicated user must be declared as a owner, not a child.
-- HA MQTT integration must be reconfigure with MQTT Discovery.
-- In the config file, check that you have set the name of your house. (The one define in the Somfy App.)
+- Use a Somfy dedicated user for Home Assistant.
+- This dedicated user must be declared as an owner, not a child user.
+- HA MQTT integration must be reconfigured with MQTT Discovery.
+- In the config file, check that you have set the name of your house. (The one defined in the Somfy App.)
 
 ```
 sites:
@@ -52,12 +50,12 @@ sites:
 In HomeAssistant, go to Supervisor > Add-on Store > Repositories
 Add this repo: https://github.com/minims/homeassistant-addons/
 
-Configure it with you credentials
-Then all Devices will appaears in MQTT integration
+Configure it with your credentials
+Then all devices will appear in MQTT integration
 
 ### Easy Mode (Running in Docker Container)
 
-Add docker container `docker run -v <PATH-TO-CONFIG-FOLDER>:/config minims/somfyprotect2mqtt`
+Run docker container: `docker run -v <PATH-TO-CONFIG-FOLDER>:/config minims/somfyprotect2mqtt`
 
 Add config to `<PATH-TO-CONFIG-FOLDER>`
 
@@ -76,7 +74,7 @@ cd /opt/SomfyProtect2MQTT/
 Install Python3 dependencies
 
 ```
-pip3 install -r  somfyProtect2Mqtt/requirements.txt
+pip3 install -r somfyProtect2Mqtt/requirements/common.txt
 ```
 
 Copy config file and setup your own credentials for SomfyProtect & MQTT.
@@ -89,8 +87,8 @@ cp config/config.yaml.example config/config.yaml
 ## Running
 
 ```
-cd SomfyProtect2MQTT/somfyProtect2Mqtt
-python3 main.py
+cd /opt/SomfyProtect2MQTT/somfyProtect2Mqtt
+python3 main.py -c config/config.yaml
 ```
 
 ## Video Streaming
@@ -104,7 +102,7 @@ To start the stream you need:
 - To open the cover via the entity `switch.***_shutter_state` in the Camera Device.
 - To switch the stream ON via the entity `switch.***_stream` in the Camera Device.
 
-Here is a basic lovelace card to see your camera with bother shutter & stream button
+Here is a basic lovelace card to see your camera with both shutter & stream buttons
 
 ```
 camera_view: auto
@@ -120,7 +118,7 @@ title: Indoor Camera
 
 2. go2rtc / WebRTC Camera
 
-Copy file config/echo/somfy.sh in HA in `/config/echo/somfy.sh`
+Copy file `config/echo/somfy.sh` to HA in `/config/echo/somfy.sh`
 
 - Install HA Addon go2rtc: https://github.com/AlexxIT/go2rtc
 - Install HACS WebRTC Camera: https://github.com/AlexxIT/WebRTC
@@ -153,9 +151,7 @@ style: >-
   flex-direction: column; gap: 10px}
 ```
 
-## Systemd (Running in background on boot)
-
-## 5. (Optional) Running as a daemon with systemctl
+## Running as a daemon with systemctl
 
 To run SomfyProtect2MQTT as daemon (in background) and start it automatically on boot we will run SomfyProtect2MQTT with systemctl.
 
@@ -173,7 +169,7 @@ After=network.target
 
 [Service]
 WorkingDirectory=/opt/SomfyProtect2MQTT/somfyProtect2Mqtt
-ExecStart=/usr/bin/python3 /opt/SomfyProtect2MQTT/somfyProtect2Mqtt/main.py
+ExecStart=/usr/bin/python3 /opt/SomfyProtect2MQTT/somfyProtect2Mqtt/main.py -c /opt/SomfyProtect2MQTT/somfyProtect2Mqtt/config/config.yaml
 StandardOutput=inherit
 # Or use StandardOutput=null if you don't want SomfyProtect2MQTT messages filling syslog, for more options see systemd.exec(5)
 StandardError=inherit
@@ -217,9 +213,9 @@ sudo systemctl start somfyProtect2mqtt
 sudo journalctl -u somfyProtect2mqtt.service -f
 ```
 
-## Developement
+## Development
 
-This code is base on reverse engineering of the Android Mobile App.
+This code is based on reverse engineering of the Android Mobile App.
 
 - https://apkgk.com/APK-Downloader?package=com.myfox.android.mss
 - Decompilation : https://github.com/google/enjarify
@@ -232,7 +228,7 @@ com-myfox-android-mss1610600400-enjarify.jar
 
 - Open JAR and Get Java Code (JD-UI) : https://github.com/java-decompiler/jd-gui/releases
 
-So if you want to contribue, have knowledge in JAVA / APK, you can help to find all API calls used in the APP.
+So if you want to contribute, have knowledge in JAVA / APK, you can help to find all API calls used in the APP.
 We can integrate here (https://github.com/Minims/somfy-protect-api) to use it.
 
 - Use APKTool to get smali files and all available API Endpoints
