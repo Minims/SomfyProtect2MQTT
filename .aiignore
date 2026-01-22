@@ -1,0 +1,89 @@
+# ============================================
+# Fichiers exclus des assistants IA (JetBrains AI, Gemini, etc.)
+# Syntaxe identique à .gitignore
+# ============================================
+
+# Secrets et variables d'environnement
+.env
+.env.*
+.env.local
+.env.*.local
+
+# Tokens et credentials
+token.json
+**/token.json
+
+# Configuration utilisateur
+config.yaml
+**/config.yaml
+
+# Logs
+*.log
+**/*.log
+
+# Fichiers vidéo et média (volumineux, inutiles pour l'IA)
+*.h264
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.webm
+media/
+**/media/
+
+# Fichiers système
+.DS_Store
+.DS_Store?
+._*
+.Trashes
+Thumbs.db
+
+# Caches Python (pas besoin d'indexer)
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Environnements virtuels
+.venv/
+venv/
+ENV/
+env/
+**/venv/
+**/.venv/
+
+# Fichiers de build et distribution
+build/
+dist/
+*.egg-info/
+.eggs/
+eggs/
+wheels/
+*.egg
+
+# Fichiers temporaires et de debug
+*.tmp
+*.temp
+*.bak
+*.backup
+debug.py
+
+# Coverage et tests
+.coverage
+.coverage.*
+.pytest_cache/
+.tox/
+.nox/
+htmlcov/
+
+# Type checking
+.mypy_cache/
+.pyre/
+
+# IDEs (pas besoin d'indexer)
+.vscode/
+.idea/
+*.swp
+*.swo
