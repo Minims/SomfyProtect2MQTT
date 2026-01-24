@@ -110,7 +110,7 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
             thread.start()
 
         # Manage Siren
-        elif text_payload == "panic":
+        elif text_payload.lower() in ("panic", "trigger"):
             site_id = msg.topic.split("/")[1]
             LOGGER.info(f"Start the Siren On Site ID {site_id}")
             api.trigger_alarm(site_id=site_id, mode="alarm")
