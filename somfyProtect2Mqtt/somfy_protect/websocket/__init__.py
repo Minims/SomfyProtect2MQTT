@@ -100,7 +100,38 @@ class SomfyProtectWebsocket:
     def close(self):
         """Close Websocket Connection"""
         LOGGER.info("WebSocket Close")
-        self._websocket.close()
+
+        # Close websocket connection
+        if self._websocket:
+            self._websocket.close()
+
+        # Cleanup WebRTC resources
+        if hasattr(self, "webrtc_handler") and self.webrtc_handler:
+            try:
+                # Schedule cleanup on the event loop
+                if hasattr(self, "loop") and self.loop and self.loop.is_running():
+                    asyncio.run_coroutine_threadsafe(self.webrtc_handler.cleanup(), self.loop)
+                    # Give it a moment to clean up
+                    import time
+
+                    time.sleep(0.5)
+            except Exception as e:
+                LOGGER.error(f"Error cleaning up WebRTC handler: {e}")
+
+        # Stop the event loop
+        if hasattr(self, "loop") and self.loop:
+            try:
+                if self.loop.is_running():
+                    self.loop.call_soon_threadsafe(self.loop.stop)
+                    # Wait for loop thread to finish
+                    if hasattr(self, "loop_thread") and self.loop_thread:
+                        self.loop_thread.join(timeout=2.0)
+                # Close the loop
+                if not self.loop.is_closed():
+                    self.loop.close()
+                LOGGER.info("Event loop closed successfully")
+            except Exception as e:
+                LOGGER.error(f"Error closing event loop: {e}")
 
     def start_webrtc_stream(self, site_id: str, device_id: str, session_id: str = None):
         """Start a WebRTC video stream session"""

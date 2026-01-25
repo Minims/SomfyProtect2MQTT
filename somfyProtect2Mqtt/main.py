@@ -18,7 +18,7 @@ from somfy_protect.sso import init_sso
 from somfy_protect.api import SomfyProtectApi
 from somfy_protect.websocket import SomfyProtectWebsocket
 
-VERSION = "2025.12.3"
+VERSION = "2026.1.0"
 LOGGER = logging.getLogger(__name__)
 
 # Global flag for shutdown
@@ -47,13 +47,17 @@ def somfy_protect_loop(config, mqtt_client, api):
 
 def somfy_protect_wss_loop(sso, debug, config, mqtt_client, api):
     """SomfyProtect WSS Loop"""
+    wss = None
     try:
         wss = SomfyProtectWebsocket(sso=sso, debug=debug, config=config, mqtt_client=mqtt_client, api=api)
         wss.run_forever()
     except Exception as exc:
         LOGGER.error(f"Force stopping WebSocket {exc}")
         if wss:
-            close_and_exit(wss, 0)
+            wss.close()
+    finally:
+        if wss:
+            wss.close()
 
 
 if __name__ == "__main__":
