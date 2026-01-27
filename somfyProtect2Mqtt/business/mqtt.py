@@ -77,13 +77,6 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
         #         path=os.getcwd(),
         #     )
 
-        # Manage Boolean
-        if text_payload == "True":
-            text_payload = bool(True)
-
-        if text_payload == "False":
-            text_payload = bool(False)
-
         # Manage Alarm Status
         if text_payload in ALARM_STATUS:
             LOGGER.info(f"Security Level update ! Setting to {text_payload}")
@@ -223,6 +216,13 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
             setting = msg.topic.split("/")[3]
             if setting == "stream":
                 return
+
+            # Convert Boolean strings to actual booleans
+            if text_payload == "True":
+                text_payload = bool(True)
+            elif text_payload == "False":
+                text_payload = bool(False)
+
             device = api.get_device(site_id=site_id, device_id=device_id)
             LOGGER.info(f"Message received for Site ID: {site_id}, Device ID: {device_id}, Setting: {setting}")
             settings = device.settings

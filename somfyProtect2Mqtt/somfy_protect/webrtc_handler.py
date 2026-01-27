@@ -26,7 +26,7 @@ av.logging.set_level(av.logging.ERROR)
 # Also suppress Python-level warnings for aiortc
 logging.getLogger("libav.h264").setLevel(logging.CRITICAL)
 logging.getLogger("libav.swscaler").setLevel(logging.CRITICAL)
-logging.getLogger("aiortc.codecs.h264").setLevel(logging.WARNING)
+logging.getLogger("aiortc.codecs.h264").setLevel(logging.ERROR)
 
 LOGGER = logging.getLogger(__name__)
 
