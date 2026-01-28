@@ -1,30 +1,72 @@
-"""Somfy Protect Websocket"""
+"""Somfy Protect WebSocket Client.
+
+This module handles real-time communication with Somfy Protect servers
+via WebSocket for instant event notifications.
+"""
 
 import asyncio
 import json
 import logging
-import os
 import ssl
 import time
 
 import websocket
-from business import update_visiophone_snapshot, write_to_media_folder
-from business.mqtt import mqtt_publish, update_device, update_site
-from business.streaming.camera import VideoCamera
-from homeassistant.ha_discovery import ALARM_STATUS
+from business.mqtt import mqtt_publish
 from mqtt import MQTTClient
 from somfy_protect.api import SomfyProtectApi
 from somfy_protect.sso import SomfyProtectSso
 from somfy_protect.webrtc_handler import WebRTCHandler
 from websocket import WebSocketApp
 
-WEBSOCKET = "wss://websocket.myfox.io/events/websocket?token="
+# Import handlers from dedicated modules
+from somfy_protect.websocket.handlers import (
+    # Alarm handlers
+    handle_security_level_change,
+    handle_alarm_trespass,
+    handle_alarm_panic,
+    handle_alarm_domestic_fire,
+    handle_alarm_domestic_fire_end,
+    handle_alarm_end,
+    # Device handlers
+    handle_device_status,
+    handle_device_ring_door_bell,
+    handle_device_missed_call,
+    handle_device_doorlock_triggered,
+    handle_keyfob_presence,
+    handle_device_gate_triggered_from_monitor,
+    handle_device_gate_triggered_from_mobile,
+    handle_device_answered_call_from_monitor,
+    handle_device_answered_call_from_mobile,
+    # Video handlers
+    handle_video_stream_ready,
+    handle_video_webrtc_offer,
+    handle_video_webrtc_candidate,
+    handle_video_webrtc_hang_up,
+    handle_video_webrtc_keep_alive,
+    handle_video_webrtc_session,
+    handle_video_webrtc_start,
+    handle_video_webrtc_answer,
+    handle_video_webrtc_turn_config,
+)
 
+WEBSOCKET = "wss://websocket.myfox.io/events/websocket?token="
 LOGGER = logging.getLogger(__name__)
 
 
 class SomfyProtectWebsocket:
-    """Somfy Protect WebSocket Class"""
+    """Somfy Protect WebSocket Client.
+    
+    Handles real-time communication with Somfy Protect servers for
+    instant event notifications (alarms, device status, video streams).
+    
+    Attributes:
+        mqtt_client: MQTT client for publishing events
+        mqtt_config: MQTT configuration dictionary
+        streaming_config: Video streaming configuration
+        api: Somfy Protect API instance
+        sso: SSO authentication handler
+        webrtc_handler: WebRTC session handler
+    """
 
     def __init__(
         self,
@@ -34,6 +76,15 @@ class SomfyProtectWebsocket:
         api: SomfyProtectApi,
         debug: bool = False,
     ):
+        """Initialize WebSocket client.
+        
+        Args:
+            sso: SSO authentication handler
+            config: Application configuration
+            mqtt_client: MQTT client instance
+            api: Somfy Protect API instance
+            debug: Enable debug logging
+        """
         self.mqtt_client = mqtt_client
         self.mqtt_config = config.get("mqtt")
         self.streaming_config = config.get("streaming")
@@ -49,17 +100,16 @@ class SomfyProtectWebsocket:
             streaming_config=self.streaming_config,
         )
 
-        # Create a dedicated event loop for async operations in a separate thread
+        # Create a dedicated event loop for async operations
         self.loop = asyncio.new_event_loop()
-
         import threading
-
         self.loop_thread = threading.Thread(target=self._run_event_loop, daemon=True)
         self.loop_thread.start()
 
         if debug:
             websocket.enableTrace(True)
             LOGGER.debug(f"Opening websocket connection to {WEBSOCKET}")
+        
         self.token = self.sso.request_token()
         websocket.setdefaulttimeout(5)
         self._websocket = WebSocketApp(
@@ -72,24 +122,55 @@ class SomfyProtectWebsocket:
             on_pong=self.on_pong,
         )
 
+        # Message callback routing
+        self._callbacks = {
+            # Alarm events
+            "security.level.change": lambda msg: handle_security_level_change(self, msg),
+            "alarm.trespass": lambda msg: handle_alarm_trespass(self, msg),
+            "alarm.panic": lambda msg: handle_alarm_panic(self, msg),
+            "alarm.domestic.fire": lambda msg: handle_alarm_domestic_fire(self, msg),
+            "alarm.domestic.fire.end": lambda msg: handle_alarm_domestic_fire_end(self, msg),
+            "alarm.end": lambda msg: handle_alarm_end(self, msg),
+            # Presence events
+            "presence_out": lambda msg: handle_keyfob_presence(self, msg),
+            "presence_in": lambda msg: handle_keyfob_presence(self, msg),
+            # Device events
+            "device.status": lambda msg: handle_device_status(self, msg),
+            "device.ring_door_bell": lambda msg: handle_device_ring_door_bell(self, msg),
+            "device.missed_call": lambda msg: handle_device_missed_call(self, msg),
+            "device.doorlock_triggered": lambda msg: handle_device_doorlock_triggered(self, msg),
+            "device.gate_triggered_from_mobile": lambda msg: handle_device_gate_triggered_from_mobile(self, msg),
+            "device.gate_triggered_from_monitor": lambda msg: handle_device_gate_triggered_from_monitor(self, msg),
+            "answered_call_from_monitor": lambda msg: handle_device_answered_call_from_monitor(self, msg),
+            "answered_call_from_mobile": lambda msg: handle_device_answered_call_from_mobile(self, msg),
+            # Video events
+            "video.stream.ready": lambda msg: handle_video_stream_ready(self, msg),
+            "video.webrtc.offer": lambda msg: handle_video_webrtc_offer(self, msg),
+            "video.webrtc.start": lambda msg: handle_video_webrtc_start(self, msg),
+            "video.webrtc.session": lambda msg: handle_video_webrtc_session(self, msg),
+            "video.webrtc.answer": lambda msg: handle_video_webrtc_answer(self, msg),
+            "video.webrtc.candidate": lambda msg: handle_video_webrtc_candidate(self, msg),
+            "video.webrtc.turn.config": lambda msg: handle_video_webrtc_turn_config(self, msg),
+            "video.webrtc.keep_alive": lambda msg: handle_video_webrtc_keep_alive(self, msg),
+            "video.webrtc.hang_up": lambda msg: handle_video_webrtc_hang_up(self, msg),
+        }
+
     def _run_event_loop(self):
-        """Run the event loop in a dedicated thread"""
+        """Run the event loop in a dedicated thread."""
         asyncio.set_event_loop(self.loop)
         self.loop.run_forever()
 
     def _on_message_wrapper(self, ws_app, message):
-        """Wrapper to handle async on_message in sync context"""
+        """Wrapper to handle async on_message in sync context."""
         try:
-            # Schedule coroutine on the persistent event loop
             future = asyncio.run_coroutine_threadsafe(self.on_message(ws_app, message), self.loop)
-            future.result()  # Wait for completion
+            future.result()
         except Exception as e:
             LOGGER.error(f"Error in message wrapper: {e}")
 
     def run_forever(self):
-        """Run Forever Loop"""
+        """Run the WebSocket connection loop."""
         self._websocket.run_forever(
-            # dispatcher=rel,
             ping_timeout=10,
             ping_interval=15,
             reconnect=5,
@@ -98,71 +179,73 @@ class SomfyProtectWebsocket:
         LOGGER.info("Running Forever")
 
     def close(self):
-        """Close Websocket Connection"""
-        LOGGER.info("WebSocket Close")
+        """Close the WebSocket connection."""
+        LOGGER.info("Closing Websocket")
+        # Clean up WebRTC sessions
+        try:
+            future = asyncio.run_coroutine_threadsafe(
+                self.webrtc_handler.close_all_sessions(), self.loop
+            )
+            future.result(timeout=5)
+        except Exception as e:
+            LOGGER.warning(f"Error closing WebRTC sessions: {e}")
 
-        # Close websocket connection
+        # Stop the event loop
+        self.loop.call_soon_threadsafe(self.loop.stop)
+        self.loop_thread.join(timeout=2)
+
+        # Close websocket
         if self._websocket:
             self._websocket.close()
 
-        # Cleanup WebRTC resources
-        if hasattr(self, "webrtc_handler") and self.webrtc_handler:
-            try:
-                # Schedule cleanup on the event loop
-                if hasattr(self, "loop") and self.loop and self.loop.is_running():
-                    asyncio.run_coroutine_threadsafe(self.webrtc_handler.cleanup(), self.loop)
-                    # Give it a moment to clean up
-                    import time
-
-                    time.sleep(0.5)
-            except Exception as e:
-                LOGGER.error(f"Error cleaning up WebRTC handler: {e}")
-
-        # Stop the event loop
-        if hasattr(self, "loop") and self.loop:
-            try:
-                if self.loop.is_running():
-                    self.loop.call_soon_threadsafe(self.loop.stop)
-                    # Wait for loop thread to finish
-                    if hasattr(self, "loop_thread") and self.loop_thread:
-                        self.loop_thread.join(timeout=2.0)
-                # Close the loop
-                if not self.loop.is_closed():
-                    self.loop.close()
-                LOGGER.info("Event loop closed successfully")
-            except Exception as e:
-                LOGGER.error(f"Error closing event loop: {e}")
+        # Refresh token for reconnection
+        try:
+            self.token = self.sso.request_token()
+            self._websocket = WebSocketApp(
+                f"{WEBSOCKET}{self.token.get('access_token')}",
+                on_open=self.on_open,
+                on_message=self._on_message_wrapper,
+                on_error=self.on_error,
+                on_close=self.on_close,
+                on_ping=self.on_ping,
+                on_pong=self.on_pong,
+            )
+        except Exception as e:
+            LOGGER.error(f"Error refreshing token: {e}")
 
     def start_webrtc_stream(self, site_id: str, device_id: str, session_id: str = None):
-        """Start a WebRTC video stream session"""
-        import uuid
-
-        if not session_id:
-            session_id = str(uuid.uuid4()).replace("-", "").upper()
-
-        message = {
-            "site_id": site_id,
-            "forward": True,
-            "device_id": device_id,
-            "key": "video.webrtc.start",
-            "session_id": session_id,
-        }
-        self.send_websocket_message(message)
-        LOGGER.info(f"Sent video.webrtc.start for device {device_id}, session {session_id}")
-        return session_id
+        """Start a WebRTC video stream.
+        
+        Args:
+            site_id: Site identifier
+            device_id: Device (camera) identifier
+            session_id: Optional session ID for resuming
+        """
+        future = asyncio.run_coroutine_threadsafe(
+            self.webrtc_handler.start_stream(site_id, device_id, session_id), self.loop
+        )
+        return future.result()
 
     def on_ping(self, ws_app, message):
-        """Handle Ping Message"""
-        LOGGER.debug(f"Ping Message: {message}")
+        """Handle WebSocket ping."""
+        LOGGER.debug(f"Got a Ping! {message}")
 
     def on_pong(self, ws_app, message):
-        """Handle Pong Message"""
-        LOGGER.debug(f"Pong Message: {message}")
+        """Handle WebSocket pong."""
+        LOGGER.debug(f"Got a Pong! {message}")
+        # Close and reconnect after 30 minutes
         if (time.time() - self.time) > 1800:
             self.close()
 
     async def on_message(self, ws_app, message):
-        """Handle New message received on WebSocket"""
+        """Handle incoming WebSocket messages.
+        
+        Routes messages to appropriate handlers based on message key.
+        
+        Args:
+            ws_app: WebSocket application
+            message: Raw message string
+        """
         if "websocket.connection.ready" in message:
             LOGGER.info("Websocket Connection is READY")
             return
@@ -171,725 +254,71 @@ class SomfyProtectWebsocket:
             self._websocket.close()
             return
 
-        logging.debug(f"Message: {message}")
+        LOGGER.debug(f"Message: {message}")
 
         message_json = json.loads(message)
-        callbacks = {
-            "security.level.change": self.security_level_change,
-            "alarm.trespass": self.alarm_trespass,
-            "alarm.panic": self.alarm_panic,
-            "alarm.domestic.fire": self.alarm_domestic_fire,
-            "alarm.domestic.fire.end": self.alarm_domestic_fire_end,
-            "alarm.end": self.alarm_end,
-            "presence_out": self.update_keyfob_presence,
-            "presence_in": self.update_keyfob_presence,
-            "device.status": self.device_status,
-            "video.stream.ready": self.video_stream_ready,
-            "device.ring_door_bell": self.device_ring_door_bell,
-            "device.missed_call": self.device_missed_call,
-            "video.webrtc.offer": self.video_webrtc_offer,
-            "video.webrtc.start": self.video_webrtc_start,
-            "video.webrtc.session": self.video_webrtc_session,
-            "video.webrtc.answer": self.video_webrtc_answer,
-            "video.webrtc.candidate": self.video_webrtc_candidate,
-            "video.webrtc.turn.config": self.video_webrtc_turn_config,
-            "video.webrtc.keep_alive": self.video_webrtc_keep_alive,
-            "video.webrtc.hang_up": self.video_webrtc_hang_up,
-            "device.gate_triggered_from_mobile": self.device_gate_triggered_from_mobile,
-            "device.gate_triggered_from_monitor": self.device_gate_triggered_from_monitor,
-            "answered_call_from_monitor": self.device_answered_call_from_monitor,
-            "answered_call_from_mobile": self.device_answered_call_from_mobile,
-            "device.doorlock_triggered": self.device_doorlock_triggered,
-        }
-
+        
+        # Send acknowledgment
         ack = {
             "ack": True,
             "message_id": message_json["message_id"],
             "client": "Android",
         }
         self.send_websocket_message(ack)
-        self.default_message(message_json)
-        if message_json["key"] in callbacks:
-            callback = callbacks[message_json["key"]]
-            if asyncio.iscoroutinefunction(callback):
-                await callback(message_json)
-            else:
-                callback(message_json)
+        
+        # Handle default message (publish to MQTT)
+        self._handle_default_message(message_json)
+        
+        # Route to specific handler
+        message_key = message_json.get("key")
+        if message_key in self._callbacks:
+            callback = self._callbacks[message_key]
+            result = callback(message_json)
+            if asyncio.iscoroutine(result):
+                await result
         else:
             LOGGER.debug(f"Unknown message: {message}")
 
-    def on_error(self, ws_app, error):  # pylint: disable=unused-argument,no-self-use
-        """Handle Websocket Errors"""
-        LOGGER.error(f"Error in the websocket connection: {error}")
-
-    def on_open(self, ws_app):
-        """Handle Websocket Open Connection"""
-        LOGGER.info("Opened connection")
-
-    def on_close(self, ws_app, close_status_code, close_msg):  # pylint: disable=unused-argument,no-self-use
-        """Handle Websocket Close Connection"""
-        LOGGER.info(f"Websocket on_close, status {close_status_code} => {close_msg}")
-
-    def device_gate_triggered_from_monitor(self, message):
-        """Gate Open from Monitor"""
-        LOGGER.info(f"Gate Open from Monitor: {message}")
-
-    def device_answered_call_from_mobile(self, message):
-        """Answer Call from Mobile"""
-        LOGGER.info(f"Answer Call from Mobile: {message}")
-
-    def device_answered_call_from_monitor(self, message):
-        """Answer Call from Monitor"""
-        LOGGER.info(f"Answer Call from Monitor: {message}")
-
-    def device_gate_triggered_from_mobile(self, message):
-        """Gate Open from Mobile"""
-        LOGGER.info(f"Gate Open from Mobile: {message}")
-
-    async def video_webrtc_hang_up(self, message):
-        """WEBRTC HangUP"""
-        LOGGER.info(f"WEBRTC HangUp: {message}")
-        session_id = message.get("session_id")
-        await self.webrtc_handler.close_session(session_id)
-
-    def video_webrtc_keep_alive(self, message):
-        """WEBRTC KeepAlive"""
-        LOGGER.info(f"WEBRTC KeepAlive: {message}")
-
-    def video_webrtc_session(self, message):
-        """WEBRTC Session"""
-        LOGGER.info(f"WEBRTC Session: {message}")
-
-    async def video_webrtc_offer(self, message):
-        """WEBRTC Offer"""
-        await self.webrtc_handler.handle_offer(message)
-
-    def video_webrtc_start(self, message):
-        """WEBRTC Start - Initiates WebRTC session"""
-        LOGGER.info(f"WEBRTC Start: {message}")
-        # When we receive this from server, it means session is starting
-        # We should have already sent our start request
-
-    def video_webrtc_answer(self, message):
-        """WEBRTC Answer"""
-        LOGGER.info(f"WEBRTC Answer: {message}")
-
-    def video_webrtc_turn_config(self, message):
-        """WEBRTC Turn Config - Store TURN server configuration"""
-        LOGGER.info(f"WEBRTC Turn Config: {message}")
-        session_id = message.get("session_id")
-        turn_data = message.get("turn")
-        self.webrtc_handler.store_turn_config(session_id, turn_data)
-
-    async def video_webrtc_candidate(self, message):
-        """WEBRTC Candidate - Add remote ICE candidate from camera"""
-        session_id = message.get("session_id")
-        candidate_data = message.get("candidate")
-        await self.webrtc_handler.add_remote_candidate(session_id, candidate_data)
-
-    def device_ring_door_bell(self, message):
-        """Someone is ringing at the door."""
-        site_id = message.get("site_id")
-        device_id = message.get("device_id")
-        LOGGER.info(f"Someone is ringing on {device_id}")
-        topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/ringing"
-        payload = {"ringing": "True"}
-        mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True)
-        time.sleep(3)
-        payload = {"ringing": "False"}
-        mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True)
-        snapshot_url = message.get("snapshot_url")
-        if snapshot_url:
-            LOGGER.info("Found a snapshot !")
-            update_visiophone_snapshot(
-                url=snapshot_url,
-                site_id=site_id,
-                device_id=device_id,
-                mqtt_client=self.mqtt_client,
-                mqtt_config=self.mqtt_config,
-            )
-
-    def device_missed_call(self, message):
-        """Call missed."""
-        site_id = message.get("site_id")
-        device_id = message.get("device_id")
-        LOGGER.info(f"Someone has rang on {device_id}")
-        snapshot_cloudfront_url = message.get("snapshot_cloudfront_url")
-        clip_cloudfront_url = message.get("clip_cloudfront_url")
-        if snapshot_cloudfront_url:
-            LOGGER.info("Found a snapshot !")
-            update_visiophone_snapshot(
-                url=snapshot_cloudfront_url,
-                site_id=site_id,
-                device_id=device_id,
-                mqtt_client=self.mqtt_client,
-                mqtt_config=self.mqtt_config,
-            )
-        if clip_cloudfront_url:
-            LOGGER.info("Found Clip !")
-            write_to_media_folder(url=clip_cloudfront_url)
-
-    def video_stream_ready(self, message):
-        # {
-        #    "profiles":[
-        #       "owner"
-        #    ],
-        #    "site_id":"XXX",
-        #    "key":"video.stream.ready",
-        #    "stream_url":"URL",
-        #    "device_id":"XXX",
-        #    "type":"event",
-        #    "message_id":"XXX"
-        # }
-        LOGGER.info("Stream URL Found")
-        LOGGER.info(message)
-        site_id = message.get("site_id")
-        device_id = message.get("device_id")
-        stream_url = message.get("stream_url")
-        payload = stream_url
-        topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/stream"
-
-        mqtt_publish(
-            mqtt_client=self.mqtt_client,
-            topic=topic,
-            payload=payload,
-            retain=False,
-        )
-
-        if self.streaming_config == "go2rtc":
-            directory = "/config/somfyprotect2mqtt"
-            try:
-                os.makedirs(directory, exist_ok=True)
-                with open(f"{directory}/stream_url_{device_id}", "w", encoding="utf-8") as file:
-                    file.write(stream_url)
-            except OSError as exc:
-                LOGGER.warning(f"Unable to create directory {directory}: {exc}")
-
-        if self.streaming_config == "mqtt":
-            LOGGER.info("Start MQTT Image")
-            camera = VideoCamera(url=stream_url)
-            frame = None
-            while camera.is_opened():
-                frame = camera.get_frame()
-                if frame is None:
-                    break
-                byte_arr = bytearray(frame)
-                topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/snapshot"
-                mqtt_publish(
-                    mqtt_client=self.mqtt_client,
-                    topic=topic,
-                    payload=byte_arr,
-                    retain=True,
-                    is_json=False,
-                    qos=2,
-                )
-            camera.release()
-
-    def device_doorlock_triggered(self, message):
-        """Update Door Lock Triggered"""
-        # {
-        # "profiles":[
-        #     "owner",
-        #     "admin"
-        # ],
-        # "site_id":"XXX",
-        # "type":"event",
-        # "key":"device.doorlock_triggered",
-        # "device_id":"XXX",
-        # "door_lock_gateway_id":"XXX",
-        # "door_lock_status":"unknown",
-        # "message_id":"XXX"
-        # }
-        LOGGER.info("Update Door Lock Triggered")
-        site_id = message.get("site_id")
-        device_id = message.get("device_id")
-        LOGGER.info(message)
-        door_lock_status = message.get("door_lock_status", "unknown")
-        if door_lock_status and door_lock_status != "unknown":
-            payload = {"open_door": door_lock_status}
-            topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/state"
-            mqtt_publish(
-                mqtt_client=self.mqtt_client,
-                topic=topic,
-                payload=payload,
-                retain=True,
-            )
-        update_device(self.api, self.mqtt_client, self.mqtt_config, site_id, device_id)
-
-    def update_keyfob_presence(self, message):
-        """Update Key Fob Presence"""
-        # {
-        # "profiles":[
-        #     "owner",
-        #     "admin"
-        # ],
-        # "site_id":"XXX",
-        # "type":"event",
-        # "key":"presence_in",
-        # "user_id":"XXX",
-        # "device_id":"XXX",
-        # "device_type":"fob",
-        # "message_id":"XXX"
-        # },
-        # {
-        # "profiles":[
-        #     "owner",
-        #     "admin"
-        # ],
-        # "site_id":"XXX",
-        # "type":"event",
-        # "key":"presence_out",
-        # "user_id":"XXX",
-        # "device_id":"XXX",
-        # "device_type":"fob",
-        # "message_id":"XXX"
-        # }
-        LOGGER.info("Update Key Fob Presence")
-        site_id = message.get("site_id")
-        device_id = message.get("device_id")
-        LOGGER.info(message)
-        payload = {"presence": "unknown"}
-        if message.get("key") == "presence_out":
-            payload = {"presence": "not_home"}
-        if message.get("key") == "presence_in":
-            payload = {"presence": "home"}
-        topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/presence"
-
-        mqtt_publish(
-            mqtt_client=self.mqtt_client,
-            topic=topic,
-            payload=payload,
-            retain=True,
-        )
-
-    def security_level_change(self, message):
-        """Update Alarm Status"""
-        # {
-        # "profiles":[
-        #     "owner",
-        #     "admin",
-        #     "guest",
-        #     "kid"
-        # ],
-        # "site_id":"XXX",
-        # "type":"config",
-        # "key":"security.level.change",
-        # "security_level":"armed",
-        # "message_id":"XXX"
-        # }
-        LOGGER.info("Update Alarm Status")
-        site_id = message.get("site_id")
-        security_level = message.get("security_level")
-        payload = {"security_level": ALARM_STATUS.get(security_level, "disarmed")}
-        topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/state"
-        mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True)
-
-    def alarm_trespass(self, message):
-        """Alarm Triggered !!"""
-        # {
-        # "profiles":[
-        #     "owner",
-        #     "admin",
-        #     "custom",
-        #     "family",
-        #     "neighbor"
-        # ],
-        # "site_id":"XXX",
-        # "type":"alarm",
-        # "key":"alarm.trespass",
-        # "device_id":"XXX",
-        # "device_type":"pir",
-        # "start_at":"2022-03-14T17:17:12.000000Z",
-        # "start_siren_at":"2022-03-14T17:17:42.000000Z",
-        # "end_at":"2022-03-14T17:20:42.000000Z",
-        # "end_siren_at":"2022-03-14T17:20:42.000000Z",
-        # "manual_alarm":false,
-        # "message_id":"XXX"
-        # }
-        LOGGER.info("Report Alarm Triggered")
-        site_id = message.get("site_id")
-        device_id = message.get("device_id")
-        device_type = message.get("device_type")
-        security_level = "triggered"
-        if message.get("type") != "alarm":
-            LOGGER.info(f"{message.get('type')} is not 'alarm'")
-        payload = {"security_level": security_level}
-        topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/state"
-
-        mqtt_publish(
-            mqtt_client=self.mqtt_client,
-            topic=topic,
-            payload=payload,
-            retain=True,
-        )
-
-        if device_type == "pir":
-            LOGGER.info("Trigger PIR Sensor")
-            payload = {"motion_sensor": "True"}
-            topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/pir"
-
-            mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True)
-            time.sleep(3)
-            payload = {"motion_sensor": "False"}
-            mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True)
-
-    def alarm_panic(self, message):
-        """Report Alarm Panic"""
-        # {
-        # "profiles":[
-        #     "owner",
-        #     "admin",
-        #     "custom",
-        #     "family",
-        #     "neighbor"
-        # ],
-        # "site_id":"XXX",
-        # "type":"alarm",
-        # "key":"alarm.panic",
-        # "device_id":null,
-        # "device_type":null,
-        # "start_at":"2022-03-14T17:21:07.000000Z",
-        # "start_siren_at":"2022-03-14T17:21:07.000000Z",
-        # "end_at":"2022-03-14T17:24:07.000000Z",
-        # "end_siren_at":"2022-03-14T17:24:07.000000Z",
-        # "manual_alarm":false,
-        # "message_id":"XXX"
-        # }
-        LOGGER.info("Report Alarm Panic")
-        site_id = message.get("site_id")
-        security_level = "triggered"
-        payload = {"security_level": security_level}
-        topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/state"
-
-        mqtt_publish(
-            mqtt_client=self.mqtt_client,
-            topic=topic,
-            payload=payload,
-            retain=True,
-        )
-
-    def alarm_domestic_fire(self, message):
-        """Report Alarm Fire"""
-        # {
-        # "profiles":[
-        #     "owner",
-        #     "admin",
-        #     "custom",
-        #     "family",
-        #     "neighbor"
-        # ],
-        # "site_id":"XXX",
-        # "type":"alarm",
-        # "key":"alarm.domestic.fire",
-        # "alarm_id":"XXX",
-        # "alarm_type":"fire",
-        # "devices":[
-        #     "XXX"
-        # ],
-        # "start_at":"2025-01-31T13:19:33.000000Z",
-        # "end_at":"None",
-        # "message_id":"XXX"
-        # }
-
-        LOGGER.info("Report Alarm Fire")
-        site_id = message.get("site_id")
-        payload = {"smoke": "True"}
-        for device_id in message.get("devices"):
-            topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/fire"
-
-            mqtt_publish(
-                mqtt_client=self.mqtt_client,
-                topic=topic,
-                payload=payload,
-                retain=True,
-            )
-
-    def alarm_domestic_fire_end(self, message):
-        """Report Alarm Fire End"""
-        LOGGER.info("Report Alarm Fire")
-        site_id = message.get("site_id")
-        payload = {"smoke": "False"}
-        for device_id in message.get("devices"):
-            topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/fire"
-
-            mqtt_publish(
-                mqtt_client=self.mqtt_client,
-                topic=topic,
-                payload=payload,
-                retain=True,
-            )
-
-    def alarm_end(self, message):
-        """Report Alarm Stop"""
-        # {
-        # "profiles":[
-        #     "owner",
-        #     "admin",
-        #     "custom",
-        #     "family",
-        #     "neighbor"
-        # ],
-        # "site_id":"XXX",
-        # "type":"alarm",
-        # "key":"alarm.end",
-        # "device_id":null,
-        # "device_type":null,
-        # "end_at":"2022-03-14T17:19:22.000000Z",
-        # "end_siren_at":null,
-        # "stopped_by_user_id":"XXX",
-        # "message_id":"XXX"
-        # }
-        LOGGER.info("Report Alarm Stop")
-        site_id = message.get("site_id")
-        update_site(self.api, self.mqtt_client, self.mqtt_config, site_id)
-
-    def device_status(self, message):
-        """Update Device Status"""
-        # {
-        # "profiles":[
-        #     "admin",
-        #     "owner",
-        #     "installer_write"
-        # ],
-        # "site_id":"XXX",
-        # "type":"testing",
-        # "key":"device.status",
-        # "device_id":"XXX",
-        # "device_lost":false,
-        # "rlink_quality":-73,
-        # "rlink_quality_percent":75,
-        # "battery_level":100,
-        # "recalibration_required":false,
-        # "cover_present":true,
-        # "last_status_at":"2022-03-16T16:06:56.000000Z",
-        # "diagnosis":{
-        #     "is_everything_ok":true,
-        #     "problems":[
-        #     ]
-        # },
-        # "message_id":"XXX"
-        # }
-        site_id = message.get("site_id")
-        device_id = message.get("device_id")
-        LOGGER.info(f"It Seems the Door {device_id} is moving")
-        topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/pir"
-        payload = {"motion_sensor": "True"}
-        mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True)
-        time.sleep(3)
-        payload = {"motion_sensor": "False"}
-        mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True)
-
-    def site_device_testing_status(self, message):
-        """Site Device Testing Status"""
-        # {
-        # "profiles":[
-        #     "owner",
-        #     "admin"
-        # ],
-        # "site_id":"XXX",
-        # "type":"testing",
-        # "key":"site.device.testing.status",
-        # "diagnosis":{
-        #     "main_status":"ok",
-        #     "main_message":"diagnosis.ok",
-        #     "main_message_vars":{
-
-        #     },
-        #     "device_diagnosis_available":true,
-        #     "device_diagnosis_expired":false,
-        #     "items":[
-
-        #     ]
-        # },
-        # "message_id":"XXX"
-        # }
-
-    def default_message(self, message):
-        """Default Message"""
+    def _handle_default_message(self, message: dict):
+        """Publish message to MQTT as default handling.
+        
+        Args:
+            message: Parsed message dictionary
+        """
         LOGGER.info(f"[default] Read Message {message}")
         topic_suffix = message.get("key")
         site_id = message.get("site_id")
         device_id = message.get("device_id")
+        
         if not site_id:
             topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{topic_suffix}"
         elif not device_id:
             topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{topic_suffix}"
         else:
             topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/{topic_suffix}"
-        mqtt_publish(
-            mqtt_client=self.mqtt_client,
-            topic=topic,
-            payload=message,
-            retain=True,
-        )
+        
+        mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=message, retain=True)
 
-    def remote_unassigned(self, message):
-        """Remote Unassigned"""
-        # {
-        # "profiles":[
-        #     "owner",
-        #     "admin"
-        # ],
-        # "site_id":"XXX",
-        # "type":"config",
-        # "key":"remote_unassigned",
-        # "user_id":"XXX",
-        # "device_id":"XXX",
-        # "message_id":"XXX"
-        # }
+    def on_error(self, ws_app, error):
+        """Handle WebSocket errors."""
+        LOGGER.error(f"Error in the websocket connection: {error}")
 
-    def device_firmware_update_fail(self, message):
-        """Device Firmware Update Fail"""
-        # {
-        # "profiles":[
-        #     "owner",
-        #     "admin"
-        # ],
-        # "site_id":"XXX",
-        # "type":"config",
-        # "key":"device.firmware.update.fail",
-        # "device_id":"XXX",
-        # "reason":100,
-        # "message_id":"XXX"
-        # }
+    def on_open(self, ws_app):
+        """Handle WebSocket connection opened."""
+        LOGGER.info("Opened connection")
 
-    def site_privacy(self, message):
-        """Site Privacy"""
-        # {
-        # "profiles":[
-        #     "admin",
-        #     "owner",
-        #     "installer_write"
-        # ],
-        # "site_id":"XXX",
-        # "type":"event",
-        # "key":"site.privacy",
-        # "active":true,
-        # "message_id":"XXX"
-        # }
-
-    def camerastatus_shutter(self, message):
-        """Camera Status Shutter Close"""
-        # {
-        # "profiles":[
-        #     "admin",
-        #     "owner",
-        #     "installer_write"
-        # ],
-        # "site_id":"XXX",
-        # "type":"config",
-        # "key":"camerastatus.shutter.close",
-        # "device_id":"XXX",
-        # "message_id":"XXX"
-        # }
-        # {
-        # "profiles":[
-        #     "admin",
-        #     "owner",
-        #     "installer_write"
-        # ],
-        # "site_id":"XXX",
-        # "type":"config",
-        # "key":"camerastatus.shutter.open",
-        # "device_id":"XXX",
-        # "message_id":"XXX"
-        # }
-
-    def snapshot_ready(self, message):
-        """Snapshot Ready"""
-        # {
-        # "profiles":[
-        #     "owner"
-        # ],
-        # "site_id":"XXX",
-        # "key":"snapshotready",
-        # "snapshot_id":"XXX",
-        # "device_id":"XXX",
-        # "snapshot_url":"https:\/\/video-cdn.myfox.io\/camera_snapshot\/XXX\/XXX.XXX-s?Expires=1647629662&Signature=XXX-XXX~XXX~XXX~XXX~XXX-XXX~XXX~XXX&Key-Pair-Id=XXX",
-        # "message_id":"XXX",
-        # "type":"event"
-        # }
-
-    def box_update_progress(self, message):
-        """Box Update Progress"""
-        # {
-        # "profiles":[
-        #     "owner",
-        #     "admin"
-        # ],
-        # "site_id":"XXX",
-        # "type":"config",
-        # "key":"box.update.progress",
-        # "box_id":"XXX",
-        # "progress":100,
-        # "remaining":0,
-        # "total":0,
-        # "update":"no update",
-        # "message_id":"XXX"
-        # }
-
-    def device_offline(self, message):
-        """Device Offline"""
-        # {
-        # "profiles":[
-        #     "owner",
-        #     "admin"
-        # ],
-        # "site_id":"XXX",
-        # "type":"event",
-        # "key":"device.offline",
-        # "device_id":"XXX",
-        # "message_id":"XXX"
-        # }
-
-    def device_update_connect(self, message):
-        """Device Update Connect"""
-        # {
-        # "profiles":[
-        #     "owner",
-        #     "admin"
-        # ],
-        # "site_id":"XXX",
-        # "type":"config",
-        # "key":"device.update.connect",
-        # "device_type":"mss_plug",
-        # "device_mac":"XXX",
-        # "message_id":"XXX"
-        # }
-
-    def diagnosis_connection_online_camera(self, message):
-        """Diagnosis Connection Online Camera"""
-        # {
-        # "profiles":[
-        #     "owner",
-        #     "admin"
-        # ],
-        # "site_id":"XXX",
-        # "type":"event",
-        # "key":"diagnosis.connection.online.camera",
-        # "device_id":"XXX",
-        # "message_id":"XXX"
-        # }
-
-    def diagnosis_connection_offline_camera(self, message):
-        """Diagnosis Connection Offline Camera"""
-        # {
-        # "profiles":[
-        #     "owner",
-        #     "admin"
-        # ],
-        # "site_id":"XXX",
-        # "type":"event",
-        # "key":"diagnosis.connection.offline.camera",
-        # "device_id":"XXX",
-        # "message_id":"XX"
-        # }
+    def on_close(self, ws_app, close_status_code, close_msg):
+        """Handle WebSocket connection closed."""
+        LOGGER.info(f"Websocket on_close, status {close_status_code} => {close_msg}")
 
     def send_websocket_message(self, message: dict):
-        """Send a message via the WebSocket connection"""
+        """Send a message via the WebSocket connection.
+        
+        Args:
+            message: Message dictionary to send
+        """
         if self._websocket and self._websocket.sock and self._websocket.sock.connected:
             self._websocket.send(json.dumps(message))
             LOGGER.debug(f"Sent on Websocket: {message}")
         else:
             LOGGER.warning(f"WebSocket is not connected. Unable to send message: {message}")
-        return
