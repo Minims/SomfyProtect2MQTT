@@ -24,11 +24,47 @@ from mqtt import MQTTClient
 import requests
 from somfy_protect.api import SomfyProtectApi
 from somfy_protect.api.devices.category import Category
+from somfy_protect.api.model import Device
 
 LOGGER = logging.getLogger(__name__)
 
 DEVICE_TAG = {}
 HISTORY = {}
+
+
+def _configure_device_sensor(
+    site_id: str,
+    device: Device,
+    mqtt_client: MQTTClient,
+    mqtt_config: dict,
+    sensor_name: str,
+    subscribe: bool = True,
+) -> None:
+    """Helper function to configure and publish a device sensor.
+
+    Args:
+        site_id: Site identifier
+        device: Device object
+        mqtt_client: MQTT client instance
+        mqtt_config: MQTT configuration dictionary
+        sensor_name: Name of the sensor to configure
+        subscribe: Whether to subscribe to command topic (default: True)
+    """
+    config = ha_discovery_devices(
+        site_id=site_id,
+        device=device,
+        mqtt_config=mqtt_config,
+        sensor_name=sensor_name,
+    )
+    mqtt_publish(
+        mqtt_client=mqtt_client,
+        topic=config.get("topic"),
+        payload=config.get("config"),
+        retain=True,
+    )
+    if subscribe and config.get("config").get("command_topic"):
+        mqtt_client.client.subscribe(config.get("config").get("command_topic"))
+        SUBSCRIBE_TOPICS.append(config.get("config").get("command_topic"))
 
 
 def ha_sites_config(
@@ -140,35 +176,8 @@ def ha_devices_config(
 
             if "box" in device.device_definition.get("type"):
                 LOGGER.info(f"Found Link {device.device_definition.get('label')}")
-                reboot = ha_discovery_devices(
-                    site_id=site_id,
-                    device=device,
-                    mqtt_config=mqtt_config,
-                    sensor_name="reboot",
-                )
-                mqtt_publish(
-                    mqtt_client=mqtt_client,
-                    topic=reboot.get("topic"),
-                    payload=reboot.get("config"),
-                    retain=True,
-                )
-                mqtt_client.client.subscribe(reboot.get("config").get("command_topic"))
-                SUBSCRIBE_TOPICS.append(reboot.get("config").get("command_topic"))
-
-                halt = ha_discovery_devices(
-                    site_id=site_id,
-                    device=device,
-                    mqtt_config=mqtt_config,
-                    sensor_name="halt",
-                )
-                mqtt_publish(
-                    mqtt_client=mqtt_client,
-                    topic=halt.get("topic"),
-                    payload=halt.get("config"),
-                    retain=True,
-                )
-                mqtt_client.client.subscribe(halt.get("config").get("command_topic"))
-                SUBSCRIBE_TOPICS.append(halt.get("config").get("command_topic"))
+                _configure_device_sensor(site_id, device, mqtt_client, mqtt_config, "reboot")
+                _configure_device_sensor(site_id, device, mqtt_client, mqtt_config, "halt")
 
             if "camera" in device.device_definition.get("type") or "allinone" in device.device_definition.get("type"):
                 LOGGER.info(f"Found Camera {device.device_definition.get('label')}")
@@ -183,95 +192,26 @@ def ha_devices_config(
                     payload=camera_config.get("config"),
                     retain=True,
                 )
-                reboot = ha_discovery_devices(
-                    site_id=site_id,
-                    device=device,
-                    mqtt_config=mqtt_config,
-                    sensor_name="reboot",
-                )
-                mqtt_publish(
-                    mqtt_client=mqtt_client,
-                    topic=reboot.get("topic"),
-                    payload=reboot.get("config"),
-                    retain=True,
-                )
-                mqtt_client.client.subscribe(reboot.get("config").get("command_topic"))
-                SUBSCRIBE_TOPICS.append(reboot.get("config").get("command_topic"))
 
-                halt = ha_discovery_devices(
-                    site_id=site_id,
-                    device=device,
-                    mqtt_config=mqtt_config,
-                    sensor_name="halt",
-                )
-                mqtt_publish(
-                    mqtt_client=mqtt_client,
-                    topic=halt.get("topic"),
-                    payload=halt.get("config"),
-                    retain=True,
-                )
-                mqtt_client.client.subscribe(halt.get("config").get("command_topic"))
-                SUBSCRIBE_TOPICS.append(halt.get("config").get("command_topic"))
+                # Configure common camera sensors
+                _configure_device_sensor(site_id, device, mqtt_client, mqtt_config, "reboot")
+                _configure_device_sensor(site_id, device, mqtt_client, mqtt_config, "halt")
+                _configure_device_sensor(site_id, device, mqtt_client, mqtt_config, "snapshot")
 
-                # Manual Snapshot
-                device_config = ha_discovery_devices(
-                    site_id=site_id,
-                    device=device,
-                    mqtt_config=mqtt_config,
-                    sensor_name="snapshot",
+                # Video Backend with extra subscription
+                _configure_device_sensor(site_id, device, mqtt_client, mqtt_config, "video_backend")
+                SUBSCRIBE_TOPICS.append(
+                    f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/video_backend"
                 )
-                mqtt_publish(
-                    mqtt_client=mqtt_client,
-                    topic=device_config.get("topic"),
-                    payload=device_config.get("config"),
-                    retain=True,
-                )
-                if device_config.get("config").get("command_topic"):
-                    mqtt_client.client.subscribe(device_config.get("config").get("command_topic"))
-                    SUBSCRIBE_TOPICS.append(device_config.get("config").get("command_topic"))
 
-                # Video Backend
-                video_backend = ha_discovery_devices(
-                    site_id=site_id,
-                    device=device,
-                    mqtt_config=mqtt_config,
-                    sensor_name="video_backend",
+                # Stream with extra subscriptions
+                _configure_device_sensor(site_id, device, mqtt_client, mqtt_config, "stream")
+                mqtt_client.client.subscribe(
+                    f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/stream"
                 )
-                mqtt_publish(
-                    mqtt_client=mqtt_client,
-                    topic=video_backend.get("topic"),
-                    payload=video_backend.get("config"),
-                    retain=True,
+                SUBSCRIBE_TOPICS.append(
+                    f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/stream"
                 )
-                if video_backend.get("config").get("command_topic"):
-                    mqtt_client.client.subscribe(video_backend.get("config").get("command_topic"))
-                    SUBSCRIBE_TOPICS.append(video_backend.get("config").get("command_topic"))
-                    SUBSCRIBE_TOPICS.append(
-                        f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/video_backend"
-                    )
-
-                # Stream
-                stream = ha_discovery_devices(
-                    site_id=site_id,
-                    device=device,
-                    mqtt_config=mqtt_config,
-                    sensor_name="stream",
-                )
-                mqtt_publish(
-                    mqtt_client=mqtt_client,
-                    topic=stream.get("topic"),
-                    payload=stream.get("config"),
-                    retain=True,
-                )
-                if stream.get("config").get("command_topic"):
-                    mqtt_client.client.subscribe(stream.get("config").get("command_topic"))
-                    mqtt_client.client.subscribe(
-                        f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/stream"
-                    )
-                    SUBSCRIBE_TOPICS.append(stream.get("config").get("command_topic"))
-                    SUBSCRIBE_TOPICS.append(
-                        f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/stream"
-                    )
 
             # Works with Websockets
             if "remote" in device.device_definition.get("type"):
@@ -563,7 +503,7 @@ def update_sites_status(
     mqtt_config: dict,
     my_sites_id: list,
 ) -> None:
-    """Uodate Devices Status (Including zone)"""
+    """Update Devices Status (Including zone)"""
     LOGGER.info("Update Sites Status")
     for site_id in my_sites_id:
         try:
@@ -827,9 +767,9 @@ def write_to_media_folder(
     directory = "/media/somfyprotect2mqtt"
 
     if media_type == "video":
-        extention = "mp4"
+        extension = "mp4"
     if media_type == "snapshot":
-        extention = "jpeg"
+        extension = "jpeg"
 
     try:
         os.makedirs(directory, exist_ok=True)
@@ -837,7 +777,7 @@ def write_to_media_folder(
         response = requests.get(url, stream=True)
         response.raise_for_status()
 
-        path = f"{directory}/{label}-{occurred_at}-{event_id}.{extention}"
+        path = f"{directory}/{label}-{occurred_at}-{event_id}.{extension}"
 
         with open(path, "wb") as file:
             for chunk in response.iter_content(1024):  # Lire en morceaux de 1 KB
