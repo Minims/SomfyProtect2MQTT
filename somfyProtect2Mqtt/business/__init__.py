@@ -638,9 +638,8 @@ def update_devices_status(
         try:
             my_devices = api.get_devices(site_id=site_id)
             for device in my_devices:
-                if "camera" in device.device_definition.get("type") or "allinone" in device.device_definition.get(
-                    "type" or "videophone" in device.device_definition.get("type")
-                ):
+                device_type = device.device_definition.get("type", "")
+                if "camera" in device_type or "allinone" in device_type or "videophone" in device_type:
                     video_backend = device.video_backend
                     mqtt_publish(
                         mqtt_client=mqtt_client,

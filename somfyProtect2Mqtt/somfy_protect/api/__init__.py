@@ -126,7 +126,7 @@ class SomfyProtectApi:
         Returns:
             Response: requests Response object
         """
-        print(json)
+        LOGGER.debug(f"PUT request payload: {json}")
         return self._request("put", path, json=json)
 
     def get_sites(self) -> List[Site]:
@@ -355,7 +355,7 @@ class SomfyProtectApi:
             List[User]: List of User object
         """
         response = self.get(f"/v3/site/{site_id}/user")
-        print(response)
+        LOGGER.debug(f"Users response: {response}")
         response.raise_for_status()
         return [User(**s) for s in response.json().get("items")]
 
@@ -370,7 +370,7 @@ class SomfyProtectApi:
             User: User object
         """
         response = self.get(f"/v3/site/{site_id}/user/{user_id}")
-        print(response)
+        LOGGER.debug(f"User response: {response}")
         response.raise_for_status()
         return response.json()
 
