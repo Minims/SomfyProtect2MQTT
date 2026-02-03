@@ -104,11 +104,14 @@ class SomfyProtectSso:
         return token
 
 
-def init_sso(config: dict) -> None:
+def init_sso(config: dict) -> SomfyProtectSso:
     """Init SSO
 
     Args:
         config (dict): Global Configuration
+
+    Returns:
+        SomfyProtectSso: Initialized SSO instance
 
     Raises:
         SomfyProtectInitError: Unable to init

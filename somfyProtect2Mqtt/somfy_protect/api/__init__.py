@@ -269,15 +269,15 @@ class SomfyProtectApi:
         response.raise_for_status()
         return response.json()
 
-    def camera_snapshot(self, site_id: str, device_id: str) -> Device:
+    def camera_snapshot(self, site_id: str, device_id: str) -> Optional[Response]:
         """Get Camera Snapshot
 
         Args:
             site_id (str): Site ID
-            device_id (str): Site ID
+            device_id (str): Device ID
 
         Returns:
-            Response: Response Image
+            Optional[Response]: Response with image data, or None if failed
         """
         response = self.post(
             f"/video/site/{site_id}/device/{device_id}/snapshot",
@@ -286,8 +286,9 @@ class SomfyProtectApi:
         response.raise_for_status()
         if response.status_code == 200:
             return response
+        return None
 
-    def camera_refresh_snapshot(self, site_id: str, device_id: str) -> Device:
+    def camera_refresh_snapshot(self, site_id: str, device_id: str) -> Dict:
         """Get Camera Snapshot
 
         Args:
