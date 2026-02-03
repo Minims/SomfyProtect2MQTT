@@ -510,6 +510,13 @@ class WebRTCHandler:
 
         LOGGER.info("WebRTC handler cleanup completed")
 
+    async def close_all_sessions(self):
+        """Alias for cleanup() for backward compatibility.
+        
+        This method is called from websocket/__init__.py during shutdown.
+        """
+        await self.cleanup()
+
     def _start_hls_server(self, device_id=None):
         """Start HTTP server for HLS streaming"""
         from http.server import BaseHTTPRequestHandler, HTTPServer

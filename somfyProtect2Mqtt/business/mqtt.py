@@ -69,7 +69,7 @@ def update_device(api, mqtt_client, mqtt_config, site_id, device_id):
             retain=True,
         )
     except Exception as exp:
-        LOGGER.warning(f"Error while refreshing {device.label}: {exp}")
+        LOGGER.warning(f"Error while refreshing device {device_id}: {exp}")
 
 
 def update_site(api, mqtt_client, mqtt_config, site_id):
@@ -101,7 +101,8 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
                 site_id = msg.topic.split("/")[1]
                 LOGGER.debug(f"Site ID: {site_id}")
             except Exception as exp:
-                LOGGER.warning(f"Unable to reteive Site ID: {site_id}: {exp}")
+                LOGGER.warning(f"Unable to retrieve Site ID from topic {msg.topic}: {exp}")
+                return
             # Update Alarm via API
             api.update_security_level(site_id=site_id, security_level=text_payload)
 
@@ -199,7 +200,7 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
         elif msg.topic.split("/")[3] == "snapshot":
             site_id = msg.topic.split("/")[1]
             device_id = msg.topic.split("/")[2]
-            if text_payload is True:
+            if text_payload.lower() in ("true", "1", "on"):
                 LOGGER.info("Manual Snapshot")
                 api.camera_refresh_snapshot(site_id=site_id, device_id=device_id)
                 response = api.camera_snapshot(site_id=site_id, device_id=device_id)

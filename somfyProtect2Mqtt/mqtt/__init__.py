@@ -69,11 +69,14 @@ class MQTTClient:
             try:
                 LOGGER.info("Reconnecting to MQTT")
                 self.client.reconnect()
+                LOGGER.info("Reconnecting to MQTT: Success")
             except ConnectionRefusedError:
-                LOGGER.warning("Reconnecting to MQTT fails")
+                LOGGER.warning("Reconnecting to MQTT failed, will retry...")
                 sleep(10)
-                self.on_disconnect  #  pylint: disable=pointless-statement
-            LOGGER.info("Reconnecting to MQTT: Success")
+                try:
+                    self.client.reconnect()
+                except Exception as e:
+                    LOGGER.error(f"Second reconnect attempt failed: {e}")
 
     def run(self):
         """MQTT run"""

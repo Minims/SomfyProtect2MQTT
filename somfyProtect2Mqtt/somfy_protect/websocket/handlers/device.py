@@ -90,9 +90,17 @@ def handle_device_missed_call(ws, message: dict) -> None:
     
     if clip_cloudfront_url:
         LOGGER.info("Found Clip!")
-        # Note: This function call may need additional parameters
-        # depending on actual implementation
-        write_to_media_folder(url=clip_cloudfront_url)
+        write_to_media_folder(
+            url=clip_cloudfront_url,
+            site_id=site_id,
+            device_id=device_id,
+            label="videophone",
+            event_id=message.get("event_id", "unknown"),
+            occurred_at=message.get("occurred_at", "unknown"),
+            media_type="video",
+            mqtt_client=ws.mqtt_client,
+            mqtt_config=ws.mqtt_config,
+        )
 
 
 def handle_device_doorlock_triggered(ws, message: dict) -> None:
