@@ -4,12 +4,9 @@ import logging
 import os
 from datetime import datetime, timedelta
 import pytz
-from time import sleep
 
-import schedule
 from business.mqtt import mqtt_publish, SUBSCRIBE_TOPICS
 from business.watermark import insert_watermark
-from exceptions import SomfyProtectInitError
 from http.client import RemoteDisconnected
 from homeassistant.ha_discovery import (
     ALARM_STATUS,
@@ -463,10 +460,6 @@ def update_sites_status(
 
         except Exception as exp:
             LOGGER.warning(f"Error while getting site history: {exp}")
-            continue
-
-        except Exception as exp:
-            LOGGER.warning(f"Error while refreshing site: {exp}")
             continue
 
 

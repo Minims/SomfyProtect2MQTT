@@ -2,17 +2,44 @@
 
 import json
 import logging
-import threading
 from time import sleep
+from concurrent.futures import ThreadPoolExecutor
+from typing import Callable
 
 from homeassistant.ha_discovery import ALARM_STATUS
 from paho.mqtt import client
 from somfy_protect.api import ACCESS_LIST, ACTION_LIST, SomfyProtectApi
 
-# from business.streaming import rtmps_to_hls
-
 LOGGER = logging.getLogger(__name__)
 SUBSCRIBE_TOPICS = []
+
+# Executor for background tasks to avoid unbounded thread creation
+_EXECUTOR = ThreadPoolExecutor(max_workers=4)
+
+
+def submit_delayed(func: Callable, delay: int = 1, *args, **kwargs):
+    """Submit a call to `func` run after `delay` seconds in the shared executor.
+
+    Returns the Future.
+    """
+
+    def _wrap():
+        sleep(delay)
+        return func(*args, **kwargs)
+
+    return _EXECUTOR.submit(_wrap)
+
+
+def shutdown_executor(timeout: int = 5) -> None:
+    """Shutdown the shared executor gracefully.
+
+    This should be called at application shutdown to allow background
+    tasks to complete.
+    """
+    try:
+        _EXECUTOR.shutdown(wait=True)
+    except Exception:
+        LOGGER.exception("Error while shutting down executor")
 
 
 def mqtt_publish(mqtt_client, topic, payload, qos=0, retain=False, is_json=True):
@@ -66,16 +93,6 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
     try:
         text_payload = msg.payload.decode("UTF-8")
         LOGGER.info(f"Payload {text_payload}")
-        # # Manage Stream
-        # if "rtmps" in text_payload:
-        #     LOGGER.info("Start HLS")
-        #     site_id = msg.topic.split("/")[1]
-        #     device_id = msg.topic.split("/")[2]
-        #     rtmps_to_hls(
-        #         device_id=device_id,
-        #         url=text_payload,
-        #         path=os.getcwd(),
-        #     )
 
         # Manage Alarm Status
         if text_payload in ALARM_STATUS:
@@ -98,9 +115,8 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
                     site_id=site_id,
                 )
 
-            thread = threading.Thread(target=update_site_delayed)
-            thread.daemon = True
-            thread.start()
+            # schedule via shared executor to avoid unlimited threads
+            submit_delayed(update_site_delayed)
 
         # Manage Siren
         elif text_payload.lower() in ("panic", "trigger"):
@@ -175,9 +191,7 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
                         device_id=device_id,
                     )
 
-                thread = threading.Thread(target=update_device_delayed)
-                thread.daemon = True
-                thread.start()
+                submit_delayed(update_device_delayed)
             else:
                 LOGGER.info(f"Message received for Site ID: {site_id}, Action: {text_payload}")
 
@@ -189,25 +203,30 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
                 LOGGER.info("Manual Snapshot")
                 api.camera_refresh_snapshot(site_id=site_id, device_id=device_id)
                 response = api.camera_snapshot(site_id=site_id, device_id=device_id)
-                if response.status_code == 200:
-                    # Write image to temp file
-                    path = f"{device_id}.jpeg"
-                    with open(path, "wb") as snapshot_file:
-                        for chunk in response:
-                            snapshot_file.write(chunk)
-                    # Read and Push to MQTT
-                    snapshot_file = open(path, "rb")
-                    image = snapshot_file.read()
-                    byte_array = bytearray(image)
-                    topic = f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/snapshot"
-                    mqtt_publish(
-                        mqtt_client,
-                        topic,
-                        byte_array,
-                        retain=True,
-                        is_json=False,
-                        qos=2,
-                    )
+                if getattr(response, "status_code", None) == 200:
+                    # Read response content into memory safely using .iter_content
+                    try:
+                        from io import BytesIO
+
+                        buf = BytesIO()
+                        for chunk in response.iter_content(chunk_size=8192):
+                            if chunk:
+                                buf.write(chunk)
+                        image_bytes = buf.getvalue()
+                        topic = f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/snapshot"
+                        mqtt_publish(
+                            mqtt_client,
+                            topic,
+                            image_bytes,
+                            retain=True,
+                            is_json=False,
+                            qos=2,
+                        )
+                    finally:
+                        try:
+                            response.close()
+                        except Exception:
+                            pass
 
         # Manage Settings update
         else:
@@ -250,9 +269,7 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
                     device_id=device_id,
                 )
 
-            thread = threading.Thread(target=update_device_delayed)
-            thread.daemon = True
-            thread.start()
+            submit_delayed(update_device_delayed)
 
     except Exception as exp:
         LOGGER.error(f"Error when processing message: {exp}: {msg.topic} => {msg.payload}")

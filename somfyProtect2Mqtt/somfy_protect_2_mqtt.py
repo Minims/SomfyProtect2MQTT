@@ -1,7 +1,6 @@
 """Somfy Protect 2 Mqtt"""
 
 import logging
-from time import sleep
 
 from exceptions import SomfyProtectInitError
 import schedule
@@ -71,8 +70,13 @@ class SomfyProtect2Mqtt:
     def close(self) -> None:  # pylint: disable=no-self-use
         """Close"""
 
-    def loop(self) -> None:
-        """Main Loop"""
+    def loop(self, stop_event) -> None:
+        """Main Loop.
+
+        This loop runs scheduled jobs until `stop_event` is set. The
+        stop_event is a threading.Event injected by the caller to allow
+        graceful shutdown.
+        """
         # Config
         ha_sites_config(
             api=self.api,
@@ -133,6 +137,11 @@ class SomfyProtect2Mqtt:
                 my_sites_id=self.my_sites_id,
             )
 
-        while True:
-            schedule.run_pending()
-            sleep(10)
+        try:
+            while not stop_event.is_set():
+                schedule.run_pending()
+                # wait with timeout so we are responsive to shutdown
+                stop_event.wait(timeout=1)
+        finally:
+            # clear scheduled jobs on shutdown
+            schedule.clear()

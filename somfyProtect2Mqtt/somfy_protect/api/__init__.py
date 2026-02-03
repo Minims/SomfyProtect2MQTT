@@ -1,14 +1,12 @@
 """Somfy Protect Api"""
 
-import base64
 import logging
 import json
 from json import JSONDecodeError
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 from oauthlib.oauth2 import TokenExpiredError
 from requests import Response
-from requests_oauthlib import OAuth2Session
 
 from somfy_protect.api.devices.category import Category
 from somfy_protect.api.model import AvailableStatus, Device, Site, User
