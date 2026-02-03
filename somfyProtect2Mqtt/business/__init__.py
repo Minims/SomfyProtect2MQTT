@@ -2,6 +2,7 @@
 
 import logging
 import os
+from collections import OrderedDict
 from datetime import datetime, timedelta
 import pytz
 
@@ -26,7 +27,9 @@ from somfy_protect.api.model import Device
 LOGGER = logging.getLogger(__name__)
 
 DEVICE_TAG = {}
-HISTORY = {}
+# Use OrderedDict with size limit to prevent unbounded growth
+HISTORY: OrderedDict = OrderedDict()
+MAX_HISTORY_SIZE = 1000
 
 
 def _configure_device_sensor(
@@ -61,7 +64,7 @@ def _configure_device_sensor(
     )
     if subscribe and config.get("config").get("command_topic"):
         mqtt_client.client.subscribe(config.get("config").get("command_topic"))
-        SUBSCRIBE_TOPICS.append(config.get("config").get("command_topic"))
+        SUBSCRIBE_TOPICS.add(config.get("config").get("command_topic"))
 
 
 def ha_sites_config(
@@ -91,7 +94,7 @@ def ha_sites_config(
                 retain=True,
             )
             mqtt_client.client.subscribe(site_config.get("config").get("command_topic"))
-            SUBSCRIBE_TOPICS.append(site_config.get("config").get("command_topic"))
+            SUBSCRIBE_TOPICS.add(site_config.get("config").get("command_topic"))
 
             history = ha_discovery_history(
                 site=my_site,
@@ -169,7 +172,7 @@ def ha_devices_config(
 
                 if device_config.get("config").get("command_topic"):
                     mqtt_client.client.subscribe(device_config.get("config").get("command_topic"))
-                    SUBSCRIBE_TOPICS.append(device_config.get("config").get("command_topic"))
+                    SUBSCRIBE_TOPICS.add(device_config.get("config").get("command_topic"))
 
             if "box" in device.device_definition.get("type"):
                 LOGGER.info(f"Found Link {device.device_definition.get('label')}")
@@ -197,7 +200,7 @@ def ha_devices_config(
 
                 # Video Backend with extra subscription
                 _configure_device_sensor(site_id, device, mqtt_client, mqtt_config, "video_backend")
-                SUBSCRIBE_TOPICS.append(
+                SUBSCRIBE_TOPICS.add(
                     f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/video_backend"
                 )
 
@@ -206,7 +209,7 @@ def ha_devices_config(
                 mqtt_client.client.subscribe(
                     f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/stream"
                 )
-                SUBSCRIBE_TOPICS.append(
+                SUBSCRIBE_TOPICS.add(
                     f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/stream"
                 )
 
@@ -239,7 +242,7 @@ def ha_devices_config(
                     retain=True,
                 )
                 mqtt_client.client.subscribe(mss_outdoor_siren.get("config").get("command_topic"))
-                SUBSCRIBE_TOPICS.append(mss_outdoor_siren.get("config").get("command_topic"))
+                SUBSCRIBE_TOPICS.add(mss_outdoor_siren.get("config").get("command_topic"))
 
             if "mss_siren" in device.device_definition.get("device_definition_id"):
                 for sensor in [
@@ -264,7 +267,7 @@ def ha_devices_config(
                         retain=True,
                     )
                 mqtt_client.client.subscribe(mss_siren.get("config").get("command_topic"))
-                SUBSCRIBE_TOPICS.append(mss_siren.get("config").get("command_topic"))
+                SUBSCRIBE_TOPICS.add(mss_siren.get("config").get("command_topic"))
 
             if "pir" in device.device_definition.get("type") or "tag" in device.device_definition.get("type"):
                 LOGGER.info(f"Found Motion Sensor (PIR & IntelliTag) {device.device_definition.get('label')}")
@@ -324,7 +327,7 @@ def ha_devices_config(
                     retain=True,
                 )
                 mqtt_client.client.subscribe(open_door.get("config").get("command_topic"))
-                SUBSCRIBE_TOPICS.append(open_door.get("config").get("command_topic"))
+                SUBSCRIBE_TOPICS.add(open_door.get("config").get("command_topic"))
 
                 door_force_Lock = ha_discovery_devices(
                     site_id=site_id,
@@ -339,7 +342,7 @@ def ha_devices_config(
                     retain=True,
                 )
                 mqtt_client.client.subscribe(door_force_Lock.get("config").get("command_topic"))
-                SUBSCRIBE_TOPICS.append(door_force_Lock.get("config").get("command_topic"))
+                SUBSCRIBE_TOPICS.add(door_force_Lock.get("config").get("command_topic"))
 
             if "videophone" in device.device_definition.get("type"):
                 LOGGER.info(f"VideoPhone {device.device_definition.get('label')}")
@@ -387,13 +390,13 @@ def ha_devices_config(
                 mqtt_client.client.subscribe(
                     f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/stream"
                 )
-                SUBSCRIBE_TOPICS.append(
+                SUBSCRIBE_TOPICS.add(
                     f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/stream"
                 )
 
                 # Video Backend with extra subscription
                 _configure_device_sensor(site_id, device, mqtt_client, mqtt_config, "video_backend")
-                SUBSCRIBE_TOPICS.append(
+                SUBSCRIBE_TOPICS.add(
                     f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/video_backend"
                 )
 
@@ -446,6 +449,11 @@ def update_sites_status(
                         payload = f"{event.get('message_key')} {event.get('message_vars').get('userDsp')} {event.get('message_vars').get('siteLabel')}"
                         payload = payload.replace("None", "").strip().strip('"').replace(".", " ").title()
                         HISTORY[occurred_at] = payload
+                        
+                        # Limit HISTORY size to prevent unbounded growth
+                        while len(HISTORY) > MAX_HISTORY_SIZE:
+                            HISTORY.popitem(last=False)  # Remove oldest entry
+                        
                         LOGGER.info(f"Publishing History: {HISTORY[occurred_at]}")
                         mqtt_publish(
                             mqtt_client=mqtt_client,
@@ -563,39 +571,44 @@ def update_camera_snapshot(
                     if device.status.get("shutter_state", "opened") != "closed":
                         api.camera_refresh_snapshot(site_id=site_id, device_id=device.id)
                         response = api.camera_snapshot(site_id=site_id, device_id=device.id)
-                        if response.status_code == 200:
-                            now = datetime.now()
-                            timestamp = int(now.timestamp())
+                        if response and response.status_code == 200:
+                            try:
+                                now = datetime.now()
+                                timestamp = int(now.timestamp())
 
-                            # Write image to temp file
-                            path = f"{device.id}-{timestamp}.jpeg"
-                            with open(path, "wb") as tmp_file:
-                                for chunk in response:
-                                    tmp_file.write(chunk)
+                                # Write image to temp file
+                                path = f"{device.id}-{timestamp}.jpeg"
+                                with open(path, "wb") as tmp_file:
+                                    for chunk in response:
+                                        tmp_file.write(chunk)
 
-                            # Add Watermark
-                            insert_watermark(
-                                file=f"{os.getcwd()}/{path}",
-                                watermark=now.strftime("%Y-%m-%d %H:%M:%S"),
-                            )
+                                # Add Watermark
+                                insert_watermark(
+                                    file=f"{os.getcwd()}/{path}",
+                                    watermark=now.strftime("%Y-%m-%d %H:%M:%S"),
+                                )
 
-                            # Read and Push to MQTT
-                            with open(path, "rb") as tmp_file:
-                                image = tmp_file.read()
-                            byte_arr = bytearray(image)
-                            topic = (
-                                f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/snapshot"
-                            )
-                            mqtt_publish(
-                                mqtt_client=mqtt_client,
-                                topic=topic,
-                                payload=byte_arr,
-                                retain=True,
-                                is_json=False,
-                            )
+                                # Read and Push to MQTT
+                                with open(path, "rb") as tmp_file:
+                                    image = tmp_file.read()
+                                byte_arr = bytearray(image)
+                                topic = (
+                                    f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/snapshot"
+                                )
+                                mqtt_publish(
+                                    mqtt_client=mqtt_client,
+                                    topic=topic,
+                                    payload=byte_arr,
+                                    retain=True,
+                                    is_json=False,
+                                )
 
-                            # Clean file
-                            os.remove(path)
+                                # Clean file
+                                os.remove(path)
+                            finally:
+                                # Always close the response
+                                if response:
+                                    response.close()
 
         except Exception as exp:
             LOGGER.warning(f"Error while refreshing snapshot: {exp}")
@@ -614,6 +627,7 @@ def update_visiophone_snapshot(
     now = datetime.now()
     timestamp = int(now.timestamp())
 
+    response = None
     try:
         response = requests.get(url, stream=True)
         response.raise_for_status()
@@ -622,29 +636,32 @@ def update_visiophone_snapshot(
         with open(path, "wb") as tmp_file:
             for chunk in response.iter_content(1024):  # Lire en morceaux de 1 KB
                 tmp_file.write(chunk)
+                
+        # Add Watermark
+        insert_watermark(
+            file=f"{os.getcwd()}/{path}",
+            watermark=now.strftime("%Y-%m-%d %H:%M:%S"),
+        )
+
+        # Read and Push to MQTT
+        with open(path, "rb") as tmp_file:
+            image = tmp_file.read()
+        byte_arr = bytearray(image)
+        topic = f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/snapshot"
+        mqtt_publish(
+            mqtt_client=mqtt_client,
+            topic=topic,
+            payload=byte_arr,
+            retain=True,
+            is_json=False,
+        )
+        # Clean file
+        os.remove(path)
     except requests.exceptions.RequestException as exc:
         LOGGER.warning(f"Error while Downloading snapshot: {exc}")
-
-    # Add Watermark
-    insert_watermark(
-        file=f"{os.getcwd()}/{path}",
-        watermark=now.strftime("%Y-%m-%d %H:%M:%S"),
-    )
-
-    # Read and Push to MQTT
-    with open(path, "rb") as tmp_file:
-        image = tmp_file.read()
-    byte_arr = bytearray(image)
-    topic = f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/snapshot"
-    mqtt_publish(
-        mqtt_client=mqtt_client,
-        topic=topic,
-        payload=byte_arr,
-        retain=True,
-        is_json=False,
-    )
-    # Clean file
-    os.remove(path)
+    finally:
+        if response:
+            response.close()
 
 
 def write_to_media_folder(

@@ -11,7 +11,8 @@ from paho.mqtt import client
 from somfy_protect.api import ACCESS_LIST, ACTION_LIST, SomfyProtectApi
 
 LOGGER = logging.getLogger(__name__)
-SUBSCRIBE_TOPICS = []
+# Use set instead of list to prevent duplicates
+SUBSCRIBE_TOPICS: set = set()
 
 # Executor for background tasks to avoid unbounded thread creation
 _EXECUTOR = ThreadPoolExecutor(max_workers=4)
