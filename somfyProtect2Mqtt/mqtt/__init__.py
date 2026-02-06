@@ -26,10 +26,10 @@ class MQTTClient:
         self.client.on_publish = self.on_publish
         self.client.on_disconnect = self.on_disconnect
         self.client.username_pw_set(config.get("username"), config.get("password"))
-        self.client.connect(config.get("host", "127.0.0.1"), config.get("port", 1883), 60)
         if config.get("ssl", False) is True:
             self.client.tls_set(cert_reqs=ssl.CERT_NONE)
             self.client.tls_insecure_set(True)
+        self.client.connect(config.get("host", "127.0.0.1"), config.get("port", 1883), 60)
         self.client.loop_start()
 
         self.config = config
@@ -66,14 +66,17 @@ class MQTTClient:
         """MQTT on_disconnect"""
         if rc != 0:
             LOGGER.warning("Unexpected MQTT disconnection. Will auto-reconnect")
-            try:
-                LOGGER.info("Reconnecting to MQTT")
-                self.client.reconnect()
-            except ConnectionRefusedError:
-                LOGGER.warning("Reconnecting to MQTT fails")
-                sleep(10)
-                self.on_disconnect  #  pylint: disable=pointless-statement
-            LOGGER.info("Reconnecting to MQTT: Success")
+            backoff = 5
+            while True:
+                try:
+                    LOGGER.info("Reconnecting to MQTT")
+                    self.client.reconnect()
+                    LOGGER.info("Reconnecting to MQTT: Success")
+                    break
+                except ConnectionRefusedError:
+                    LOGGER.warning("Reconnecting to MQTT fails")
+                    sleep(backoff)
+                    backoff = min(backoff * 2, 60)
 
     def run(self):
         """MQTT run"""
