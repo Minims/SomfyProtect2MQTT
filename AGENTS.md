@@ -165,6 +165,21 @@ Keep changes small, follow existing patterns, and update docs if behavior change
 - Do not use destructive git commands.
 - Keep commits focused and well-described.
 
+## Commit Message Guidelines (Conventional Commits)
+
+- Format: `type(scope): summary` (scope is mandatory, but free-form).
+- Use the imperative mood in the summary (e.g., "Add", "Fix", "Refactor").
+- Keep the summary concise (50-72 characters), no trailing period.
+- Use `!` to mark breaking changes, or add a footer:
+  `BREAKING CHANGE: <description>`.
+- Recommended types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`, `build`, `ci`.
+
+Examples:
+- `fix(mqtt): handle reconnect backoff`
+- `docs(readme): clarify setup steps`
+- `feat(config)!: rename mqtt host setting`
+  `BREAKING CHANGE: mqtt.host replaced by mqtt.broker`
+
 ## Notes on External Rules
 
 - No additional Cursor/Copilot instruction files were found.
