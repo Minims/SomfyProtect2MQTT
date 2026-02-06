@@ -267,7 +267,7 @@ class SomfyProtectApi:
             raise ValueError("Missing settings and/or device_label")
 
         # Clean Settings Dict
-        settings.pop("object")
+        settings.pop("object", None)
 
         payload = {"settings": settings, "label": device_label}
         response = self.put(f"/v3/site/{site_id}/device/{device_id}", json=payload)
