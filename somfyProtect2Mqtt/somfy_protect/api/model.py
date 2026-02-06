@@ -1,7 +1,7 @@
 """Models Definition"""
 
 from enum import Enum
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 
 class Site:
@@ -60,8 +60,8 @@ class Device:
         status: Dict,
         diagnosis: Dict,
         settings: Dict,
-        update_available: str = "False",
-        video_backend: str = None,
+        update_available: bool = False,
+        video_backend: Optional[str] = None,
         **_: Any,
     ):
         self.id = device_id  # pylint: disable=invalid-name
