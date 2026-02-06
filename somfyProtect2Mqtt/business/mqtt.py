@@ -25,9 +25,11 @@ def mqtt_publish(mqtt_client, topic, payload, qos=0, retain=False, is_json=True)
 def update_device(api, mqtt_client, mqtt_config, site_id, device_id):
     """Update MQTT data for a device"""
     LOGGER.info(f"Live Update device {device_id}")
+    device_label = device_id
     try:
         device = api.get_device(site_id=site_id, device_id=device_id)
-        settings = device.settings.get("global")
+        device_label = device.label
+        settings = device.settings.get("global") or {}
         status = device.status
         status_settings = {**status, **settings}
 
@@ -42,7 +44,7 @@ def update_device(api, mqtt_client, mqtt_config, site_id, device_id):
             retain=True,
         )
     except Exception as exp:
-        LOGGER.warning(f"Error while refreshing {device.label}: {exp}")
+        LOGGER.warning(f"Error while refreshing {device_label}: {exp}")
 
 
 def update_site(api, mqtt_client, mqtt_config, site_id):
@@ -65,7 +67,12 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
     """Compute MQTT received message"""
     try:
         text_payload = msg.payload.decode("UTF-8")
+        lower_payload = text_payload.lower()
         LOGGER.info(f"Payload {text_payload}")
+        topic_parts = msg.topic.split("/")
+        if len(topic_parts) < 2:
+            LOGGER.warning(f"Invalid topic format: {msg.topic}")
+            return
         # # Manage Stream
         # if "rtmps" in text_payload:
         #     LOGGER.info("Start HLS")
@@ -80,11 +87,8 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
         # Manage Alarm Status
         if text_payload in ALARM_STATUS:
             LOGGER.info(f"Security Level update ! Setting to {text_payload}")
-            try:
-                site_id = msg.topic.split("/")[1]
-                LOGGER.debug(f"Site ID: {site_id}")
-            except Exception as exp:
-                LOGGER.warning(f"Unable to reteive Site ID: {site_id}: {exp}")
+            site_id = topic_parts[1]
+            LOGGER.debug(f"Site ID: {site_id}")
             # Update Alarm via API
             api.update_security_level(site_id=site_id, security_level=text_payload)
 
@@ -103,13 +107,13 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
             thread.start()
 
         # Manage Siren
-        elif text_payload.lower() in ("panic", "trigger"):
-            site_id = msg.topic.split("/")[1]
+        elif lower_payload in ("panic", "trigger"):
+            site_id = topic_parts[1]
             LOGGER.info(f"Start the Siren On Site ID {site_id}")
             api.trigger_alarm(site_id=site_id, mode="alarm")
 
         elif text_payload == "stop":
-            site_id = msg.topic.split("/")[1]
+            site_id = topic_parts[1]
             LOGGER.info(f"Stop the Siren On Site ID {site_id}")
             api.stop_alarm(site_id=site_id)
 
@@ -117,8 +121,11 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
             "evostream",
             "webrtc",
         ]:
-            site_id = msg.topic.split("/")[1]
-            device_id = msg.topic.split("/")[2]
+            if len(topic_parts) < 3:
+                LOGGER.warning(f"Invalid device topic: {msg.topic}")
+                return
+            site_id = topic_parts[1]
+            device_id = topic_parts[2]
             LOGGER.info(f"Update Video Backend To ({text_payload})")
             action_device = api.action_device(
                 site_id=site_id, device_id=device_id, action="change_video_backend", video_backend=text_payload
@@ -132,16 +139,22 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
             "test_intrusion",
             "test_ok",
         ]:
-            site_id = msg.topic.split("/")[1]
-            device_id = msg.topic.split("/")[2]
+            if len(topic_parts) < 3:
+                LOGGER.warning(f"Invalid device topic: {msg.topic}")
+                return
+            site_id = topic_parts[1]
+            device_id = topic_parts[2]
             sound = text_payload.split("_")[1]
             LOGGER.info(f"Test the Siren On Site ID {site_id} ({sound})")
             api.test_siren(site_id=site_id, device_id=device_id, sound=sound)
 
         # Manage Access
         elif text_payload in ACCESS_LIST:
-            site_id = msg.topic.split("/")[1]
-            device_id = msg.topic.split("/")[2]
+            if len(topic_parts) < 3:
+                LOGGER.warning(f"Invalid device topic: {msg.topic}")
+                return
+            site_id = topic_parts[1]
+            device_id = topic_parts[2]
             if device_id:
                 LOGGER.info(f"Message received for Site ID: {site_id}, Device ID: {device_id}, Access: {text_payload}")
                 trigger_access = api.trigger_access(
@@ -153,8 +166,11 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
 
         # Manage Actions
         elif text_payload in ACTION_LIST:
-            site_id = msg.topic.split("/")[1]
-            device_id = msg.topic.split("/")[2]
+            if len(topic_parts) < 3:
+                LOGGER.warning(f"Invalid device topic: {msg.topic}")
+                return
+            site_id = topic_parts[1]
+            device_id = topic_parts[2]
             if device_id:
                 LOGGER.info(f"Message received for Site ID: {site_id}, Device ID: {device_id}, Action: {text_payload}")
                 action_device = api.action_device(
@@ -182,13 +198,19 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
                 LOGGER.info(f"Message received for Site ID: {site_id}, Action: {text_payload}")
 
         # Manage Manual Snapshot
-        elif msg.topic.split("/")[3] == "snapshot":
-            site_id = msg.topic.split("/")[1]
-            device_id = msg.topic.split("/")[2]
-            if text_payload is True:
+        elif len(topic_parts) > 3 and topic_parts[3] == "snapshot":
+            if len(topic_parts) < 3:
+                LOGGER.warning(f"Invalid device topic: {msg.topic}")
+                return
+            site_id = topic_parts[1]
+            device_id = topic_parts[2]
+            if lower_payload in ("true", "1", "yes", "on"):
                 LOGGER.info("Manual Snapshot")
                 api.camera_refresh_snapshot(site_id=site_id, device_id=device_id)
                 response = api.camera_snapshot(site_id=site_id, device_id=device_id)
+                if response is None:
+                    LOGGER.warning("Snapshot response missing")
+                    return
                 if response.status_code == 200:
                     # Write image to temp file
                     path = f"{device_id}.jpeg"
@@ -211,9 +233,12 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
 
         # Manage Settings update
         else:
-            site_id = msg.topic.split("/")[1]
-            device_id = msg.topic.split("/")[2]
-            setting = msg.topic.split("/")[3]
+            if len(topic_parts) < 4:
+                LOGGER.warning(f"Invalid setting topic: {msg.topic}")
+                return
+            site_id = topic_parts[1]
+            device_id = topic_parts[2]
+            setting = topic_parts[3]
             if setting == "stream":
                 return
 
