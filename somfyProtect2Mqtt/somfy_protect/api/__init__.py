@@ -135,7 +135,6 @@ class SomfyProtectApi:
         Returns:
             Response: Requests response object.
         """
-        print(json)
         return self._request("put", path, json=json)
 
     def get_sites(self) -> List[Site]:
