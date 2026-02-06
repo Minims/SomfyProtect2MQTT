@@ -185,8 +185,8 @@ class SomfyProtectApi:
         Returns:
             Dict[str, Any]: API response payload.
         """
-        security_level = {"status": security_level.lower()}
-        response = self.put(f"/v3/site/{site_id}/security", json=security_level)
+        payload = {"status": security_level.name.lower()}
+        response = self.put(f"/v3/site/{site_id}/security", json=payload)
         response.raise_for_status()
         return response.json()
 
