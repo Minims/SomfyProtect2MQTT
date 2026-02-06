@@ -40,6 +40,9 @@ def read_config_file(config_file: str) -> Dict[str, Any]:
     Returns:
         Dict[str, Any]: Parsed config dictionary.
     """
+    if not config_file:
+        LOGGER.error("Config file path is missing")
+        return {}
     logging.info(f"Reading config file {config_file}")
     if not os.path.isfile(config_file):
         LOGGER.error(f"File {config_file} not found")

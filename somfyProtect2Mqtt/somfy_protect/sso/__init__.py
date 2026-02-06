@@ -110,8 +110,9 @@ def init_sso(config: dict) -> None:
         SomfyProtectInitError: Unable to init
     """
     logging.info("Init SSO")
-    username = config.get("somfy_protect").get("username")
-    password = config.get("somfy_protect").get("password")
+    somfy_config = config.get("somfy_protect") or {}
+    username = somfy_config.get("username")
+    password = somfy_config.get("password")
     if username is None or password is None:
         raise SomfyProtectInitError("Username/Password is missing in config")
 

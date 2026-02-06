@@ -38,7 +38,10 @@ class SomfyProtect2Mqtt:
         """
         logging.info("Init SomfyProtect2Mqtt")
 
-        self.my_sites = config.get("somfy_protect").get("sites")
+        somfy_config = config.get("somfy_protect") or {}
+        self.my_sites = somfy_config.get("sites")
+        if not self.my_sites:
+            raise SomfyProtectInitError("Missing somfy_protect.sites in config")
         self.my_sites_id = []
 
         self.delay_site = config.get("delay_site", 60)
