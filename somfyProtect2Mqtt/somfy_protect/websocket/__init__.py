@@ -173,7 +173,18 @@ class SomfyProtectWebsocket:
 
         logging.debug(f"Message: {message}")
 
-        message_json = json.loads(message)
+        try:
+            message_json = json.loads(message)
+        except json.JSONDecodeError:
+            LOGGER.warning("Received non-JSON websocket message")
+            return
+        if not isinstance(message_json, dict):
+            LOGGER.warning("Unexpected websocket payload type")
+            return
+        message_id = message_json.get("message_id")
+        if not message_id:
+            LOGGER.warning("Websocket message missing message_id")
+            return
         callbacks = {
             "security.level.change": self.security_level_change,
             "alarm.trespass": self.alarm_trespass,
@@ -204,13 +215,17 @@ class SomfyProtectWebsocket:
 
         ack = {
             "ack": True,
-            "message_id": message_json["message_id"],
+            "message_id": message_id,
             "client": "Android",
         }
         self.send_websocket_message(ack)
         self.default_message(message_json)
-        if message_json["key"] in callbacks:
-            callback = callbacks[message_json["key"]]
+        message_key = message_json.get("key")
+        if not message_key:
+            LOGGER.debug("Websocket message missing key")
+            return
+        if message_key in callbacks:
+            callback = callbacks[message_key]
             if asyncio.iscoroutinefunction(callback):
                 await callback(message_json)
             else:
