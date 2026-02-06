@@ -70,8 +70,14 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
         lower_payload = text_payload.lower()
         LOGGER.info(f"Payload {text_payload}")
         topic_parts = msg.topic.split("/")
-        if len(topic_parts) < 2:
-            LOGGER.warning(f"Invalid topic format: {msg.topic}")
+
+        def require_parts(min_parts: int, context: str) -> bool:
+            if len(topic_parts) < min_parts:
+                LOGGER.warning(f"Invalid topic format for {context}: {msg.topic}")
+                return False
+            return True
+
+        if not require_parts(2, "site"):
             return
         # # Manage Stream
         # if "rtmps" in text_payload:
@@ -121,8 +127,7 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
             "evostream",
             "webrtc",
         ]:
-            if len(topic_parts) < 3:
-                LOGGER.warning(f"Invalid device topic: {msg.topic}")
+            if not require_parts(3, "device"):
                 return
             site_id = topic_parts[1]
             device_id = topic_parts[2]
@@ -139,8 +144,7 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
             "test_intrusion",
             "test_ok",
         ]:
-            if len(topic_parts) < 3:
-                LOGGER.warning(f"Invalid device topic: {msg.topic}")
+            if not require_parts(3, "device"):
                 return
             site_id = topic_parts[1]
             device_id = topic_parts[2]
@@ -150,8 +154,7 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
 
         # Manage Access
         elif text_payload in ACCESS_LIST:
-            if len(topic_parts) < 3:
-                LOGGER.warning(f"Invalid device topic: {msg.topic}")
+            if not require_parts(3, "device"):
                 return
             site_id = topic_parts[1]
             device_id = topic_parts[2]
@@ -166,8 +169,7 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
 
         # Manage Actions
         elif text_payload in ACTION_LIST:
-            if len(topic_parts) < 3:
-                LOGGER.warning(f"Invalid device topic: {msg.topic}")
+            if not require_parts(3, "device"):
                 return
             site_id = topic_parts[1]
             device_id = topic_parts[2]
@@ -199,8 +201,7 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
 
         # Manage Manual Snapshot
         elif len(topic_parts) > 3 and topic_parts[3] == "snapshot":
-            if len(topic_parts) < 3:
-                LOGGER.warning(f"Invalid device topic: {msg.topic}")
+            if not require_parts(3, "device"):
                 return
             site_id = topic_parts[1]
             device_id = topic_parts[2]
@@ -233,8 +234,7 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
 
         # Manage Settings update
         else:
-            if len(topic_parts) < 4:
-                LOGGER.warning(f"Invalid setting topic: {msg.topic}")
+            if not require_parts(4, "setting"):
                 return
             site_id = topic_parts[1]
             device_id = topic_parts[2]
