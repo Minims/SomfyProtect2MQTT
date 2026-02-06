@@ -59,7 +59,7 @@ class SomfyProtect2Mqtt:
 
         self.mqtt_config = config.get("mqtt")
         if self.mqtt_config is None:
-            raise SomfyProtectInitError
+            raise SomfyProtectInitError("MQTT config is missing")
 
         sites = self.api.get_sites()
         LOGGER.info(f"Found {len(sites)} Site(s)")
