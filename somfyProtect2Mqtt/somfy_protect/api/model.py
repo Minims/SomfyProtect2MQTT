@@ -77,10 +77,7 @@ class Device:
 
 
 class AvailableStatus(Enum):
-    """List of Allowed Security Level
-    Args:
-        Enum (str): Security Level
-    """
+    """Allowed security levels."""
 
     DISARMED = 1
     ARMED = 2

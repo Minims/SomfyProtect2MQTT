@@ -14,10 +14,11 @@ LOGGER = logging.getLogger(__name__)
 
 
 def setup_logger(debug: bool = False, filename: str = "/var/log/somfyProtect.log") -> None:
-    """Setup Logging
+    """Configure logging.
+
     Args:
-        debug (bool, optional): True if debug enabled. Defaults to False.
-        filename (str, optional): log filename. Defaults to "/var/log/somfyProtect.log".
+        debug (bool): Enable debug logging when True.
+        filename (str): Log filename.
     """
     log_level = logging.DEBUG if debug else logging.INFO
     logging.basicConfig(
@@ -31,13 +32,13 @@ def setup_logger(debug: bool = False, filename: str = "/var/log/somfyProtect.log
 
 
 def read_config_file(config_file: str) -> Dict[str, Any]:
-    """Read config file
+    """Read a YAML config file.
 
     Args:
-        config_file (str): config_file
+        config_file (str): Config file path.
 
     Returns:
-        Dict[str, Any]: Config in json
+        Dict[str, Any]: Parsed config dictionary.
     """
     logging.info(f"Reading config file {config_file}")
     if not os.path.isfile(config_file):
@@ -61,13 +62,13 @@ def close_and_exit(
     signal: int = None,
     frame=None,
 ) -> None:  # pylint: disable=unused-argument
-    """Close & Exit
+    """Close resources and exit.
 
     Args:
-        robot ([type]): SomfyProtect2Mqtt
-        code (int, optional): Code to return. Defaults to 0.
-        signal (int, optional): Signal Received. Defaults to None.
-        frame ([type], optional): Not Used. Defaults to None.
+        robot: SomfyProtect2Mqtt instance.
+        code (int): Exit code.
+        signal (int): Signal received.
+        frame: Signal frame (unused).
     """
     if signal:
         LOGGER.debug(f"Signal {signal} received")

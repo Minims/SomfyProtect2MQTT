@@ -85,6 +85,14 @@ def ha_sites_config(
 
 
 def convert_utc_to_paris(date: datetime) -> datetime:
+    """Convert a UTC datetime to Europe/Paris.
+
+    Args:
+        date (datetime): Naive UTC datetime.
+
+    Returns:
+        datetime: Timezone-aware datetime in Europe/Paris.
+    """
 
     utc_zone = pytz.utc
     date = utc_zone.localize(date)
@@ -563,7 +571,7 @@ def update_sites_status(
     mqtt_config: dict,
     my_sites_id: list,
 ) -> None:
-    """Uodate Devices Status (Including zone)"""
+    """Update sites status (including history)."""
     LOGGER.info("Update Sites Status")
     for site_id in my_sites_id:
         try:
@@ -823,7 +831,20 @@ def write_to_media_folder(
     mqtt_config: dict,
     send_to_mqtt: bool = False,
 ) -> None:
-    """Download VisioPhone Clip"""
+    """Download media to the local folder.
+
+    Args:
+        url (str): Media URL.
+        site_id (str): Site ID.
+        device_id (str): Device ID.
+        label (str): Device label.
+        event_id (str): Event ID.
+        occurred_at (str): Event timestamp.
+        media_type (str): Media type (video or snapshot).
+        mqtt_client (MQTTClient): MQTT client instance.
+        mqtt_config (dict): MQTT configuration.
+        send_to_mqtt (bool): Whether to publish snapshots to MQTT.
+    """
     LOGGER.info("Download VisioPhone Clip")
     directory = "/media/somfyprotect2mqtt"
 

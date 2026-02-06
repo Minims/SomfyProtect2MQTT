@@ -137,6 +137,8 @@ Keep changes small, follow existing patterns, and update docs if behavior change
 ## Docs and Comments
 
 - Docstrings are used for public classes and functions; keep them concise.
+- Use Google-style docstrings with a short summary line, then `Args`, `Returns`, and `Raises` sections when relevant.
+- Keep types in docstrings even when annotations exist, and avoid placeholders like `??` or `[type]`.
 - Add comments only when the logic is non-obvious.
 - Update README if you change user-facing behavior or commands.
 

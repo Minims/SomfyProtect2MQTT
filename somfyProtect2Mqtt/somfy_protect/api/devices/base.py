@@ -1,4 +1,4 @@
-"""Device Managment"""
+"""Device management."""
 
 from typing import Optional, Union
 
@@ -48,7 +48,7 @@ class SomfyProtectDevice:
             setting_name (str): Name of setting
 
         Returns:
-            Union[str, int, float]: Status value
+            Optional[Union[str, int, float]]: Setting value.
         """
         if not setting_name:
             return None
