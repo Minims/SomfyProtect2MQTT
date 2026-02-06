@@ -514,10 +514,14 @@ class WebRTCHandler:
         handler = self
 
         class HLSHandler(BaseHTTPRequestHandler):
+            """Serve HLS playlists and segments from memory."""
+
             def log_message(self, format, *args):
+                """Suppress default HTTP server logs."""
                 pass  # Suppress HTTP logs
 
             def do_GET(self):
+                """Handle playlist and segment requests."""
                 # Parse path: /{device_id}/playlist.m3u8 or /{device_id}/segment{N}.ts
                 path_parts = self.path.strip("/").split("/")
                 if len(path_parts) >= 2:

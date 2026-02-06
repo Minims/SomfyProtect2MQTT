@@ -8,7 +8,13 @@ from PIL import Image, ImageDraw, ImageFont
 LOGGER = logging.getLogger(__name__)
 
 
-def insert_watermark(file: str, watermark: str):
+def insert_watermark(file: str, watermark: str) -> None:
+    """Insert a text watermark into an image file.
+
+    Args:
+        file (str): Image file path.
+        watermark (str): Watermark text to draw.
+    """
     image = Image.open(
         fp=file,
     )

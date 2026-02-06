@@ -341,6 +341,11 @@ class SomfyProtectWebsocket:
             write_to_media_folder(url=clip_cloudfront_url)
 
     def video_stream_ready(self, message):
+        """Handle video stream ready events.
+
+        Args:
+            message (dict): Websocket event payload.
+        """
         # {
         #    "profiles":[
         #       "owner"

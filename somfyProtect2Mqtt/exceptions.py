@@ -2,4 +2,4 @@
 
 
 class SomfyProtectInitError(Exception):
-    pass
+    """Raised when Somfy Protect initialization fails."""
