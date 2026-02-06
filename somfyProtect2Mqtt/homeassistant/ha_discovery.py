@@ -788,9 +788,7 @@ def ha_discovery_alarm_actions(site: Site, mqtt_config: dict):
     }
 
     command_topic = f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site.id}/siren/command"
-    site_config["topic"] = (
-        f"{mqtt_config.get('ha_discover_prefix', 'homeassistant')}/switch/{site.id}/siren/config"
-    )
+    site_config["topic"] = f"{mqtt_config.get('ha_discover_prefix', 'homeassistant')}/switch/{site.id}/siren/config"
     site_config["config"] = {
         "name": "Siren",
         "unique_id": f"{site.id}_{site.label}",
@@ -837,17 +835,13 @@ def ha_discovery_devices(
     device_config["config"] = {
         "name": sensor_name,
         "unique_id": f"{device.id}_{sensor_name}",
-        "state_topic": (
-            f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/state"
-        ),
+        "state_topic": (f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/state"),
         "value_template": "{{ value_json." + sensor_name + " }}",
         "device": device_info,
     }
 
     for config_entry in DEVICE_CAPABILITIES.get(sensor_name).get("config"):
-        device_config["config"][config_entry] = (
-            DEVICE_CAPABILITIES.get(sensor_name).get("config").get(config_entry)
-        )
+        device_config["config"][config_entry] = DEVICE_CAPABILITIES.get(sensor_name).get("config").get(config_entry)
         # Specifiy for Intellitag Sensivity
         if device.device_definition.get("label") == "IntelliTag" and sensor_name == "sensitivity":
             device_config["config"][config_entry] = (

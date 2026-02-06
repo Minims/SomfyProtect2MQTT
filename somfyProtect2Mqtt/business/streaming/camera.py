@@ -9,6 +9,7 @@ LOGGER = logging.getLogger(__name__)
 
 class VideoCamera(object):
     """OpenCV-backed video capture helper."""
+
     def __init__(self, url: str):
         """Initialize the camera stream.
 

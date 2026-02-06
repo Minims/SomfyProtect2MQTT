@@ -625,7 +625,7 @@ def update_sites_status(
                         LOGGER.info("Publishing History: %s", HISTORY[occurred_at])
                         mqtt_publish(
                             mqtt_client=mqtt_client,
-                        topic=f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/history",
+                            topic=f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/history",
                             payload=payload,
                             retain=True,
                         )
