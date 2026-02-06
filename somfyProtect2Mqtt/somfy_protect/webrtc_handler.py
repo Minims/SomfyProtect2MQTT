@@ -95,7 +95,11 @@ class WebRTCHandler:
         """Store TURN server configuration for a session"""
         if session_id and turn_data:
             self.turn_configs[session_id] = turn_data
-            LOGGER.info(f"Stored TURN config for session {session_id}: {turn_data.get('url')}")
+            LOGGER.info(
+                "Stored TURN config for session %s: %s",
+                session_id,
+                turn_data.get("url"),
+            )
 
     async def handle_offer(self, message):
         """
@@ -104,7 +108,7 @@ class WebRTCHandler:
         Args:
             message: WebSocket message containing the offer
         """
-        LOGGER.info(f"WEBRTC Offer: {message}")
+        LOGGER.info("WEBRTC Offer: %s", message)
 
         device_id = message.get("device_id")
         site_id = message.get("site_id")
@@ -128,7 +132,7 @@ class WebRTCHandler:
 
         # Check if audio is present in the offer
         has_audio = any(line.startswith("m=audio") for line in sdp.splitlines())
-        LOGGER.info(f"[SDP] Offer contains audio track: {has_audio}")
+        LOGGER.info("[SDP] Offer contains audio track: %s", has_audio)
 
         # Build ICE servers configuration
         ice_servers = [RTCIceServer(urls=["stun:stun.l.google.com:19302"])]
@@ -141,9 +145,9 @@ class WebRTCHandler:
             turn_password = turn_config.get("password")
             if turn_url and turn_username and turn_password:
                 ice_servers.append(RTCIceServer(urls=[turn_url], username=turn_username, credential=turn_password))
-                LOGGER.info(f"Added TURN server: {turn_url}")
+                LOGGER.info("Added TURN server: %s", turn_url)
         else:
-            LOGGER.warning(f"No TURN config available for session {session_id}")
+            LOGGER.warning("No TURN config available for session %s", session_id)
 
         # Create peer connection
         pc = RTCPeerConnection(configuration=RTCConfiguration(iceServers=ice_servers))
@@ -159,9 +163,12 @@ class WebRTCHandler:
         # Add audio track - silence for MQTT, nothing for go2rtc (let it auto-negotiate)
         if self.streaming_config != "go2rtc":
             pc.addTrack(SilenceAudioTrack())
-            LOGGER.info(f"[SDP] Added silence audio track (streaming_config={self.streaming_config})")
+            LOGGER.info(
+                "[SDP] Added silence audio track (streaming_config=%s)",
+                self.streaming_config,
+            )
         else:
-            LOGGER.info(f"[SDP] No audio track added - go2rtc will receive only")
+            LOGGER.info("[SDP] No audio track added - go2rtc will receive only")
 
         # Create answer
         answer = await pc.createAnswer()
@@ -183,7 +190,7 @@ class WebRTCHandler:
 
         @pc.on("iceconnectionstatechange")
         async def on_iceconnectionstatechange():
-            LOGGER.info(f"ICE connection state is {pc.iceConnectionState}")
+            LOGGER.info("ICE connection state is %s", pc.iceConnectionState)
             if pc.iceConnectionState == "failed":
                 LOGGER.error("ICE connection failed")
                 if session_id in self.peer_connections:
@@ -194,11 +201,11 @@ class WebRTCHandler:
 
         @pc.on("icegatheringstatechange")
         async def on_icegatheringstatechange():
-            LOGGER.info(f"ICE gathering state is {pc.iceGatheringState}")
+            LOGGER.info("ICE gathering state is %s", pc.iceGatheringState)
 
         @pc.on("connectionstatechange")
         async def on_connectionstatechange():
-            LOGGER.info(f"Connection state is {pc.connectionState}")
+            LOGGER.info("Connection state is %s", pc.connectionState)
             if pc.connectionState == "connected":
                 LOGGER.info("WebRTC connection established")
             elif pc.connectionState == "failed":
@@ -208,17 +215,17 @@ class WebRTCHandler:
         @pc.on("icecandidate")
         async def on_icecandidate(candidate):
             if candidate:
-                LOGGER.info(f"New local ICE candidate generated: {candidate.candidate}")
+                LOGGER.info("New local ICE candidate generated: %s", candidate.candidate)
                 self._send_ice_candidate(candidate, session_id)
             else:
                 LOGGER.info("All local ICE candidates have been generated (end-of-candidates)")
 
         @pc.on("track")
         async def on_track(track):
-            LOGGER.info(f"[TRACK] Received {track.kind} track (id={track.id})")
+            LOGGER.info("[TRACK] Received %s track (id=%s)", track.kind, track.id)
             if track.kind == "video":
                 if self.streaming_config == "mqtt":
-                    LOGGER.info(f"Video track started, processing frames and publishing to MQTT")
+                    LOGGER.info("Video track started, processing frames and publishing to MQTT")
                     topic = (
                         f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/snapshot"
                     )
@@ -227,7 +234,12 @@ class WebRTCHandler:
                         while True:
                             try:
                                 frame = await track.recv()
-                                LOGGER.debug(f"Video frame received: {frame}, size={frame.width}x{frame.height}")
+                                LOGGER.debug(
+                                    "Video frame received: %s, size=%sx%s",
+                                    frame,
+                                    frame.width,
+                                    frame.height,
+                                )
 
                                 # Convert frame to JPEG and publish to MQTT.
                                 try:
@@ -248,7 +260,7 @@ class WebRTCHandler:
                                         is_json=False,
                                         qos=2,
                                     )
-                                    LOGGER.debug(f"Published frame to MQTT topic: {topic}")
+                                    LOGGER.debug("Published frame to MQTT topic: %s", topic)
                                     frame_skip_counter = 0
                                 except Exception as e:
                                     frame_skip_counter += 1
@@ -258,17 +270,17 @@ class WebRTCHandler:
                                             f"Skipping frame due to decoding error (attempt {frame_skip_counter}): {e}"
                                         )
                                     else:
-                                        LOGGER.error(f"Multiple frame decoding failures: {e}")
+                                        LOGGER.error("Multiple frame decoding failures: %s", e)
 
                             except Exception as e:
-                                LOGGER.error(f"Error receiving video frame: {e}")
+                                LOGGER.error("Error receiving video frame: %s", e)
                                 await asyncio.sleep(0.1)
 
                     except Exception as e:
-                        LOGGER.error(f"Error receiving video frames: {e}")
+                        LOGGER.error("Error receiving video frames: %s", e)
 
                 elif self.streaming_config == "go2rtc":
-                    LOGGER.info(f"Video track started, streaming HLS for go2rtc")
+                    LOGGER.info("Video track started, streaming HLS for go2rtc")
 
                     # Start HLS HTTP server if not already running
                     if self.hls_server is None:
@@ -291,13 +303,13 @@ class WebRTCHandler:
                     )
             elif track.kind == "audio":
                 if self.streaming_config == "go2rtc":
-                    LOGGER.info(f"[TRACK] Audio track received! Starting audio reader task")
+                    LOGGER.info("[TRACK] Audio track received! Starting audio reader task")
                     # Initialize HLS muxer if not exists
                     if device_id not in self.hls_muxers:
-                        LOGGER.info(f"[AUDIO] Creating new muxer for device {device_id}")
+                        LOGGER.info("[AUDIO] Creating new muxer for device %s", device_id)
                         self._init_hls_muxer(device_id)
                     else:
-                        LOGGER.info(f"[AUDIO] Using existing muxer for device {device_id}")
+                        LOGGER.info("[AUDIO] Using existing muxer for device %s", device_id)
 
                     # Store audio track and start reading
                     self.hls_muxers[device_id]["audio_track"] = track
@@ -321,7 +333,10 @@ class WebRTCHandler:
                     LOGGER.info("ICE connection successful!")
                     return
             if pc.iceConnectionState in ["new", "checking"]:
-                LOGGER.warning(f"ICE connection timeout - state stuck at {pc.iceConnectionState}, closing connection")
+                LOGGER.warning(
+                    "ICE connection timeout - state stuck at %s, closing connection",
+                    pc.iceConnectionState,
+                )
                 await pc.close()
 
         task = asyncio.create_task(check_ice_connection_state())
@@ -334,7 +349,7 @@ class WebRTCHandler:
             if pc.iceGatheringState == "complete":
                 break
             await asyncio.sleep(0.1)
-        LOGGER.info(f"ICE gathering state: {pc.iceGatheringState}")
+        LOGGER.info("ICE gathering state: %s", pc.iceGatheringState)
 
     async def _send_answer_and_candidates(self, pc, session_id):
         """Send SDP answer and ICE candidates separately (trickle ICE)"""
@@ -349,14 +364,14 @@ class WebRTCHandler:
 
         clean_answer_sdp = "\r\n".join(answer_sdp_no_candidates)
         candidates_stripped = answer_sdp.count("a=candidate:")
-        LOGGER.info(f"Stripped {candidates_stripped} candidates from answer SDP")
+        LOGGER.info("Stripped %s candidates from answer SDP", candidates_stripped)
 
         # Log SDP for debugging
-        LOGGER.info(f"Full clean answer SDP:\n{clean_answer_sdp}")
+        LOGGER.info("Full clean answer SDP:\n%s", clean_answer_sdp)
 
         if "a=setup:" in clean_answer_sdp:
             setup_line = [line for line in answer_sdp_no_candidates if "a=setup:" in line]
-            LOGGER.info(f"DTLS setup in answer: {setup_line}")
+            LOGGER.info("DTLS setup in answer: %s", setup_line)
 
         # Send answer
         response = {
@@ -394,7 +409,11 @@ class WebRTCHandler:
                         "forward": True,
                     }
                     self.send_websocket(candidate_msg)
-                    LOGGER.info(f"Sent ICE candidate for mid={current_mid}: {candidate_str[:50]}...")
+                    LOGGER.info(
+                        "Sent ICE candidate for mid=%s: %s...",
+                        current_mid,
+                        candidate_str[:50],
+                    )
 
         LOGGER.info("All ICE candidates sent via trickle ICE")
 
@@ -421,12 +440,12 @@ class WebRTCHandler:
             candidate_data: Candidate data from WebSocket message
         """
         if not session_id or not candidate_data:
-            LOGGER.warning(f"Missing session_id or candidate data")
+            LOGGER.warning("Missing session_id or candidate data")
             return
 
         pc = self.peer_connections.get(session_id)
         if not pc:
-            LOGGER.warning(f"No peer connection found for session {session_id}")
+            LOGGER.warning("No peer connection found for session %s", session_id)
             return
 
         try:
@@ -436,9 +455,12 @@ class WebRTCHandler:
                 candidate=candidate_data.get("sdp"),
             )
             await pc.addIceCandidate(candidate)
-            LOGGER.info(f"Added remote ICE candidate: {candidate_data.get('sdp', '')[:60]}...")
+            LOGGER.info(
+                "Added remote ICE candidate: %s...",
+                candidate_data.get("sdp", "")[:60],
+            )
         except Exception as e:
-            LOGGER.error(f"Failed to add remote ICE candidate: {e}")
+            LOGGER.error("Failed to add remote ICE candidate: %s", e)
 
     async def close_session(self, session_id):
         """
@@ -454,9 +476,9 @@ class WebRTCHandler:
                 del self.peer_connections[session_id]
                 if session_id in self.turn_configs:
                     del self.turn_configs[session_id]
-                LOGGER.info(f"Closed and removed peer connection for session {session_id}")
+                LOGGER.info("Closed and removed peer connection for session %s", session_id)
             except Exception as e:
-                LOGGER.error(f"Error closing peer connection: {e}")
+                LOGGER.error("Error closing peer connection: %s", e)
 
     async def cleanup(self):
         """
@@ -467,7 +489,7 @@ class WebRTCHandler:
 
         # Cancel all active tasks
         if hasattr(self, "active_tasks") and self.active_tasks:
-            LOGGER.info(f"Cancelling {len(self.active_tasks)} active tasks")
+            LOGGER.info("Cancelling %s active tasks", len(self.active_tasks))
             for task in list(self.active_tasks):
                 if not task.done():
                     task.cancel()
@@ -478,12 +500,12 @@ class WebRTCHandler:
 
         # Close all peer connections
         if hasattr(self, "peer_connections") and self.peer_connections:
-            LOGGER.info(f"Closing {len(self.peer_connections)} peer connections")
+            LOGGER.info("Closing %s peer connections", len(self.peer_connections))
             for session_id in list(self.peer_connections.keys()):
                 try:
                     await self.close_session(session_id)
                 except Exception as e:
-                    LOGGER.error(f"Error closing session {session_id}: {e}")
+                    LOGGER.error("Error closing session %s: %s", session_id, e)
             self.peer_connections.clear()
 
         # Clear TURN configs
@@ -502,7 +524,7 @@ class WebRTCHandler:
                 self.hls_server.shutdown()
                 LOGGER.info("HLS server stopped")
             except Exception as e:
-                LOGGER.error(f"Error stopping HLS server: {e}")
+                LOGGER.error("Error stopping HLS server: %s", e)
 
         LOGGER.info("WebRTC handler cleanup completed")
 
@@ -563,9 +585,16 @@ class WebRTCHandler:
         thread.start()
         self.hls_server = server
         if device_id:
-            LOGGER.info(f"HLS HTTP server started on http://0.0.0.0:{self.hls_port}/{device_id}/playlist.m3u8")
+            LOGGER.info(
+                "HLS HTTP server started on http://0.0.0.0:%s/%s/playlist.m3u8",
+                self.hls_port,
+                device_id,
+            )
         else:
-            LOGGER.info(f"HLS HTTP server started on http://0.0.0.0:{self.hls_port}/<device_id>/playlist.m3u8")
+            LOGGER.info(
+                "HLS HTTP server started on http://0.0.0.0:%s/<device_id>/playlist.m3u8",
+                self.hls_port,
+            )
 
     def _init_hls_muxer(self, device_id):
         """Initialize HLS muxer for a device"""
@@ -619,13 +648,13 @@ class WebRTCHandler:
                         muxer["video_queue"].put_nowait(frame)
                         muxer["video_ready"] = True
                 except asyncio.QueueFull:
-                    LOGGER.debug(f"Video queue full for {device_id}, dropping frame")
+                    LOGGER.debug("Video queue full for %s, dropping frame", device_id)
         except Exception as e:
-            LOGGER.error(f"Error reading video frames: {e}")
+            LOGGER.error("Error reading video frames: %s", e)
 
     async def _read_audio_frames(self, device_id, track):
         """Read audio frames and put them in the queue"""
-        LOGGER.info(f"[AUDIO] Audio track started for device {device_id}")
+        LOGGER.info("[AUDIO] Audio track started for device %s", device_id)
         try:
             first_frame = True
             audio_frame_count = 0
@@ -657,14 +686,18 @@ class WebRTCHandler:
                 except asyncio.TimeoutError:
                     error_count += 1
                     if error_count == 1:
-                        LOGGER.warning(f"[AUDIO] No audio frames from camera for device {device_id}")
+                        LOGGER.warning("[AUDIO] No audio frames from camera for device %s", device_id)
                     await asyncio.sleep(0.5)
 
                 except Exception as frame_error:
                     error_count += 1
                     # Log only every 100 errors to avoid spam
                     if error_count % 100 == 1:
-                        LOGGER.warning(f"[AUDIO] Audio receive errors ({error_count}x): {type(frame_error).__name__}")
+                        LOGGER.warning(
+                            "[AUDIO] Audio receive errors (%sx): %s",
+                            error_count,
+                            type(frame_error).__name__,
+                        )
                     await asyncio.sleep(0.1)
 
                 # If we hit many consecutive failures, mark audio_failed to avoid blocking video
@@ -672,11 +705,15 @@ class WebRTCHandler:
                     muxer = self.hls_muxers.get(device_id)
                     if muxer:
                         muxer["audio_failed"] = True
-                    LOGGER.error(f"[AUDIO] Too many errors ({error_count}), disabling audio for device {device_id}")
+                    LOGGER.error(
+                        "[AUDIO] Too many errors (%s), disabling audio for device %s",
+                        error_count,
+                        device_id,
+                    )
                     return
 
         except Exception as e:
-            LOGGER.error(f"[AUDIO] Fatal error in audio reader: {e}")
+            LOGGER.error("[AUDIO] Fatal error in audio reader: %s", e)
 
     async def _hls_muxer_task(self, device_id):
         """Single task that muxes audio+video frames into HLS segments"""
@@ -684,7 +721,7 @@ class WebRTCHandler:
         if not muxer:
             return
 
-        LOGGER.info(f"HLS muxer task started for device {device_id}")
+        LOGGER.info("HLS muxer task started for device %s", device_id)
 
         try:
             # Wait for video track to arrive (mandatory) and audio (best effort)
@@ -692,7 +729,10 @@ class WebRTCHandler:
             while not muxer["video_ready"]:
                 elapsed = time.time() - wait_start
                 if elapsed > 5:
-                    LOGGER.error(f"[TRACKS] Timeout waiting for video track (>{elapsed:.1f}s), aborting muxer")
+                    LOGGER.error(
+                        "[TRACKS] Timeout waiting for video track (>%0.1fs), aborting muxer",
+                        elapsed,
+                    )
                     return
                 await asyncio.sleep(0.1)
 
@@ -701,7 +741,11 @@ class WebRTCHandler:
             while not muxer["audio_ready"] and (time.time() - wait_start) < 5:
                 await asyncio.sleep(0.1)
 
-            LOGGER.info(f"[TRACKS] Starting muxer - Video: {muxer['video_ready']}, Audio: {muxer['audio_ready']}")
+            LOGGER.info(
+                "[TRACKS] Starting muxer - Video: %s, Audio: %s",
+                muxer["video_ready"],
+                muxer["audio_ready"],
+            )
 
             audio_no_stream_warns = 0
 
@@ -744,7 +788,7 @@ class WebRTCHandler:
                             muxer["container"].mux(packet)
                         muxer["frame_count"] += 1
                     except Exception as e:
-                        LOGGER.warning(f"Error encoding video: {e}")
+                        LOGGER.warning("Error encoding video: %s", e)
 
                 if audio_frame and muxer.get("audio_failed"):
                     # Drop audio frames silently if audio setup failed
@@ -754,7 +798,10 @@ class WebRTCHandler:
                     try:
                         # Reformat audio if needed
                         if audio_frame.format.name != "s16":
-                            LOGGER.debug(f"[AUDIO] Reformatting from {audio_frame.format.name} to s16")
+                            LOGGER.debug(
+                                "[AUDIO] Reformatting from %s to s16",
+                                audio_frame.format.name,
+                            )
                             audio_frame = audio_frame.reformat(format="s16")
 
                         audio_frame.pts = muxer.get("audio_pts", 0)
@@ -764,11 +811,11 @@ class WebRTCHandler:
                         if packets:
                             for packet in packets:
                                 muxer["container"].mux(packet)
-                            LOGGER.debug(f"[AUDIO] Encoded frame into {len(packets)} packets")
+                            LOGGER.debug("[AUDIO] Encoded frame into %s packets", len(packets))
                         else:
                             LOGGER.debug("[AUDIO] No packets produced")
                     except Exception as e:
-                        LOGGER.error(f"[AUDIO] Encoding error: {e}", exc_info=True)
+                        LOGGER.error("[AUDIO] Encoding error: %s", e, exc_info=True)
                 elif audio_frame and not muxer["audio_stream"]:
                     audio_no_stream_warns += 1
                     if audio_no_stream_warns == 1 or audio_no_stream_warns % 200 == 0:
@@ -779,7 +826,7 @@ class WebRTCHandler:
                     await asyncio.sleep(0.001)
 
         except Exception as e:
-            LOGGER.error(f"Error in HLS muxer task: {e}")
+            LOGGER.error("Error in HLS muxer task: %s", e)
             LOGGER.exception("Details:")
 
     async def _create_hls_segment(self, device_id):
@@ -819,7 +866,13 @@ class WebRTCHandler:
                 # Force a stable framerate to avoid mis-detected 120fps and segment glitches
                 fps = 30.0
                 gop = int(self.hls_segment_duration * fps)
-                LOGGER.debug(f"[VIDEO] Creating video stream {width}x{height} @ {fps:.2f}fps (gop={gop})")
+                LOGGER.debug(
+                    "[VIDEO] Creating video stream %sx%s @ %0.2ffps (gop=%s)",
+                    width,
+                    height,
+                    fps,
+                    gop,
+                )
 
                 video_stream = container.add_stream("libx264", rate=fps)
                 video_stream.width = width
@@ -844,7 +897,7 @@ class WebRTCHandler:
                 # Put the frame back in the queue
                 muxer["video_queue"].put_nowait(video_frame)
             except Exception as e:
-                LOGGER.warning(f"Error adding video stream: {e}")
+                LOGGER.warning("Error adding video stream: %s", e)
                 muxer["container"] = None
                 return
 
@@ -864,7 +917,11 @@ class WebRTCHandler:
                 if audio_frame:
                     num_channels = len(audio_frame.layout.channels)
                     sample_rate = audio_frame.sample_rate
-                    LOGGER.debug(f"[AUDIO] Creating audio stream: {num_channels}ch @ {sample_rate}Hz")
+                    LOGGER.debug(
+                        "[AUDIO] Creating audio stream: %sch @ %sHz",
+                        num_channels,
+                        sample_rate,
+                    )
 
                     try:
                         audio_stream = container.add_stream("aac", rate=sample_rate)
@@ -880,7 +937,7 @@ class WebRTCHandler:
                             muxer["audio_stream"] = audio_stream
                             LOGGER.info("[AUDIO] Using MP3 codec (AAC unavailable)")
                         except Exception as e:
-                            LOGGER.error(f"[AUDIO] Failed to create audio stream: {e}")
+                            LOGGER.error("[AUDIO] Failed to create audio stream: %s", e)
                             muxer["audio_stream"] = None
                             muxer["audio_failed"] = True
 
@@ -888,7 +945,7 @@ class WebRTCHandler:
                     if muxer["audio_stream"]:
                         muxer["audio_queue"].put_nowait(audio_frame)
             except Exception as e:
-                LOGGER.error(f"[AUDIO] Error adding audio stream: {e}")
+                LOGGER.error("[AUDIO] Error adding audio stream: %s", e)
                 muxer["audio_failed"] = True
 
         muxer["container"] = container
@@ -909,7 +966,7 @@ class WebRTCHandler:
                 video_packets = list(muxer["video_stream"].encode(None))
                 for packet in video_packets:
                     muxer["container"].mux(packet)
-                LOGGER.debug(f"[VIDEO] Flushed {len(video_packets)} packets")
+                LOGGER.debug("[VIDEO] Flushed %s packets", len(video_packets))
 
             if muxer["audio_stream"]:
                 audio_packets = list(muxer["audio_stream"].encode(None))
@@ -920,7 +977,11 @@ class WebRTCHandler:
             muxer["container"].close()
 
             # Debug segment stats to trace freezes
-            LOGGER.debug(f"[HLS] Closed segment {muxer['segment_index'] - 1} with {muxer['frame_count']} video frames")
+            LOGGER.debug(
+                "[HLS] Closed segment %s with %s video frames",
+                muxer["segment_index"] - 1,
+                muxer["frame_count"],
+            )
 
             # Update playlist
             self._update_hls_playlist(device_id)
@@ -932,7 +993,7 @@ class WebRTCHandler:
             muxer["segment_start_time"] = None
 
         except Exception as e:
-            LOGGER.error(f"Error closing HLS segment: {e}")
+            LOGGER.error("Error closing HLS segment: %s", e)
 
     def _update_hls_playlist(self, device_id):
         """Update HLS playlist for a device"""
@@ -974,7 +1035,7 @@ class WebRTCHandler:
                         segment_count += 1
 
         self.hls_segments[device_id]["playlist"] = playlist.encode("utf-8")
-        LOGGER.debug(f"Updated playlist for {device_id} with {segment_count} segments")
+        LOGGER.debug("Updated playlist for %s with %s segments", device_id, segment_count)
 
         # Clean up old segments from disk and memory
         for i in range(max(0, start_index - 10), start_index):

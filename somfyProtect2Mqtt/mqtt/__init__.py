@@ -41,16 +41,16 @@ class MQTTClient:
     def on_connect(self, _mqttc, _obj, _flags, rc):
         """MQTT on_connect"""
         if rc == 0:
-            LOGGER.info(f"Connected: {rc}")
+            LOGGER.info("Connected: %s", rc)
             for topic in SUBSCRIBE_TOPICS:
-                LOGGER.info(f"Subscribing to: {topic}")
+                LOGGER.info("Subscribing to: %s", topic)
                 self.client.subscribe(topic)
         else:
-            LOGGER.info(f"Not Connected: {rc}")
+            LOGGER.info("Not Connected: %s", rc)
 
     def on_message(self, _mqttc, _obj, msg):
         """MQTT on_message"""
-        LOGGER.debug(f"Message received on {msg.topic}: {msg.payload}")
+        LOGGER.debug("Message received on %s: %s", msg.topic, msg.payload)
         consume_mqtt_message(
             msg=msg,
             mqtt_config=self.config,
@@ -60,7 +60,7 @@ class MQTTClient:
 
     def on_publish(self, _mqttc, _obj, result):
         """MQTT on_publish"""
-        LOGGER.debug(f"Message published: {result}")
+        LOGGER.debug("Message published: %s", result)
 
     def on_disconnect(self, _userdata, rc, _properties=None):
         """MQTT on_disconnect"""

@@ -26,7 +26,7 @@ shutdown_flag = False
 def signal_handler(sig, _frame):
     """Handle shutdown signals"""
     global shutdown_flag
-    LOGGER.info(f"Received signal {sig}, shutting down gracefully...")
+    LOGGER.info("Received signal %s, shutting down gracefully...", sig)
     shutdown_flag = True
     sys.exit(0)
 
@@ -38,7 +38,7 @@ def somfy_protect_loop(config, mqtt_client, api):
         time.sleep(1)
         somfy_protect_api.loop()
     except SomfyProtectInitError as exc:
-        LOGGER.error(f"Force stopping Api {exc}")
+        LOGGER.error("Force stopping Api %s", exc)
         if somfy_protect_api:
             close_and_exit(somfy_protect_api, 0)
 
@@ -50,7 +50,7 @@ def somfy_protect_wss_loop(sso, debug, config, mqtt_client, api):
         wss = SomfyProtectWebsocket(sso=sso, debug=debug, config=config, mqtt_client=mqtt_client, api=api)
         wss.run_forever()
     except Exception as exc:
-        LOGGER.error(f"Force stopping WebSocket {exc}")
+        LOGGER.error("Force stopping WebSocket %s", exc)
         if wss:
             wss.close()
     finally:
@@ -73,7 +73,7 @@ if __name__ == "__main__":
 
     # Setup Logger
     setup_logger(debug=DEBUG, filename="somfyProtect2Mqtt.log")
-    LOGGER.info(f"Starting SomfyProtect2Mqtt {VERSION}")
+    LOGGER.info("Starting SomfyProtect2Mqtt %s", VERSION)
 
     CONFIG = read_config_file(CONFIG_FILE)
 
@@ -141,4 +141,4 @@ if __name__ == "__main__":
             time.sleep(1)
 
     except Exception as exp:
-        LOGGER.error(f"Force stopping application {exp}")
+        LOGGER.error("Force stopping application %s", exp)

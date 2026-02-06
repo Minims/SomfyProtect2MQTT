@@ -108,7 +108,7 @@ class SomfyProtectApi:
         Returns:
             Response: Requests response object.
         """
-        LOGGER.debug(f"{base_url}{path}")
+        LOGGER.debug("%s%s", base_url, path)
         return self._request("get", path, base_url)
 
     def post(self, path: str, *, json: Dict[str, Any]) -> Response:

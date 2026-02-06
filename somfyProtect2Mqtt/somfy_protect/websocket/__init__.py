@@ -59,7 +59,7 @@ class SomfyProtectWebsocket:
 
         if debug:
             websocket.enableTrace(True)
-            LOGGER.debug(f"Opening websocket connection to {WEBSOCKET}")
+            LOGGER.debug("Opening websocket connection to %s", WEBSOCKET)
         self.token = self.sso.request_token()
         websocket.setdefaulttimeout(5)
         self._websocket = WebSocketApp(
@@ -84,7 +84,7 @@ class SomfyProtectWebsocket:
             future = asyncio.run_coroutine_threadsafe(self.on_message(_ws_app, message), self.loop)
             future.result()  # Wait for completion
         except Exception as e:
-            LOGGER.error(f"Error in message wrapper: {e}")
+            LOGGER.error("Error in message wrapper: %s", e)
 
     def run_forever(self):
         """Run Forever Loop"""
@@ -114,7 +114,7 @@ class SomfyProtectWebsocket:
                     # Give it a moment to clean up
                     time.sleep(0.5)
             except Exception as e:
-                LOGGER.error(f"Error cleaning up WebRTC handler: {e}")
+                LOGGER.error("Error cleaning up WebRTC handler: %s", e)
 
         # Stop the event loop
         if hasattr(self, "loop") and self.loop:
@@ -129,7 +129,7 @@ class SomfyProtectWebsocket:
                     self.loop.close()
                 LOGGER.info("Event loop closed successfully")
             except Exception as e:
-                LOGGER.error(f"Error closing event loop: {e}")
+                LOGGER.error("Error closing event loop: %s", e)
 
     def start_webrtc_stream(self, site_id: str, device_id: str, session_id: str = None):
         """Start a WebRTC video stream session"""
@@ -144,16 +144,16 @@ class SomfyProtectWebsocket:
             "session_id": session_id,
         }
         self.send_websocket_message(message)
-        LOGGER.info(f"Sent video.webrtc.start for device {device_id}, session {session_id}")
+        LOGGER.info("Sent video.webrtc.start for device %s, session %s", device_id, session_id)
         return session_id
 
     def on_ping(self, _ws_app, message):
         """Handle Ping Message"""
-        LOGGER.debug(f"Ping Message: {message}")
+        LOGGER.debug("Ping Message: %s", message)
 
     def on_pong(self, _ws_app, message):
         """Handle Pong Message"""
-        LOGGER.debug(f"Pong Message: {message}")
+        LOGGER.debug("Pong Message: %s", message)
         if (time.time() - self.time) > 1800:
             self.close()
 
@@ -227,11 +227,11 @@ class SomfyProtectWebsocket:
             else:
                 callback(message_json)
         else:
-            LOGGER.debug(f"Unknown message: {message}")
+            LOGGER.debug("Unknown message: %s", message)
 
     def on_error(self, _ws_app, error):
         """Handle Websocket Errors"""
-        LOGGER.error(f"Error in the websocket connection: {error}")
+        LOGGER.error("Error in the websocket connection: %s", error)
 
     def on_open(self, _ws_app):
         """Handle Websocket Open Connection"""
@@ -239,37 +239,37 @@ class SomfyProtectWebsocket:
 
     def on_close(self, _ws_app, close_status_code, close_msg):
         """Handle Websocket Close Connection"""
-        LOGGER.info(f"Websocket on_close, status {close_status_code} => {close_msg}")
+        LOGGER.info("Websocket on_close, status %s => %s", close_status_code, close_msg)
 
     def device_gate_triggered_from_monitor(self, message):
         """Gate Open from Monitor"""
-        LOGGER.info(f"Gate Open from Monitor: {message}")
+        LOGGER.info("Gate Open from Monitor: %s", message)
 
     def device_answered_call_from_mobile(self, message):
         """Answer Call from Mobile"""
-        LOGGER.info(f"Answer Call from Mobile: {message}")
+        LOGGER.info("Answer Call from Mobile: %s", message)
 
     def device_answered_call_from_monitor(self, message):
         """Answer Call from Monitor"""
-        LOGGER.info(f"Answer Call from Monitor: {message}")
+        LOGGER.info("Answer Call from Monitor: %s", message)
 
     def device_gate_triggered_from_mobile(self, message):
         """Gate Open from Mobile"""
-        LOGGER.info(f"Gate Open from Mobile: {message}")
+        LOGGER.info("Gate Open from Mobile: %s", message)
 
     async def video_webrtc_hang_up(self, message):
         """WEBRTC HangUP"""
-        LOGGER.info(f"WEBRTC HangUp: {message}")
+        LOGGER.info("WEBRTC HangUp: %s", message)
         session_id = message.get("session_id")
         await self.webrtc_handler.close_session(session_id)
 
     def video_webrtc_keep_alive(self, message):
         """WEBRTC KeepAlive"""
-        LOGGER.info(f"WEBRTC KeepAlive: {message}")
+        LOGGER.info("WEBRTC KeepAlive: %s", message)
 
     def video_webrtc_session(self, message):
         """WEBRTC Session"""
-        LOGGER.info(f"WEBRTC Session: {message}")
+        LOGGER.info("WEBRTC Session: %s", message)
 
     async def video_webrtc_offer(self, message):
         """WEBRTC Offer"""
@@ -277,17 +277,17 @@ class SomfyProtectWebsocket:
 
     def video_webrtc_start(self, message):
         """WEBRTC Start - Initiates WebRTC session"""
-        LOGGER.info(f"WEBRTC Start: {message}")
+        LOGGER.info("WEBRTC Start: %s", message)
         # When we receive this from server, it means session is starting
         # We should have already sent our start request
 
     def video_webrtc_answer(self, message):
         """WEBRTC Answer"""
-        LOGGER.info(f"WEBRTC Answer: {message}")
+        LOGGER.info("WEBRTC Answer: %s", message)
 
     def video_webrtc_turn_config(self, message):
         """WEBRTC Turn Config - Store TURN server configuration"""
-        LOGGER.info(f"WEBRTC Turn Config: {message}")
+        LOGGER.info("WEBRTC Turn Config: %s", message)
         session_id = message.get("session_id")
         turn_data = message.get("turn")
         self.webrtc_handler.store_turn_config(session_id, turn_data)
@@ -302,7 +302,7 @@ class SomfyProtectWebsocket:
         """Someone is ringing at the door."""
         site_id = message.get("site_id")
         device_id = message.get("device_id")
-        LOGGER.info(f"Someone is ringing on {device_id}")
+        LOGGER.info("Someone is ringing on %s", device_id)
         topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/ringing"
         payload = {"ringing": "True"}
         mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True)
@@ -324,7 +324,7 @@ class SomfyProtectWebsocket:
         """Call missed."""
         site_id = message.get("site_id")
         device_id = message.get("device_id")
-        LOGGER.info(f"Someone has rang on {device_id}")
+        LOGGER.info("Someone has rang on %s", device_id)
         snapshot_cloudfront_url = message.get("snapshot_cloudfront_url")
         clip_cloudfront_url = message.get("clip_cloudfront_url")
         if snapshot_cloudfront_url:
@@ -379,7 +379,7 @@ class SomfyProtectWebsocket:
                 with open(f"{directory}/stream_url_{device_id}", "w", encoding="utf-8") as file:
                     file.write(stream_url)
             except OSError as exc:
-                LOGGER.warning(f"Unable to create directory {directory}: {exc}")
+                LOGGER.warning("Unable to create directory %s: %s", directory, exc)
 
         if self.streaming_config == "mqtt":
             LOGGER.info("Start MQTT Image")
@@ -528,7 +528,7 @@ class SomfyProtectWebsocket:
         device_type = message.get("device_type")
         security_level = "triggered"
         if message.get("type") != "alarm":
-            LOGGER.info(f"{message.get('type')} is not 'alarm'")
+            LOGGER.info("%s is not 'alarm'", message.get("type"))
         payload = {"security_level": security_level}
         topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/state"
 
@@ -687,7 +687,7 @@ class SomfyProtectWebsocket:
         # }
         site_id = message.get("site_id")
         device_id = message.get("device_id")
-        LOGGER.info(f"It Seems the Door {device_id} is moving")
+        LOGGER.info("It Seems the Door %s is moving", device_id)
         topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/pir"
         payload = {"motion_sensor": "True"}
         mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True)
@@ -722,7 +722,7 @@ class SomfyProtectWebsocket:
 
     def default_message(self, message):
         """Default Message"""
-        LOGGER.info(f"[default] Read Message {message}")
+        LOGGER.info("[default] Read Message %s", message)
         topic_suffix = message.get("key")
         site_id = message.get("site_id")
         device_id = message.get("device_id")
@@ -907,7 +907,7 @@ class SomfyProtectWebsocket:
         """Send a message via the WebSocket connection"""
         if self._websocket and self._websocket.sock and self._websocket.sock.connected:
             self._websocket.send(json.dumps(message))
-            LOGGER.debug(f"Sent on Websocket: {message}")
+            LOGGER.debug("Sent on Websocket: %s", message)
         else:
-            LOGGER.warning(f"WebSocket is not connected. Unable to send message: {message}")
+            LOGGER.warning("WebSocket is not connected. Unable to send message: %s", message)
         return

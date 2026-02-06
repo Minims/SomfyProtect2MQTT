@@ -75,12 +75,12 @@ def ha_sites_config(
 
         try:
             scenarios_core = api.get_scenarios_core(site_id=my_site.id)
-            LOGGER.info(f"Scenarios Core for {my_site.label} => {scenarios_core}")
+            LOGGER.info("Scenarios Core for %s => %s", my_site.label, scenarios_core)
             scenarios = api.get_scenarios(site_id=my_site.id)
-            LOGGER.info(f"Scenarios for {my_site.label} => {scenarios}")
-            LOGGER.warning(f"v4 => {api.get_site_scenario(site_id=site_id)}")
+            LOGGER.info("Scenarios for %s => %s", my_site.label, scenarios)
+            LOGGER.warning("v4 => %s", api.get_site_scenario(site_id=site_id))
         except Exception as exp:
-            LOGGER.warning(f"Error while getting scenarios: {exp}")
+            LOGGER.warning("Error while getting scenarios: %s", exp)
             continue
 
 
@@ -112,14 +112,14 @@ def ha_devices_config(
     for site_id in my_sites_id:
         my_devices = api.get_devices(site_id=site_id)
         for device in my_devices:
-            LOGGER.info(f"Configuring Device: {device.label}")
+            LOGGER.info("Configuring Device: %s", device.label)
             settings = device.settings.get("global") or {}
             status = device.status
             status_settings = {**status, **settings}
 
             for state in status_settings:
                 if not DEVICE_CAPABILITIES.get(state):
-                    LOGGER.debug(f"No Config for {state}")
+                    LOGGER.debug("No Config for %s", state)
                     continue
                 device_config = ha_discovery_devices(
                     site_id=site_id,
@@ -147,7 +147,7 @@ def ha_devices_config(
                     SUBSCRIBE_TOPICS.append(device_config.get("config").get("command_topic"))
 
             if "box" in device.device_definition.get("type"):
-                LOGGER.info(f"Found Link {device.device_definition.get('label')}")
+                LOGGER.info("Found Link %s", device.device_definition.get("label"))
                 reboot = ha_discovery_devices(
                     site_id=site_id,
                     device=device,
@@ -179,7 +179,7 @@ def ha_devices_config(
                 SUBSCRIBE_TOPICS.append(halt.get("config").get("command_topic"))
 
             if "camera" in device.device_definition.get("type") or "allinone" in device.device_definition.get("type"):
-                LOGGER.info(f"Found Camera {device.device_definition.get('label')}")
+                LOGGER.info("Found Camera %s", device.device_definition.get("label"))
                 camera_config = ha_discovery_cameras(
                     site_id=site_id,
                     device=device,
@@ -283,7 +283,7 @@ def ha_devices_config(
 
             # Works with Websockets
             if "remote" in device.device_definition.get("type"):
-                LOGGER.info(f"Found {device.device_definition.get('label')}")
+                LOGGER.info("Found %s", device.device_definition.get("label"))
                 key_fob_config = ha_discovery_devices(
                     site_id=site_id,
                     device=device,
@@ -321,7 +321,7 @@ def ha_devices_config(
                     "intrusion",
                     "ok",
                 ]:
-                    LOGGER.info(f"Found mss_siren, adding sound test: {sensor}")
+                    LOGGER.info("Found mss_siren, adding sound test: %s", sensor)
                     mss_siren = ha_discovery_devices(
                         site_id=site_id,
                         device=device,
@@ -338,7 +338,10 @@ def ha_devices_config(
                 SUBSCRIBE_TOPICS.append(mss_siren.get("config").get("command_topic"))
 
             if "pir" in device.device_definition.get("type") or "tag" in device.device_definition.get("type"):
-                LOGGER.info(f"Found Motion Sensor (PIR & IntelliTag) {device.device_definition.get('label')}")
+                LOGGER.info(
+                    "Found Motion Sensor (PIR & IntelliTag) %s",
+                    device.device_definition.get("label"),
+                )
                 pir_config = ha_discovery_devices(
                     site_id=site_id,
                     device=device,
@@ -359,7 +362,7 @@ def ha_devices_config(
                 )
 
             if "smoke" in device.device_definition.get("type"):
-                LOGGER.info(f"Found {device.device_definition.get('label')}")
+                LOGGER.info("Found %s", device.device_definition.get("label"))
                 smoke_config = ha_discovery_devices(
                     site_id=site_id,
                     device=device,
@@ -380,7 +383,7 @@ def ha_devices_config(
                 )
 
             if device.device_definition.get("type") == "doorlock":
-                LOGGER.info(f"DoorLock {device.device_definition.get('label')}")
+                LOGGER.info("DoorLock %s", device.device_definition.get("label"))
 
                 open_door = ha_discovery_devices(
                     site_id=site_id,
@@ -413,7 +416,7 @@ def ha_devices_config(
                 SUBSCRIBE_TOPICS.append(door_force_Lock.get("config").get("command_topic"))
 
             if "videophone" in device.device_definition.get("type"):
-                LOGGER.info(f"VideoPhone {device.device_definition.get('label')}")
+                LOGGER.info("VideoPhone %s", device.device_definition.get("label"))
                 camera_config = ha_discovery_cameras(
                     site_id=site_id,
                     device=device,
@@ -576,7 +579,7 @@ def update_sites_status(
     for site_id in my_sites_id:
         try:
             site = api.get_site(site_id=site_id)
-            LOGGER.info(f"Update {site.label} Status")
+            LOGGER.info("Update %s Status", site.label)
 
             try:
                 # Push status to MQTT
@@ -587,12 +590,12 @@ def update_sites_status(
                     retain=True,
                 )
             except Exception as exp:
-                LOGGER.warning(f"Error while updating MQTT: {exp}")
+                LOGGER.warning("Error while updating MQTT: %s", exp)
                 continue
         except RemoteDisconnected:
             LOGGER.info("Retrying...")
         except Exception as exp:
-            LOGGER.warning(f"Error while refreshing site: {exp}")
+            LOGGER.warning("Error while refreshing site: %s", exp)
             continue
 
         try:
@@ -608,7 +611,7 @@ def update_sites_status(
                     now = datetime.now(paris_tz)
                     if now - occurred_at_date < timedelta(seconds=3600):
                         if occurred_at in HISTORY:
-                            LOGGER.debug(f"History still published: {HISTORY[occurred_at]}")
+                            LOGGER.debug("History still published: %s", HISTORY[occurred_at])
                             continue
                         message_vars = event.get("message_vars")
                         payload = (
@@ -635,7 +638,7 @@ def update_sites_status(
                         )
 
         except Exception as exp:
-            LOGGER.warning(f"Error while getting site history: {exp}")
+            LOGGER.warning("Error while getting site history: %s", exp)
             continue
 
 
@@ -716,7 +719,7 @@ def update_devices_status(
                     retain=True,
                 )
         except Exception as exp:
-            LOGGER.warning(f"Error while refreshing devices: {exp}")
+            LOGGER.warning("Error while refreshing devices: %s", exp)
             continue
 
 
@@ -739,7 +742,7 @@ def update_camera_snapshot(
             ]:
                 my_devices = api.get_devices(site_id=site_id, category=category)
                 for device in my_devices:
-                    LOGGER.info(f"Shutter is {device.status.get('shutter_state', 'opened')}")
+                    LOGGER.info("Shutter is %s", device.status.get("shutter_state", "opened"))
                     if device.status.get("shutter_state", "opened") != "closed":
                         api.camera_refresh_snapshot(site_id=site_id, device_id=device.id)
                         response = api.camera_snapshot(site_id=site_id, device_id=device.id)
@@ -778,7 +781,7 @@ def update_camera_snapshot(
                             os.remove(path)
 
         except Exception as exp:
-            LOGGER.warning(f"Error while refreshing snapshot: {exp}")
+            LOGGER.warning("Error while refreshing snapshot: %s", exp)
             continue
 
 
@@ -804,7 +807,7 @@ def update_visiophone_snapshot(
             for chunk in response.iter_content(1024):  # Lire en morceaux de 1 KB
                 tmp_file.write(chunk)
     except requests.exceptions.RequestException as exc:
-        LOGGER.warning(f"Error while Downloading snapshot: {exc}")
+        LOGGER.warning("Error while Downloading snapshot: %s", exc)
         return
 
     if not path:
@@ -878,7 +881,7 @@ def write_to_media_folder(
         with open(path, "wb") as file:
             for chunk in response.iter_content(1024):  # Lire en morceaux de 1 KB
                 file.write(chunk)
-        LOGGER.info(f"File wrote in {path}")
+        LOGGER.info("File wrote in %s", path)
 
         if send_to_mqtt and media_type == "snapshot":
             # Read and Push to MQTT
@@ -895,8 +898,8 @@ def write_to_media_folder(
             )
 
     except OSError as exc:
-        LOGGER.warning(f"Unable to create directory {directory}: {exc}")
+        LOGGER.warning("Unable to create directory %s: %s", directory, exc)
     except requests.exceptions.RequestException as exc:
-        LOGGER.warning(f"Error while Downloading clip: {exc}")
+        LOGGER.warning("Error while Downloading clip: %s", exc)
     finally:
         LOGGER.info("Write Successful")

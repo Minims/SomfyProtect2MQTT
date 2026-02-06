@@ -45,7 +45,7 @@ def read_config_file(config_file: str) -> Dict[str, Any]:
         return {}
     logging.info(f"Reading config file {config_file}")
     if not os.path.isfile(config_file):
-        LOGGER.error(f"File {config_file} not found")
+        LOGGER.error("File %s not found", config_file)
         return {}
 
     with codecs.open(config_file, "r", "utf8") as file_handler:
@@ -74,7 +74,7 @@ def close_and_exit(
         frame: Signal frame (unused).
     """
     if signal:
-        LOGGER.debug(f"Signal {signal} received")
+        LOGGER.debug("Signal %s received", signal)
     LOGGER.info("Stopping Application")
     if robot:
         robot.close()
