@@ -320,9 +320,11 @@ class SomfyProtectApi:
         response = self.get(f"/v3/site/{site_id}/device")
         try:
             content = response.json()
-        except JSONDecodeError:
+        except JSONDecodeError as exc:
             response.raise_for_status()
-        LOGGER.debug(f"Devices Capabilities: {response.json()}")
+            LOGGER.error("Unable to decode devices response: %s", response.text)
+            raise exc
+        LOGGER.debug("Devices Capabilities: %s", content)
         devices += [
             Device(**d)
             for d in content.get("items")
