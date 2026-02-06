@@ -7,7 +7,7 @@ from json import JSONDecodeError
 from typing import Any, Callable, Dict, List, Optional, Union
 
 from oauthlib.oauth2 import TokenExpiredError
-from requests import Response
+from requests import RequestException, Response
 from requests_oauthlib import OAuth2Session
 
 from somfy_protect.api.devices.category import Category
@@ -85,12 +85,15 @@ class SomfyProtectApi:
         """
 
         url = f"{base_url}{path}"
+        kwargs.setdefault("timeout", 10)
         try:
             return getattr(self.sso._oauth, method)(url, **kwargs)  # pylint: disable=protected-access
         except TokenExpiredError:
             self.sso._oauth.token = self.sso.refresh_tokens()  # pylint: disable=protected-access
-
             return getattr(self.sso._oauth, method)(url, **kwargs)  # pylint: disable=protected-access
+        except RequestException as exc:
+            LOGGER.error("Request failed %s %s: %s", method.upper(), url, exc)
+            raise
 
     def get(self, path: str, base_url: str = BASE_URL) -> Response:
         """Fetch an URL from the Somfy Protect API.
