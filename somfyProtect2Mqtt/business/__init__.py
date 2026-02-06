@@ -629,10 +629,6 @@ def update_sites_status(
             LOGGER.warning(f"Error while getting site history: {exp}")
             continue
 
-        except Exception as exp:
-            LOGGER.warning(f"Error while refreshing site: {exp}")
-            continue
-
 
 def update_devices_status(
     api: SomfyProtectApi,
