@@ -99,7 +99,7 @@ class SomfyProtectSso:
         if self.token_updater is not None:
             self.token_updater(token)
 
-        LOGGER.info("New Token: %s", token)
+        LOGGER.info("New Token: ****")
         return token
 
 
