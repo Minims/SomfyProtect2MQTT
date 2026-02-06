@@ -1,6 +1,6 @@
 """Device Managment"""
 
-from typing import Union
+from typing import Optional, Union
 
 from somfy_protect.api.model import Device, Site
 from somfy_protect.api import SomfyProtectApi
@@ -20,15 +20,15 @@ class SomfyProtectDevice:
         """Refresh State"""
         self.device = self.api.get_device(site_id=self.site.id, device_id=self.device.id)
 
-    def get_version(self) -> float:
+    def get_version(self) -> str:
         """Get HW/FW Version"""
         return self.device.version
 
-    def get_video_backend(self) -> str:
+    def get_video_backend(self) -> Optional[str]:
         """Get Video Backend"""
         return self.device.video_backend
 
-    def get_status(self, status_name: str) -> Union[str, int, float]:
+    def get_status(self, status_name: str) -> Optional[Union[str, int, float]]:
         """Get a Status for the current device.
 
         Args:
@@ -41,7 +41,7 @@ class SomfyProtectDevice:
             return None
         return self.device.status.get(status_name)
 
-    def get_setting(self, setting_name: str) -> Union[str, int, float]:
+    def get_setting(self, setting_name: str) -> Optional[Union[str, int, float]]:
         """Get a Setting for the current device.
 
         Args:

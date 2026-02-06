@@ -156,7 +156,7 @@ class SomfyProtectApi:
         response.raise_for_status()
         return Site(**response.json())
 
-    def get_site_scenario(self, site_id: str) -> Site:
+    def get_site_scenario(self, site_id: str) -> Dict[str, Any]:
         """Get Site
 
         Args:
@@ -274,7 +274,7 @@ class SomfyProtectApi:
         response.raise_for_status()
         return response.json()
 
-    def camera_snapshot(self, site_id: str, device_id: str) -> Device:
+    def camera_snapshot(self, site_id: str, device_id: str) -> Optional[Response]:
         """Get Camera Snapshot
 
         Args:
@@ -292,7 +292,7 @@ class SomfyProtectApi:
         if response.status_code == 200:
             return response
 
-    def camera_refresh_snapshot(self, site_id: str, device_id: str) -> Device:
+    def camera_refresh_snapshot(self, site_id: str, device_id: str) -> Dict[str, Any]:
         """Get Camera Snapshot
 
         Args:
@@ -364,7 +364,7 @@ class SomfyProtectApi:
         response.raise_for_status()
         return [User(**s) for s in response.json().get("items")]
 
-    def get_user(self, site_id: str, user_id: str) -> User:
+    def get_user(self, site_id: str, user_id: str) -> Dict[str, Any]:
         """Get User details
 
         Args:
