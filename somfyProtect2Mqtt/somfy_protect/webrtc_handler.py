@@ -3,6 +3,7 @@
 import asyncio
 import json
 import logging
+import time
 import re
 from fractions import Fraction
 from io import BytesIO
@@ -41,8 +42,6 @@ class SilenceAudioTrack(AudioStreamTrack):
         self._start = None
 
     async def recv(self):
-        import time
-
         import av
 
         if self._start is None:
@@ -234,8 +233,6 @@ class WebRTCHandler:
 
                                 # Convert frame to JPEG and publish to MQTT.
                                 try:
-                                    from PIL import Image
-
                                     # Convert directly to PIL Image from native YUV format (more efficient)
                                     pil_img = frame.to_image()
 
@@ -512,7 +509,6 @@ class WebRTCHandler:
 
     def _start_hls_server(self, device_id=None):
         """Start HTTP server for HLS streaming"""
-        import os
         import threading
         from http.server import BaseHTTPRequestHandler, HTTPServer
 
@@ -570,7 +566,6 @@ class WebRTCHandler:
 
     def _init_hls_muxer(self, device_id):
         """Initialize HLS muxer for a device"""
-        import os
         import tempfile
 
         # Create temporary directory for HLS segments
@@ -679,8 +674,6 @@ class WebRTCHandler:
 
     async def _hls_muxer_task(self, device_id):
         """Single task that muxes audio+video frames into HLS segments"""
-        import time
-
         muxer = self.hls_muxers.get(device_id)
         if not muxer:
             return
@@ -758,7 +751,6 @@ class WebRTCHandler:
                             LOGGER.debug(f"[AUDIO] Reformatting from {audio_frame.format.name} to s16")
                             audio_frame = audio_frame.reformat(format="s16")
 
-                        tb = muxer["audio_stream"].time_base
                         audio_frame.pts = muxer.get("audio_pts", 0)
                         muxer["audio_pts"] = audio_frame.pts + (audio_frame.samples or 0)
 
@@ -786,8 +778,6 @@ class WebRTCHandler:
 
     async def _create_hls_segment(self, device_id):
         """Create a new HLS segment"""
-        import time
-
         muxer = self.hls_muxers.get(device_id)
         if not muxer:
             return
@@ -903,8 +893,6 @@ class WebRTCHandler:
 
     async def _close_hls_segment(self, device_id):
         """Close current HLS segment and update playlist"""
-        import time
-
         muxer = self.hls_muxers.get(device_id)
         if not muxer or not muxer["container"]:
             return

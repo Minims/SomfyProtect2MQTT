@@ -589,8 +589,8 @@ def update_sites_status(
             except Exception as exp:
                 LOGGER.warning(f"Error while updating MQTT: {exp}")
                 continue
-        except RemoteDisconnected as exp:
-            LOGGER.info(f"Retrying...")
+        except RemoteDisconnected:
+            LOGGER.info("Retrying...")
         except Exception as exp:
             LOGGER.warning(f"Error while refreshing site: {exp}")
             continue

@@ -77,11 +77,11 @@ class SomfyProtectWebsocket:
         asyncio.set_event_loop(self.loop)
         self.loop.run_forever()
 
-    def _on_message_wrapper(self, ws_app, message):
+    def _on_message_wrapper(self, _ws_app, message):
         """Wrapper to handle async on_message in sync context"""
         try:
             # Schedule coroutine on the persistent event loop
-            future = asyncio.run_coroutine_threadsafe(self.on_message(ws_app, message), self.loop)
+            future = asyncio.run_coroutine_threadsafe(self.on_message(_ws_app, message), self.loop)
             future.result()  # Wait for completion
         except Exception as e:
             LOGGER.error(f"Error in message wrapper: {e}")
@@ -151,17 +151,17 @@ class SomfyProtectWebsocket:
         LOGGER.info(f"Sent video.webrtc.start for device {device_id}, session {session_id}")
         return session_id
 
-    def on_ping(self, ws_app, message):
+    def on_ping(self, _ws_app, message):
         """Handle Ping Message"""
         LOGGER.debug(f"Ping Message: {message}")
 
-    def on_pong(self, ws_app, message):
+    def on_pong(self, _ws_app, message):
         """Handle Pong Message"""
         LOGGER.debug(f"Pong Message: {message}")
         if (time.time() - self.time) > 1800:
             self.close()
 
-    async def on_message(self, ws_app, message):
+    async def on_message(self, _ws_app, message):
         """Handle New message received on WebSocket"""
         if "websocket.connection.ready" in message:
             LOGGER.info("Websocket Connection is READY")
@@ -233,15 +233,15 @@ class SomfyProtectWebsocket:
         else:
             LOGGER.debug(f"Unknown message: {message}")
 
-    def on_error(self, ws_app, error):
+    def on_error(self, _ws_app, error):
         """Handle Websocket Errors"""
         LOGGER.error(f"Error in the websocket connection: {error}")
 
-    def on_open(self, ws_app):
+    def on_open(self, _ws_app):
         """Handle Websocket Open Connection"""
         LOGGER.info("Opened connection")
 
-    def on_close(self, ws_app, close_status_code, close_msg):
+    def on_close(self, _ws_app, close_status_code, close_msg):
         """Handle Websocket Close Connection"""
         LOGGER.info(f"Websocket on_close, status {close_status_code} => {close_msg}")
 

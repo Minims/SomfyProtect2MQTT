@@ -63,7 +63,7 @@ def close_and_exit(
     robot,
     code: int = 0,
     signal: int = None,
-    frame=None,
+    _frame=None,
 ) -> None:
     """Close resources and exit.
 

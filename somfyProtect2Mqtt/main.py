@@ -5,8 +5,6 @@ import logging
 import signal
 import sys
 
-# import os
-# import subprocess
 import threading
 import time
 
@@ -25,7 +23,7 @@ LOGGER = logging.getLogger(__name__)
 shutdown_flag = False
 
 
-def signal_handler(sig, frame):
+def signal_handler(sig, _frame):
     """Handle shutdown signals"""
     global shutdown_flag
     LOGGER.info(f"Received signal {sig}, shutting down gracefully...")
@@ -87,9 +85,6 @@ if __name__ == "__main__":
     SSO = init_sso(config=CONFIG)
     API = SomfyProtectApi(sso=SSO)
     MQTT_CLIENT = init_mqtt(config=CONFIG, api=API)
-
-    # with open(os.devnull, "w", encoding="utf-8") as t:
-    #     subprocess.Popen(["nohup", "python3", "-m", "http.server", "8080"], stdout=t, stderr=t)
 
     try:
         p1 = threading.Thread(

@@ -79,17 +79,6 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
 
         if not require_parts(2, "site"):
             return
-        # # Manage Stream
-        # if "rtmps" in text_payload:
-        #     LOGGER.info("Start HLS")
-        #     site_id = msg.topic.split("/")[1]
-        #     device_id = msg.topic.split("/")[2]
-        #     rtmps_to_hls(
-        #         device_id=device_id,
-        #         url=text_payload,
-        #         path=os.getcwd(),
-        #     )
-
         # Manage Alarm Status
         if text_payload in ALARM_STATUS:
             LOGGER.info(f"Security Level update ! Setting to {text_payload}")
