@@ -113,7 +113,7 @@ def ha_devices_config(
         my_devices = api.get_devices(site_id=site_id)
         for device in my_devices:
             LOGGER.info(f"Configuring Device: {device.label}")
-            settings = device.settings.get("global")
+            settings = device.settings.get("global") or {}
             status = device.status
             status_settings = {**status, **settings}
 
