@@ -642,9 +642,8 @@ def update_devices_status(
         try:
             my_devices = api.get_devices(site_id=site_id)
             for device in my_devices:
-                if "camera" in device.device_definition.get("type") or "allinone" in device.device_definition.get(
-                    "type" or "videophone" in device.device_definition.get("type")
-                ):
+                device_type = device.device_definition.get("type", "")
+                if "camera" in device_type or "allinone" in device_type or "videophone" in device_type:
                     video_backend = device.video_backend
                     mqtt_publish(
                         mqtt_client=mqtt_client,
@@ -653,7 +652,7 @@ def update_devices_status(
                         retain=True,
                     )
 
-                if "videophone" in device.device_definition.get("type"):
+                if "videophone" in device_type:
                     events = api.get_device_events(site_id=site_id, device_id=device.id)
                     if events:
                         send_to_mqtt = True
@@ -686,9 +685,10 @@ def update_devices_status(
                                     send_to_mqtt=send_to_mqtt,
                                 )
 
-                settings = device.settings.get("global")
-                if device.settings.get("global").get("user_id"):
-                    DEVICE_TAG[device.settings.get("global").get("user_id")] = device.id
+                settings = device.settings.get("global") or {}
+                user_id = settings.get("user_id")
+                if user_id:
+                    DEVICE_TAG[user_id] = device.id
                 status = device.status
                 status_settings = {**status, **settings}
 
@@ -731,7 +731,7 @@ def update_camera_snapshot(
                     if device.status.get("shutter_state", "opened") != "closed":
                         api.camera_refresh_snapshot(site_id=site_id, device_id=device.id)
                         response = api.camera_snapshot(site_id=site_id, device_id=device.id)
-                        if response.status_code == 200:
+                        if response and response.status_code == 200:
                             now = datetime.now()
                             timestamp = int(now.timestamp())
 
@@ -781,6 +781,7 @@ def update_visiophone_snapshot(
     LOGGER.info("Download VisioPhone Snapshot")
     now = datetime.now()
     timestamp = int(now.timestamp())
+    path = None
 
     try:
         response = requests.get(url, stream=True)
@@ -792,6 +793,11 @@ def update_visiophone_snapshot(
                 tmp_file.write(chunk)
     except requests.exceptions.RequestException as exc:
         LOGGER.warning(f"Error while Downloading snapshot: {exc}")
+        return
+
+    if not path:
+        LOGGER.warning("Snapshot file path not set")
+        return
 
     # Add Watermark
     insert_watermark(
