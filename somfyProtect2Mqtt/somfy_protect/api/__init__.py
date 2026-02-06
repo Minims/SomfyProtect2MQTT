@@ -1,18 +1,16 @@
 """Somfy Protect Api"""
 
 import base64
-import logging
 import json
+import logging
 from json import JSONDecodeError
 from typing import Any, Callable, Dict, List, Optional, Union
 
 from oauthlib.oauth2 import TokenExpiredError
 from requests import RequestException, Response
 from requests_oauthlib import OAuth2Session
-
 from somfy_protect.api.devices.category import Category
 from somfy_protect.api.model import AvailableStatus, Device, Site, User
-
 from somfy_protect.sso import SomfyProtectSso, read_token_from_file
 
 LOGGER = logging.getLogger(__name__)

@@ -4,8 +4,8 @@ import codecs
 import logging
 import logging.handlers
 import os
-from typing import Any, Dict
 import sys
+from typing import Any, Dict
 
 import yaml
 from yaml.parser import ParserError

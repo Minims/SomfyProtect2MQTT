@@ -3,17 +3,17 @@
 import logging
 from time import sleep
 
-from exceptions import SomfyProtectInitError
 import schedule
-from somfy_protect.api import SomfyProtectApi
 from business import (
+    ha_devices_config,
+    ha_sites_config,
     update_camera_snapshot,
     update_devices_status,
     update_sites_status,
-    ha_devices_config,
-    ha_sites_config,
 )
+from exceptions import SomfyProtectInitError
 from mqtt import MQTTClient
+from somfy_protect.api import SomfyProtectApi
 
 LOGGER = logging.getLogger(__name__)
 

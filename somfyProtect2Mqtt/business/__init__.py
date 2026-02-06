@@ -3,25 +3,25 @@
 import logging
 import os
 from datetime import datetime, timedelta
-import pytz
+from http.client import RemoteDisconnected
 from time import sleep
 
+import pytz
+import requests
 import schedule
-from business.mqtt import mqtt_publish, SUBSCRIBE_TOPICS
+from business.mqtt import SUBSCRIBE_TOPICS, mqtt_publish
 from business.watermark import insert_watermark
 from exceptions import SomfyProtectInitError
-from http.client import RemoteDisconnected
 from homeassistant.ha_discovery import (
     ALARM_STATUS,
     DEVICE_CAPABILITIES,
     ha_discovery_alarm,
     ha_discovery_alarm_actions,
-    ha_discovery_history,
     ha_discovery_cameras,
     ha_discovery_devices,
+    ha_discovery_history,
 )
 from mqtt import MQTTClient
-import requests
 from somfy_protect.api import SomfyProtectApi
 from somfy_protect.api.devices.category import Category
 

@@ -2,8 +2,8 @@
 
 from typing import Optional, Union
 
-from somfy_protect.api.model import Device, Site
 from somfy_protect.api import SomfyProtectApi
+from somfy_protect.api.model import Device, Site
 
 
 class SomfyProtectDevice:

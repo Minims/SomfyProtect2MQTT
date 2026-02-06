@@ -6,7 +6,7 @@ import ssl
 from time import sleep
 
 import paho.mqtt.client as mqtt
-from business.mqtt import consume_mqtt_message, SUBSCRIBE_TOPICS
+from business.mqtt import SUBSCRIBE_TOPICS, consume_mqtt_message
 from exceptions import SomfyProtectInitError
 from homeassistant.ha_discovery import ALARM_STATUS
 from somfy_protect.api import SomfyProtectApi

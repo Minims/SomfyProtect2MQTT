@@ -11,12 +11,12 @@ import threading
 import time
 
 from exceptions import SomfyProtectInitError
-from somfy_protect_2_mqtt import SomfyProtect2Mqtt
-from utils import close_and_exit, setup_logger, read_config_file
 from mqtt import init_mqtt
-from somfy_protect.sso import init_sso
 from somfy_protect.api import SomfyProtectApi
+from somfy_protect.sso import init_sso
 from somfy_protect.websocket import SomfyProtectWebsocket
+from somfy_protect_2_mqtt import SomfyProtect2Mqtt
+from utils import close_and_exit, read_config_file, setup_logger
 
 VERSION = "2026.1.1"
 LOGGER = logging.getLogger(__name__)

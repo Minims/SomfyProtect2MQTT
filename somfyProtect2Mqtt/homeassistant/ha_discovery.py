@@ -1,7 +1,8 @@
 """HomeAssistant MQTT Auto Discover"""
 
 import logging
-from somfy_protect.api.model import Site, Device
+
+from somfy_protect.api.model import Device, Site
 
 LOGGER = logging.getLogger(__name__)
 

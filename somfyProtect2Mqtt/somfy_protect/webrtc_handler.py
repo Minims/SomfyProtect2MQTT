@@ -7,6 +7,8 @@ import re
 from fractions import Fraction
 from io import BytesIO
 
+# Suppress ffmpeg/libav warnings at C library level
+import av
 from aiortc import (
     AudioStreamTrack,
     RTCConfiguration,
@@ -16,9 +18,6 @@ from aiortc import (
     RTCSessionDescription,
 )
 from business.mqtt import mqtt_publish
-
-# Suppress ffmpeg/libav warnings at C library level
-import av
 
 # Set PyAV logging level to ERROR to suppress FFmpeg warnings
 av.logging.set_level(av.logging.ERROR)
@@ -42,8 +41,9 @@ class SilenceAudioTrack(AudioStreamTrack):
         self._start = None
 
     async def recv(self):
-        import av
         import time
+
+        import av
 
         if self._start is None:
             self._start = time.time()
@@ -512,9 +512,9 @@ class WebRTCHandler:
 
     def _start_hls_server(self, device_id=None):
         """Start HTTP server for HLS streaming"""
-        from http.server import BaseHTTPRequestHandler, HTTPServer
-        import threading
         import os
+        import threading
+        from http.server import BaseHTTPRequestHandler, HTTPServer
 
         handler = self
 
@@ -570,8 +570,8 @@ class WebRTCHandler:
 
     def _init_hls_muxer(self, device_id):
         """Initialize HLS muxer for a device"""
-        import tempfile
         import os
+        import tempfile
 
         # Create temporary directory for HLS segments
         temp_dir = tempfile.mkdtemp(prefix=f"hls_{device_id}_")
@@ -942,8 +942,8 @@ class WebRTCHandler:
 
     def _update_hls_playlist(self, device_id):
         """Update HLS playlist for a device"""
-        import os
         import math
+        import os
 
         muxer = self.hls_muxers.get(device_id)
         if not muxer:
