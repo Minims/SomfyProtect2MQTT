@@ -610,19 +610,28 @@ def update_sites_status(
                         if occurred_at in HISTORY:
                             LOGGER.debug(f"History still published: {HISTORY[occurred_at]}")
                             continue
-                        payload = f"{event.get('message_key')} {event.get('message_vars').get('userDsp')} {event.get('message_vars').get('siteLabel')}"
-                        payload = payload.replace("None", "").strip().strip('"').replace(".", " ").title()
+                        message_vars = event.get("message_vars")
+                        payload = (
+                            f"{event.get('message_key')}"
+                            f" {message_vars.get('userDsp')}"
+                            f" {message_vars.get('siteLabel')}"
+                        )
+                        payload = payload.replace("None", "").strip().strip('"')
+                        payload = payload.replace(".", " ").title()
                         HISTORY[occurred_at] = payload
-                        LOGGER.info(f"Publishing History: {HISTORY[occurred_at]}")
+                        LOGGER.info("Publishing History: %s", HISTORY[occurred_at])
                         mqtt_publish(
                             mqtt_client=mqtt_client,
-                            topic=f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/history",
+                        topic=f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/history",
                             payload=payload,
                             retain=True,
                         )
                     else:
                         LOGGER.debug(
-                            f"Event is too old {event.get('message_key')} {event.get('message_vars').get('userDsp')} {event.get('message_vars').get('siteLabel')}"
+                            "Event is too old %s %s %s",
+                            event.get("message_key"),
+                            message_vars.get("userDsp"),
+                            message_vars.get("siteLabel"),
                         )
 
         except Exception as exp:
@@ -647,7 +656,10 @@ def update_devices_status(
                     video_backend = device.video_backend
                     mqtt_publish(
                         mqtt_client=mqtt_client,
-                        topic=f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/video_backend",
+                        topic=(
+                            f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/"
+                            f"{site_id}/{device.id}/video_backend"
+                        ),
                         payload={"video_backend": video_backend},
                         retain=True,
                     )
@@ -658,7 +670,7 @@ def update_devices_status(
                         send_to_mqtt = True
                         for event in events:
                             if event.get("clip_cloudfront_url"):
-                                LOGGER.info(f"Found a video: {event.get('clip_cloudfront_url')}")
+                                LOGGER.info("Found a video: %s", event.get("clip_cloudfront_url"))
                                 write_to_media_folder(
                                     url=event.get("clip_cloudfront_url"),
                                     site_id=site_id,
@@ -671,7 +683,7 @@ def update_devices_status(
                                     mqtt_config=mqtt_config,
                                 )
                             if event.get("snapshot_cloudfront_url"):
-                                LOGGER.info(f"Found a snapshot {event.get('snapshot_cloudfront_url')}")
+                                LOGGER.info("Found a snapshot %s", event.get("snapshot_cloudfront_url"))
                                 write_to_media_folder(
                                     url=event.get("snapshot_cloudfront_url"),
                                     site_id=site_id,

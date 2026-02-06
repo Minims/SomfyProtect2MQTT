@@ -42,8 +42,6 @@ class SilenceAudioTrack(AudioStreamTrack):
         self._start = None
 
     async def recv(self):
-        import av
-
         if self._start is None:
             self._start = time.time()
 
@@ -288,7 +286,8 @@ class WebRTCHandler:
 
                 else:
                     LOGGER.info(
-                        f"Video track received but streaming_config is not 'mqtt' or 'go2rtc' (current: {self.streaming_config})"
+                        "Video track received but streaming_config is not 'mqtt' or 'go2rtc' (current: %s)",
+                        self.streaming_config,
                     )
             elif track.kind == "audio":
                 if self.streaming_config == "go2rtc":
@@ -636,7 +635,10 @@ class WebRTCHandler:
 
                     if first_frame:
                         LOGGER.info(
-                            f"[AUDIO] Receiving audio: {frame.format.name}, {frame.layout.channels}ch @ {frame.sample_rate}Hz"
+                            "[AUDIO] Receiving audio: %s, %sch @ %sHz",
+                            frame.format.name,
+                            frame.layout.channels,
+                            frame.sample_rate,
                         )
                         first_frame = False
 

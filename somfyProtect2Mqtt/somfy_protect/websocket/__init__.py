@@ -5,7 +5,9 @@ import json
 import logging
 import os
 import ssl
+import threading
 import time
+import uuid
 
 import websocket
 from business import update_visiophone_snapshot, write_to_media_folder
@@ -51,8 +53,6 @@ class SomfyProtectWebsocket:
 
         # Create a dedicated event loop for async operations in a separate thread
         self.loop = asyncio.new_event_loop()
-
-        import threading
 
         self.loop_thread = threading.Thread(target=self._run_event_loop, daemon=True)
         self.loop_thread.start()
@@ -112,8 +112,6 @@ class SomfyProtectWebsocket:
                 if hasattr(self, "loop") and self.loop and self.loop.is_running():
                     asyncio.run_coroutine_threadsafe(self.webrtc_handler.cleanup(), self.loop)
                     # Give it a moment to clean up
-                    import time
-
                     time.sleep(0.5)
             except Exception as e:
                 LOGGER.error(f"Error cleaning up WebRTC handler: {e}")
@@ -135,8 +133,6 @@ class SomfyProtectWebsocket:
 
     def start_webrtc_stream(self, site_id: str, device_id: str, session_id: str = None):
         """Start a WebRTC video stream session"""
-        import uuid
-
         if not session_id:
             session_id = str(uuid.uuid4()).replace("-", "").upper()
 
@@ -820,7 +816,9 @@ class SomfyProtectWebsocket:
         # "key":"snapshotready",
         # "snapshot_id":"XXX",
         # "device_id":"XXX",
-        # "snapshot_url":"https:\/\/video-cdn.myfox.io\/camera_snapshot\/XXX\/XXX.XXX-s?Expires=1647629662&Signature=XXX-XXX~XXX~XXX~XXX~XXX-XXX~XXX~XXX&Key-Pair-Id=XXX",
+        # "snapshot_url":"https:\/\/video-cdn.myfox.io\/camera_snapshot\/XXX\/XXX.XXX-s"
+        #                 "?Expires=1647629662&Signature=XXX-XXX~XXX~XXX~XXX~XXX-XXX~XXX~XXX"
+        #                 "&Key-Pair-Id=XXX",
         # "message_id":"XXX",
         # "type":"event"
         # }

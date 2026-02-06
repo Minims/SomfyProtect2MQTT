@@ -1,0 +1,12 @@
+[MASTER]
+extension-pkg-allow-list=av,cv2
+
+[LOGGING]
+logging-format-style=new
+logging-modules=logging
+
+[MESSAGES CONTROL]
+disable=logging-fstring-interpolation
+
+[FORMAT]
+max-line-length=120
