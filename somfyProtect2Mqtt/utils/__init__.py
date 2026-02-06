@@ -64,7 +64,7 @@ def close_and_exit(
     code: int = 0,
     signal: int = None,
     frame=None,
-) -> None:  # pylint: disable=unused-argument
+) -> None:
     """Close resources and exit.
 
     Args:

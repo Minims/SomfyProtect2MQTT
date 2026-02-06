@@ -26,7 +26,7 @@ class Site:
         services: Dict,
         **_: Any,
     ):
-        self.id = site_id  # pylint: disable=invalid-name
+        self.id = site_id
         self.label = label
         self.security_level = security_level
         self.diagnosis_status = diagnosis_status
@@ -64,7 +64,7 @@ class Device:
         video_backend: Optional[str] = None,
         **_: Any,
     ):
-        self.id = device_id  # pylint: disable=invalid-name
+        self.id = device_id
         self.site_id = site_id
         self.label = label
         self.version = version
@@ -113,7 +113,7 @@ class User:
         geo_fence: Dict,
         **_: Any,
     ):
-        self.id = user_id  # pylint: disable=invalid-name
+        self.id = user_id
         self.display_name = display_name
         self.display_my_presence = display_my_presence
         self.present = present

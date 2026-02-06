@@ -38,7 +38,7 @@ class MQTTClient:
 
         LOGGER.debug("MQTT client initialized")
 
-    def on_connect(self, mqttc, obj, flags, rc):  # pylint: disable=unused-argument,invalid-name
+    def on_connect(self, mqttc, obj, flags, rc):
         """MQTT on_connect"""
         if rc == 0:
             LOGGER.info(f"Connected: {rc}")
@@ -48,7 +48,7 @@ class MQTTClient:
         else:
             LOGGER.info(f"Not Connected: {rc}")
 
-    def on_message(self, mqttc, obj, msg):  # pylint: disable=unused-argument
+    def on_message(self, mqttc, obj, msg):
         """MQTT on_message"""
         LOGGER.debug(f"Message received on {msg.topic}: {msg.payload}")
         consume_mqtt_message(
@@ -58,11 +58,11 @@ class MQTTClient:
             mqtt_client=self,
         )
 
-    def on_publish(self, mqttc, obj, result):  # pylint: disable=unused-argument
+    def on_publish(self, mqttc, obj, result):
         """MQTT on_publish"""
         LOGGER.debug(f"Message published: {result}")
 
-    def on_disconnect(self, userdata, rc, properties=None):  # pylint: disable=unused-argument,invalid-name
+    def on_disconnect(self, userdata, rc, properties=None):
         """MQTT on_disconnect"""
         if rc != 0:
             LOGGER.warning("Unexpected MQTT disconnection. Will auto-reconnect")

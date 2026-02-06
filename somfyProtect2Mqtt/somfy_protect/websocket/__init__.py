@@ -233,7 +233,7 @@ class SomfyProtectWebsocket:
         else:
             LOGGER.debug(f"Unknown message: {message}")
 
-    def on_error(self, ws_app, error):  # pylint: disable=unused-argument,no-self-use
+    def on_error(self, ws_app, error):
         """Handle Websocket Errors"""
         LOGGER.error(f"Error in the websocket connection: {error}")
 
@@ -241,7 +241,7 @@ class SomfyProtectWebsocket:
         """Handle Websocket Open Connection"""
         LOGGER.info("Opened connection")
 
-    def on_close(self, ws_app, close_status_code, close_msg):  # pylint: disable=unused-argument,no-self-use
+    def on_close(self, ws_app, close_status_code, close_msg):
         """Handle Websocket Close Connection"""
         LOGGER.info(f"Websocket on_close, status {close_status_code} => {close_msg}")
 

@@ -92,10 +92,10 @@ class SomfyProtectApi:
         url = f"{base_url}{path}"
         kwargs.setdefault("timeout", 10)
         try:
-            return getattr(self.sso._oauth, method)(url, **kwargs)  # pylint: disable=protected-access
+            return getattr(self.sso._oauth, method)(url, **kwargs)
         except TokenExpiredError:
-            self.sso._oauth.token = self.sso.refresh_tokens()  # pylint: disable=protected-access
-            return getattr(self.sso._oauth, method)(url, **kwargs)  # pylint: disable=protected-access
+            self.sso._oauth.token = self.sso.refresh_tokens()
+            return getattr(self.sso._oauth, method)(url, **kwargs)
         except RequestException as exc:
             LOGGER.error("Request failed %s %s: %s", method.upper(), url, exc)
             raise
