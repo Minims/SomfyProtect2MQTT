@@ -43,8 +43,8 @@ def update_device(api, mqtt_client, mqtt_config, site_id, device_id):
             payload=payload,
             retain=True,
         )
-    except Exception as exp:
-        LOGGER.warning("Error while refreshing %s: %s", device_label, exp)
+    except Exception as e:
+        LOGGER.warning("Error while refreshing %s: %s", device_label, e)
 
 
 def update_site(api, mqtt_client, mqtt_config, site_id):
@@ -59,8 +59,8 @@ def update_site(api, mqtt_client, mqtt_config, site_id):
             payload={"security_level": ALARM_STATUS.get(site.security_level, "disarmed")},
             retain=True,
         )
-    except Exception as exp:
-        LOGGER.warning("Error while refreshing site %s: %s", site_id, exp)
+    except Exception as e:
+        LOGGER.warning("Error while refreshing site %s: %s", site_id, e)
 
 
 def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_client: client):
@@ -283,5 +283,5 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
             thread.daemon = True
             thread.start()
 
-    except Exception as exp:
-        LOGGER.error("Error when processing message: %s: %s => %s", exp, msg.topic, msg.payload)
+    except Exception as e:
+        LOGGER.error("Error when processing message: %s: %s => %s", e, msg.topic, msg.payload)

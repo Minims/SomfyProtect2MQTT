@@ -144,6 +144,11 @@ Keep changes small, follow existing patterns, and update docs if behavior change
 - Add comments only when the logic is non-obvious.
 - Update README if you change user-facing behavior or commands.
 
+## Exceptions
+
+- Use `e` as the default exception variable name (`except Exception as e:`).
+- Use `err`/`exc` only when multiple exceptions are handled or clarity requires it.
+
 ## Tooling Notes
 
 - Python version target is 3.12+ (see `pyproject.toml`).

@@ -139,5 +139,5 @@ if __name__ == "__main__":
 
             time.sleep(1)
 
-    except Exception as exp:
-        LOGGER.error("Force stopping application %s", exp)
+    except Exception as e:
+        LOGGER.error("Force stopping application %s", e)

@@ -79,8 +79,8 @@ def ha_sites_config(
             scenarios = api.get_scenarios(site_id=my_site.id)
             LOGGER.info("Scenarios for %s => %s", my_site.label, scenarios)
             LOGGER.warning("v4 => %s", api.get_site_scenario(site_id=site_id))
-        except Exception as exp:
-            LOGGER.warning("Error while getting scenarios: %s", exp)
+        except Exception as e:
+            LOGGER.warning("Error while getting scenarios: %s", e)
             continue
 
 
@@ -589,13 +589,13 @@ def update_sites_status(
                     payload={"security_level": ALARM_STATUS.get(site.security_level, "disarmed")},
                     retain=True,
                 )
-            except Exception as exp:
-                LOGGER.warning("Error while updating MQTT: %s", exp)
+            except Exception as e:
+                LOGGER.warning("Error while updating MQTT: %s", e)
                 continue
         except RemoteDisconnected:
             LOGGER.info("Retrying...")
-        except Exception as exp:
-            LOGGER.warning("Error while refreshing site: %s", exp)
+        except Exception as e:
+            LOGGER.warning("Error while refreshing site: %s", e)
             continue
 
         try:
@@ -637,8 +637,8 @@ def update_sites_status(
                             message_vars.get("siteLabel"),
                         )
 
-        except Exception as exp:
-            LOGGER.warning("Error while getting site history: %s", exp)
+        except Exception as e:
+            LOGGER.warning("Error while getting site history: %s", e)
             continue
 
 
@@ -718,8 +718,8 @@ def update_devices_status(
                     payload=payload,
                     retain=True,
                 )
-        except Exception as exp:
-            LOGGER.warning("Error while refreshing devices: %s", exp)
+        except Exception as e:
+            LOGGER.warning("Error while refreshing devices: %s", e)
             continue
 
 
@@ -780,8 +780,8 @@ def update_camera_snapshot(
                             # Clean file
                             os.remove(path)
 
-        except Exception as exp:
-            LOGGER.warning("Error while refreshing snapshot: %s", exp)
+        except Exception as e:
+            LOGGER.warning("Error while refreshing snapshot: %s", e)
             continue
 
 
