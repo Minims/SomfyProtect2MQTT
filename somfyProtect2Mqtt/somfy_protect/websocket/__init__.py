@@ -340,6 +340,15 @@ class SomfyProtectWebsocket:
             LOGGER.info("Found Clip !")
             write_to_media_folder(url=clip_cloudfront_url)
 
+    def _publish_snapshot_bytes(self, site_id: str, device_id: str, byte_arr: bytearray) -> None:
+        publish_snapshot_bytes(
+            self.mqtt_client,
+            self.mqtt_config,
+            site_id,
+            device_id,
+            byte_arr,
+        )
+
     def _video_stream_ready(self, message):
         """Handle video stream ready events.
 
@@ -390,13 +399,7 @@ class SomfyProtectWebsocket:
                 if frame is None:
                     break
                 byte_arr = bytearray(frame)
-                publish_snapshot_bytes(
-                    self.mqtt_client,
-                    self.mqtt_config,
-                    site_id,
-                    device_id,
-                    byte_arr,
-                )
+                self._publish_snapshot_bytes(site_id, device_id, byte_arr)
             camera.release()
 
     def _device_doorlock_triggered(self, message):
