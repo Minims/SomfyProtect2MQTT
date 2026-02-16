@@ -298,13 +298,14 @@ class WebRTCHandler:
                                     byte_arr = bytearray(buffer.getvalue())
 
                                     # Publish to MQTT
-                                    publish_snapshot_bytes(
+                                    snapshot_args = (
                                         self.mqtt_client,
                                         self.mqtt_config,
                                         site_id,
                                         device_id,
                                         byte_arr,
                                     )
+                                    publish_snapshot_bytes(*snapshot_args)
                                     LOGGER.debug("Published frame to MQTT topic: {}".format(topic))
                                     frame_skip_counter = 0
                                 except (OSError, ValueError, RuntimeError) as e:
