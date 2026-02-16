@@ -16,7 +16,8 @@ class VideoCamera(object):
         Args:
             url (str): Video stream URL.
         """
-        self.video = cv2.VideoCapture(url)
+        video_capture = getattr(cv2, "VideoCapture")
+        self.video = video_capture(url)
 
     def __del__(self):
         """Release camera resources on deletion."""
@@ -40,10 +41,11 @@ class VideoCamera(object):
             ret, image = self.video.read()
             if not ret:
                 return None
-            ret, jpeg = cv2.imencode(".jpg", image)
+            imencode = getattr(cv2, "imencode")
+            ret, jpeg = imencode(".jpg", image)
             if not ret:
                 return None
             return jpeg.tobytes()
-        except (cv2.error, ValueError) as e:
+        except (ValueError, RuntimeError) as e:
             LOGGER.debug("Unable to get Frame: {}".format(e))
             return None
