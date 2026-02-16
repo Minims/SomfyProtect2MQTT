@@ -21,6 +21,11 @@ from somfy_protect.webrtc_handler import WebRTCHandler
 from websocket import WebSocketApp
 
 WEBSOCKET = "wss://websocket.myfox.io/events/websocket?token="
+WEBSOCKET_TIMEOUT = 5
+WEBSOCKET_PING_INTERVAL = 15
+WEBSOCKET_PING_TIMEOUT = 10
+WEBSOCKET_RECONNECT = 5
+WEBSOCKET_IDLE_CLOSE_SECONDS = 1800
 
 LOGGER = logging.getLogger(__name__)
 
@@ -61,7 +66,7 @@ class SomfyProtectWebsocket:
             websocket.enableTrace(True)
             LOGGER.debug("Opening websocket connection to {}".format(WEBSOCKET))
         self.token = self.sso.request_token()
-        websocket.setdefaulttimeout(5)
+        websocket.setdefaulttimeout(WEBSOCKET_TIMEOUT)
         self._websocket = WebSocketApp(
             f"{WEBSOCKET}{self.token.get('access_token')}",
             on_open=self._on_open,
@@ -90,9 +95,9 @@ class SomfyProtectWebsocket:
         """Run Forever Loop"""
         self._websocket.run_forever(
             # dispatcher=rel,
-            ping_timeout=10,
-            ping_interval=15,
-            reconnect=5,
+            ping_timeout=WEBSOCKET_PING_TIMEOUT,
+            ping_interval=WEBSOCKET_PING_INTERVAL,
+            reconnect=WEBSOCKET_RECONNECT,
             sslopt={"cert_reqs": ssl.CERT_NONE},
         )
         LOGGER.info("Running Forever")
@@ -154,7 +159,7 @@ class SomfyProtectWebsocket:
     def _on_pong(self, _ws_app, message):
         """Handle Pong Message"""
         LOGGER.debug("Pong Message: {}".format(message))
-        if (time.time() - self.time) > 1800:
+        if (time.time() - self.time) > WEBSOCKET_IDLE_CLOSE_SECONDS:
             self.close()
 
     async def on_message(self, _ws_app, message):
