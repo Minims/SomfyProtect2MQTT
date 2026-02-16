@@ -586,12 +586,12 @@ def update_sites_status(
                     payload={"security_level": ALARM_STATUS.get(site.security_level, "disarmed")},
                     retain=True,
                 )
-            except Exception as e:
+            except (OSError, ValueError) as e:
                 LOGGER.warning("Error while updating MQTT: {}".format(e))
                 continue
         except RemoteDisconnected:
             LOGGER.info("Retrying...")
-        except Exception as e:
+        except (requests.exceptions.RequestException, KeyError, ValueError) as e:
             LOGGER.warning("Error while refreshing site: {}".format(e))
             continue
 
@@ -635,7 +635,7 @@ def update_sites_status(
                             )
                         )
 
-        except Exception as e:
+        except (requests.exceptions.RequestException, KeyError, ValueError) as e:
             LOGGER.warning("Error while getting site history: {}".format(e))
             continue
 
