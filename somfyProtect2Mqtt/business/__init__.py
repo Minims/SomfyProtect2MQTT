@@ -863,10 +863,14 @@ def write_to_media_folder(
     LOGGER.info("Download VisioPhone Clip")
     directory = "/media/somfyprotect2mqtt"
 
+    extention = None
     if media_type == "video":
         extention = "mp4"
-    if media_type == "snapshot":
+    elif media_type == "snapshot":
         extention = "jpeg"
+    else:
+        LOGGER.warning("Unsupported media type: {}".format(media_type))
+        return
 
     try:
         os.makedirs(directory, exist_ok=True)
@@ -895,9 +899,9 @@ def write_to_media_folder(
                 is_json=False,
             )
 
-    except OSError as exc:
-        LOGGER.warning("Unable to create directory {}: {}".format(directory, exc))
     except requests.exceptions.RequestException as exc:
         LOGGER.warning("Error while Downloading clip: {}".format(exc))
+    except OSError as exc:
+        LOGGER.warning("Unable to create directory {}: {}".format(directory, exc))
     finally:
         LOGGER.info("Write Successful")
