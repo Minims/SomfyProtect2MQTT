@@ -596,48 +596,57 @@ def update_sites_status(
             continue
 
         try:
-            payload = {}
-            events = api.get_history(site_id=site_id)
-            for event in events:
-                if event:
-                    occurred_at = event.get("occurred_at")
-                    date_format = "%Y-%m-%dT%H:%M:%S.%fZ"
-                    occurred_at_date = datetime.strptime(occurred_at, date_format)
-                    occurred_at_date = convert_utc_to_paris(date=occurred_at_date)
-                    paris_tz = pytz.timezone("Europe/Paris")
-                    now = datetime.now(paris_tz)
-                    if now - occurred_at_date < timedelta(seconds=3600):
-                        if occurred_at in HISTORY:
-                            LOGGER.debug("History still published: {}".format(HISTORY[occurred_at]))
-                            continue
-                        message_vars = event.get("message_vars")
-                        payload = (
-                            f"{event.get('message_key')}"
-                            f" {message_vars.get('userDsp')}"
-                            f" {message_vars.get('siteLabel')}"
-                        )
-                        payload = payload.replace("None", "").strip().strip('"')
-                        payload = payload.replace(".", " ").title()
-                        HISTORY[occurred_at] = payload
-                        LOGGER.info("Publishing History: {}".format(HISTORY[occurred_at]))
-                        mqtt_publish(
-                            mqtt_client=mqtt_client,
-                            topic=f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/history",
-                            payload=payload,
-                            retain=True,
-                        )
-                    else:
-                        LOGGER.debug(
-                            "Event is too old {} {} {}".format(
-                                event.get("message_key"),
-                                message_vars.get("userDsp"),
-                                message_vars.get("siteLabel"),
-                            )
-                        )
-
+            _publish_site_history(api, mqtt_client, mqtt_config, site_id)
         except (requests.exceptions.RequestException, KeyError, ValueError) as e:
             LOGGER.warning("Error while getting site history: {}".format(e))
             continue
+
+
+def _publish_site_history(
+    api: SomfyProtectApi,
+    mqtt_client: MQTTClient,
+    mqtt_config: dict,
+    site_id: str,
+) -> None:
+    events = api.get_history(site_id=site_id)
+    for event in events:
+        if not event:
+            continue
+        occurred_at = event.get("occurred_at")
+        date_format = "%Y-%m-%dT%H:%M:%S.%fZ"
+        occurred_at_date = datetime.strptime(occurred_at, date_format)
+        occurred_at_date = convert_utc_to_paris(date=occurred_at_date)
+        paris_tz = pytz.timezone("Europe/Paris")
+        now = datetime.now(paris_tz)
+        if now - occurred_at_date >= timedelta(seconds=3600):
+            message_vars = event.get("message_vars")
+            LOGGER.debug(
+                "Event is too old {} {} {}".format(
+                    event.get("message_key"),
+                    message_vars.get("userDsp"),
+                    message_vars.get("siteLabel"),
+                )
+            )
+            continue
+        if occurred_at in HISTORY:
+            LOGGER.debug("History still published: {}".format(HISTORY[occurred_at]))
+            continue
+        message_vars = event.get("message_vars")
+        payload = (
+            f"{event.get('message_key')}"
+            f" {message_vars.get('userDsp')}"
+            f" {message_vars.get('siteLabel')}"
+        )
+        payload = payload.replace("None", "").strip().strip('"')
+        payload = payload.replace(".", " ").title()
+        HISTORY[occurred_at] = payload
+        LOGGER.info("Publishing History: {}".format(HISTORY[occurred_at]))
+        mqtt_publish(
+            mqtt_client=mqtt_client,
+            topic=f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/history",
+            payload=payload,
+            retain=True,
+        )
 
 
 def update_devices_status(
