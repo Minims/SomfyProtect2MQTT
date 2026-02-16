@@ -83,7 +83,7 @@ class SomfyProtectWebsocket:
             # Schedule coroutine on the persistent event loop
             future = asyncio.run_coroutine_threadsafe(self.on_message(_ws_app, message), self.loop)
             future.result()  # Wait for completion
-        except Exception as e:
+        except (RuntimeError, ValueError) as e:
             LOGGER.error("Error in message wrapper: {}".format(e))
 
     def run_forever(self):
@@ -113,7 +113,7 @@ class SomfyProtectWebsocket:
                     asyncio.run_coroutine_threadsafe(self.webrtc_handler.cleanup(), self.loop)
                     # Give it a moment to clean up
                     time.sleep(0.5)
-            except Exception as e:
+            except (RuntimeError, ValueError) as e:
                 LOGGER.error("Error cleaning up WebRTC handler: {}".format(e))
 
         # Stop the event loop
@@ -128,7 +128,7 @@ class SomfyProtectWebsocket:
                 if not self.loop.is_closed():
                     self.loop.close()
                 LOGGER.info("Event loop closed successfully")
-            except Exception as e:
+            except (RuntimeError, ValueError) as e:
                 LOGGER.error("Error closing event loop: {}".format(e))
 
     def start_webrtc_stream(self, site_id: str, device_id: str, session_id: str = None):
