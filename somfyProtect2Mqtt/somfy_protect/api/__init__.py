@@ -99,14 +99,24 @@ class SomfyProtectApi:
 
         url = f"{base_url}{path}"
         kwargs.setdefault("timeout", REQUEST_TIMEOUT)
-        try:
+
+        def _execute_request() -> Response:
             return getattr(self.sso.oauth, method)(url, **kwargs)
+
+        try:
+            response = _execute_request()
         except TokenExpiredError:
             self.sso.oauth.token = self.sso.refresh_tokens()
-            return getattr(self.sso.oauth, method)(url, **kwargs)
+            response = _execute_request()
         except RequestException as exc:
             LOGGER.error("Request failed {} {}: {}".format(method.upper(), url, exc))
             raise
+
+        if response.status_code in (401, 403):
+            self.sso.oauth.token = self.sso.refresh_tokens()
+            response = _execute_request()
+
+        return response
 
     def get(self, path: str, base_url: str = BASE_URL) -> Response:
         """Fetch a URL from the Somfy Protect API.
