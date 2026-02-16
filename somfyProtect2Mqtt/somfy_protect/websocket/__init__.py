@@ -359,13 +359,14 @@ class SomfyProtectWebsocket:
             )
 
     def _publish_snapshot_bytes(self, site_id: str, device_id: str, byte_arr: bytearray) -> None:
-        publish_snapshot_bytes(
-            self.mqtt_client,
-            self.mqtt_config,
-            site_id,
-            device_id,
-            byte_arr,
-        )
+        payload = {
+            "mqtt_client": self.mqtt_client,
+            "mqtt_config": self.mqtt_config,
+            "site_id": site_id,
+            "device_id": device_id,
+            "byte_arr": byte_arr,
+        }
+        publish_snapshot_bytes(**payload)
 
     def _video_stream_ready(self, message):
         """Handle video stream ready events.
@@ -929,4 +930,3 @@ class SomfyProtectWebsocket:
             LOGGER.debug("Sent on Websocket: {}".format(message))
         else:
             LOGGER.warning("WebSocket is not connected. Unable to send message: {}".format(message))
-        return
