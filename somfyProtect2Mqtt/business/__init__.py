@@ -716,7 +716,7 @@ def update_devices_status(
                     payload=payload,
                     retain=True,
                 )
-        except Exception as e:
+        except (requests.exceptions.RequestException, KeyError, ValueError) as e:
             LOGGER.warning("Error while refreshing devices: {}".format(e))
             continue
 
@@ -778,7 +778,7 @@ def update_camera_snapshot(
                             # Clean file
                             os.remove(path)
 
-        except Exception as e:
+        except (requests.exceptions.RequestException, OSError, ValueError) as e:
             LOGGER.warning("Error while refreshing snapshot: {}".format(e))
             continue
 
