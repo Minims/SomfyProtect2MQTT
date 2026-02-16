@@ -9,7 +9,7 @@ from time import sleep
 import pytz
 import requests
 import schedule
-from business.mqtt import SUBSCRIBE_TOPICS, build_device_status_payload, mqtt_publish
+from business.mqtt import SUBSCRIBE_TOPICS, mqtt_publish, publish_device_state, publish_site_state
 from business.watermark import insert_watermark
 from exceptions import SomfyProtectInitError
 from homeassistant.ha_discovery import (
@@ -579,13 +579,7 @@ def update_sites_status(
             LOGGER.info("Update {} Status".format(site.label))
 
             try:
-                # Push status to MQTT
-                mqtt_publish(
-                    mqtt_client=mqtt_client,
-                    topic=f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/state",
-                    payload={"security_level": ALARM_STATUS.get(site.security_level, "disarmed")},
-                    retain=True,
-                )
+                publish_site_state(mqtt_client, mqtt_config, site_id, site.security_level)
             except (OSError, ValueError) as e:
                 LOGGER.warning("Error while updating MQTT: {}".format(e))
                 continue
@@ -707,15 +701,7 @@ def update_devices_status(
                 user_id = settings.get("user_id")
                 if user_id:
                     DEVICE_TAG[user_id] = device.id
-                payload = build_device_status_payload(device)
-
-                # Push status to MQTT
-                mqtt_publish(
-                    mqtt_client=mqtt_client,
-                    topic=f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/state",
-                    payload=payload,
-                    retain=True,
-                )
+                publish_device_state(mqtt_client, mqtt_config, site_id, device)
         except (requests.exceptions.RequestException, KeyError, ValueError) as e:
             LOGGER.warning("Error while refreshing devices: {}".format(e))
             continue

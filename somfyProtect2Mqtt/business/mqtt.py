@@ -32,6 +32,27 @@ def build_device_status_payload(device) -> dict:
     return {str(key): str(value) for key, value in keys_values}
 
 
+def publish_site_state(mqtt_client, mqtt_config, site_id, security_level) -> None:
+    """Publish site security level to MQTT."""
+    mqtt_publish(
+        mqtt_client=mqtt_client,
+        topic=f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/state",
+        payload={"security_level": ALARM_STATUS.get(security_level, "disarmed")},
+        retain=True,
+    )
+
+
+def publish_device_state(mqtt_client, mqtt_config, site_id, device) -> None:
+    """Publish device status payload to MQTT."""
+    payload = build_device_status_payload(device)
+    mqtt_publish(
+        mqtt_client=mqtt_client,
+        topic=f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/state",
+        payload=payload,
+        retain=True,
+    )
+
+
 def _start_background(target, *args, **kwargs) -> None:
     thread = threading.Thread(target=target, args=args, kwargs=kwargs)
     thread.daemon = True
@@ -276,13 +297,7 @@ def update_site(api, mqtt_client, mqtt_config, site_id):
     LOGGER.info("Live Update site {}".format(site_id))
     try:
         site = api.get_site(site_id=site_id)
-        # Push status to MQTT
-        mqtt_publish(
-            mqtt_client=mqtt_client,
-            topic=f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/state",
-            payload={"security_level": ALARM_STATUS.get(site.security_level, "disarmed")},
-            retain=True,
-        )
+        publish_site_state(mqtt_client, mqtt_config, site_id, site.security_level)
     except (RequestException, AttributeError, KeyError, ValueError) as e:
         LOGGER.warning("Error while refreshing site {}: {}".format(site_id, e))
 
