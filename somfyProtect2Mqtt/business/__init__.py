@@ -632,11 +632,7 @@ def _publish_site_history(
             LOGGER.debug("History still published: {}".format(HISTORY[occurred_at]))
             continue
         message_vars = event.get("message_vars")
-        payload = (
-            f"{event.get('message_key')}"
-            f" {message_vars.get('userDsp')}"
-            f" {message_vars.get('siteLabel')}"
-        )
+        payload = f"{event.get('message_key')}" f" {message_vars.get('userDsp')}" f" {message_vars.get('siteLabel')}"
         payload = payload.replace("None", "").strip().strip('"')
         payload = payload.replace(".", " ").title()
         HISTORY[occurred_at] = payload
