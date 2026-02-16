@@ -64,12 +64,12 @@ class SomfyProtectWebsocket:
         websocket.setdefaulttimeout(5)
         self._websocket = WebSocketApp(
             f"{WEBSOCKET}{self.token.get('access_token')}",
-            on_open=self.on_open,
+            on_open=self._on_open,
             on_message=self._on_message_wrapper,
-            on_error=self.on_error,
-            on_close=self.on_close,
-            on_ping=self.on_ping,
-            on_pong=self.on_pong,
+            on_error=self._on_error,
+            on_close=self._on_close,
+            on_ping=self._on_ping,
+            on_pong=self._on_pong,
         )
 
     def _run_event_loop(self):
@@ -147,11 +147,11 @@ class SomfyProtectWebsocket:
         LOGGER.info("Sent video.webrtc.start for device {}, session {}".format(device_id, session_id))
         return session_id
 
-    def on_ping(self, _ws_app, message):
+    def _on_ping(self, _ws_app, message):
         """Handle Ping Message"""
         LOGGER.debug("Ping Message: {}".format(message))
 
-    def on_pong(self, _ws_app, message):
+    def _on_pong(self, _ws_app, message):
         """Handle Pong Message"""
         LOGGER.debug("Pong Message: {}".format(message))
         if (time.time() - self.time) > 1800:
@@ -182,31 +182,31 @@ class SomfyProtectWebsocket:
             LOGGER.warning("Websocket message missing message_id")
             return
         callbacks = {
-            "security.level.change": self.security_level_change,
-            "alarm.trespass": self.alarm_trespass,
-            "alarm.panic": self.alarm_panic,
-            "alarm.domestic.fire": self.alarm_domestic_fire,
-            "alarm.domestic.fire.end": self.alarm_domestic_fire_end,
-            "alarm.end": self.alarm_end,
-            "presence_out": self.update_keyfob_presence,
-            "presence_in": self.update_keyfob_presence,
-            "device.status": self.device_status,
-            "video.stream.ready": self.video_stream_ready,
-            "device.ring_door_bell": self.device_ring_door_bell,
-            "device.missed_call": self.device_missed_call,
-            "video.webrtc.offer": self.video_webrtc_offer,
-            "video.webrtc.start": self.video_webrtc_start,
-            "video.webrtc.session": self.video_webrtc_session,
-            "video.webrtc.answer": self.video_webrtc_answer,
-            "video.webrtc.candidate": self.video_webrtc_candidate,
-            "video.webrtc.turn.config": self.video_webrtc_turn_config,
-            "video.webrtc.keep_alive": self.video_webrtc_keep_alive,
-            "video.webrtc.hang_up": self.video_webrtc_hang_up,
-            "device.gate_triggered_from_mobile": self.device_gate_triggered_from_mobile,
-            "device.gate_triggered_from_monitor": self.device_gate_triggered_from_monitor,
-            "answered_call_from_monitor": self.device_answered_call_from_monitor,
-            "answered_call_from_mobile": self.device_answered_call_from_mobile,
-            "device.doorlock_triggered": self.device_doorlock_triggered,
+            "security.level.change": self._security_level_change,
+            "alarm.trespass": self._alarm_trespass,
+            "alarm.panic": self._alarm_panic,
+            "alarm.domestic.fire": self._alarm_domestic_fire,
+            "alarm.domestic.fire.end": self._alarm_domestic_fire_end,
+            "alarm.end": self._alarm_end,
+            "presence_out": self._update_keyfob_presence,
+            "presence_in": self._update_keyfob_presence,
+            "device.status": self._device_status,
+            "video.stream.ready": self._video_stream_ready,
+            "device.ring_door_bell": self._device_ring_door_bell,
+            "device.missed_call": self._device_missed_call,
+            "video.webrtc.offer": self._video_webrtc_offer,
+            "video.webrtc.start": self._video_webrtc_start,
+            "video.webrtc.session": self._video_webrtc_session,
+            "video.webrtc.answer": self._video_webrtc_answer,
+            "video.webrtc.candidate": self._video_webrtc_candidate,
+            "video.webrtc.turn.config": self._video_webrtc_turn_config,
+            "video.webrtc.keep_alive": self._video_webrtc_keep_alive,
+            "video.webrtc.hang_up": self._video_webrtc_hang_up,
+            "device.gate_triggered_from_mobile": self._device_gate_triggered_from_mobile,
+            "device.gate_triggered_from_monitor": self._device_gate_triggered_from_monitor,
+            "answered_call_from_monitor": self._device_answered_call_from_monitor,
+            "answered_call_from_mobile": self._device_answered_call_from_mobile,
+            "device.doorlock_triggered": self._device_doorlock_triggered,
         }
 
         ack = {
@@ -215,7 +215,7 @@ class SomfyProtectWebsocket:
             "client": "Android",
         }
         self.send_websocket_message(ack)
-        self.default_message(message_json)
+        self._default_message(message_json)
         message_key = message_json.get("key")
         if not message_key:
             LOGGER.debug("Websocket message missing key")
@@ -229,76 +229,76 @@ class SomfyProtectWebsocket:
         else:
             LOGGER.debug("Unknown message: {}".format(message))
 
-    def on_error(self, _ws_app, error):
+    def _on_error(self, _ws_app, error):
         """Handle Websocket Errors"""
         LOGGER.error("Error in the websocket connection: {}".format(error))
 
-    def on_open(self, _ws_app):
+    def _on_open(self, _ws_app):
         """Handle Websocket Open Connection"""
         LOGGER.info("Opened connection")
 
-    def on_close(self, _ws_app, close_status_code, close_msg):
+    def _on_close(self, _ws_app, close_status_code, close_msg):
         """Handle Websocket Close Connection"""
         LOGGER.info("Websocket on_close, status {} => {}".format(close_status_code, close_msg))
 
-    def device_gate_triggered_from_monitor(self, message):
+    def _device_gate_triggered_from_monitor(self, message):
         """Gate Open from Monitor"""
         LOGGER.info("Gate Open from Monitor: {}".format(message))
 
-    def device_answered_call_from_mobile(self, message):
+    def _device_answered_call_from_mobile(self, message):
         """Answer Call from Mobile"""
         LOGGER.info("Answer Call from Mobile: {}".format(message))
 
-    def device_answered_call_from_monitor(self, message):
+    def _device_answered_call_from_monitor(self, message):
         """Answer Call from Monitor"""
         LOGGER.info("Answer Call from Monitor: {}".format(message))
 
-    def device_gate_triggered_from_mobile(self, message):
+    def _device_gate_triggered_from_mobile(self, message):
         """Gate Open from Mobile"""
         LOGGER.info("Gate Open from Mobile: {}".format(message))
 
-    async def video_webrtc_hang_up(self, message):
+    async def _video_webrtc_hang_up(self, message):
         """WEBRTC HangUP"""
         LOGGER.info("WEBRTC HangUp: {}".format(message))
         session_id = message.get("session_id")
         await self.webrtc_handler.close_session(session_id)
 
-    def video_webrtc_keep_alive(self, message):
+    def _video_webrtc_keep_alive(self, message):
         """WEBRTC KeepAlive"""
         LOGGER.info("WEBRTC KeepAlive: {}".format(message))
 
-    def video_webrtc_session(self, message):
+    def _video_webrtc_session(self, message):
         """WEBRTC Session"""
         LOGGER.info("WEBRTC Session: {}".format(message))
 
-    async def video_webrtc_offer(self, message):
+    async def _video_webrtc_offer(self, message):
         """WEBRTC Offer"""
         await self.webrtc_handler.handle_offer(message)
 
-    def video_webrtc_start(self, message):
+    def _video_webrtc_start(self, message):
         """WEBRTC Start - Initiates WebRTC session"""
         LOGGER.info("WEBRTC Start: {}".format(message))
         # When we receive this from server, it means session is starting
         # We should have already sent our start request
 
-    def video_webrtc_answer(self, message):
+    def _video_webrtc_answer(self, message):
         """WEBRTC Answer"""
         LOGGER.info("WEBRTC Answer: {}".format(message))
 
-    def video_webrtc_turn_config(self, message):
+    def _video_webrtc_turn_config(self, message):
         """WEBRTC Turn Config - Store TURN server configuration"""
         LOGGER.info("WEBRTC Turn Config: {}".format(message))
         session_id = message.get("session_id")
         turn_data = message.get("turn")
         self.webrtc_handler.store_turn_config(session_id, turn_data)
 
-    async def video_webrtc_candidate(self, message):
+    async def _video_webrtc_candidate(self, message):
         """WEBRTC Candidate - Add remote ICE candidate from camera"""
         session_id = message.get("session_id")
         candidate_data = message.get("candidate")
         await self.webrtc_handler.add_remote_candidate(session_id, candidate_data)
 
-    def device_ring_door_bell(self, message):
+    def _device_ring_door_bell(self, message):
         """Someone is ringing at the door."""
         site_id = message.get("site_id")
         device_id = message.get("device_id")
@@ -320,7 +320,7 @@ class SomfyProtectWebsocket:
                 mqtt_config=self.mqtt_config,
             )
 
-    def device_missed_call(self, message):
+    def _device_missed_call(self, message):
         """Call missed."""
         site_id = message.get("site_id")
         device_id = message.get("device_id")
@@ -340,7 +340,7 @@ class SomfyProtectWebsocket:
             LOGGER.info("Found Clip !")
             write_to_media_folder(url=clip_cloudfront_url)
 
-    def video_stream_ready(self, message):
+    def _video_stream_ready(self, message):
         """Handle video stream ready events.
 
         Args:
@@ -399,7 +399,7 @@ class SomfyProtectWebsocket:
                 )
             camera.release()
 
-    def device_doorlock_triggered(self, message):
+    def _device_doorlock_triggered(self, message):
         """Update Door Lock Triggered"""
         # {
         # "profiles":[
@@ -430,7 +430,7 @@ class SomfyProtectWebsocket:
             )
         update_device(self.api, self.mqtt_client, self.mqtt_config, site_id, device_id)
 
-    def update_keyfob_presence(self, message):
+    def _update_keyfob_presence(self, message):
         """Update Key Fob Presence"""
         # {
         # "profiles":[
@@ -476,7 +476,7 @@ class SomfyProtectWebsocket:
             retain=True,
         )
 
-    def security_level_change(self, message):
+    def _security_level_change(self, message):
         """Update Alarm Status"""
         # {
         # "profiles":[
@@ -498,7 +498,7 @@ class SomfyProtectWebsocket:
         topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/state"
         mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True)
 
-    def alarm_trespass(self, message):
+    def _alarm_trespass(self, message):
         """Alarm Triggered !!"""
         # {
         # "profiles":[
@@ -547,7 +547,7 @@ class SomfyProtectWebsocket:
             payload = {"motion_sensor": "False"}
             mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True)
 
-    def alarm_panic(self, message):
+    def _alarm_panic(self, message):
         """Report Alarm Panic"""
         # {
         # "profiles":[
@@ -582,7 +582,7 @@ class SomfyProtectWebsocket:
             retain=True,
         )
 
-    def alarm_domestic_fire(self, message):
+    def _alarm_domestic_fire(self, message):
         """Report Alarm Fire"""
         # {
         # "profiles":[
@@ -618,7 +618,7 @@ class SomfyProtectWebsocket:
                 retain=True,
             )
 
-    def alarm_domestic_fire_end(self, message):
+    def _alarm_domestic_fire_end(self, message):
         """Report Alarm Fire End"""
         LOGGER.info("Report Alarm Fire")
         site_id = message.get("site_id")
@@ -633,7 +633,7 @@ class SomfyProtectWebsocket:
                 retain=True,
             )
 
-    def alarm_end(self, message):
+    def _alarm_end(self, message):
         """Report Alarm Stop"""
         # {
         # "profiles":[
@@ -657,7 +657,7 @@ class SomfyProtectWebsocket:
         site_id = message.get("site_id")
         update_site(self.api, self.mqtt_client, self.mqtt_config, site_id)
 
-    def device_status(self, message):
+    def _device_status(self, message):
         """Update Device Status"""
         # {
         # "profiles":[
@@ -718,7 +718,7 @@ class SomfyProtectWebsocket:
         # "message_id":"XXX"
         # }
 
-    def default_message(self, message):
+    def _default_message(self, message):
         """Default Message"""
         LOGGER.info("[default] Read Message {}".format(message))
         topic_suffix = message.get("key")
@@ -752,7 +752,7 @@ class SomfyProtectWebsocket:
         # "message_id":"XXX"
         # }
 
-    def device_firmware_update_fail(self, message):
+    def _device_firmware_update_fail(self, message):
         """Device Firmware Update Fail"""
         # {
         # "profiles":[
@@ -844,7 +844,7 @@ class SomfyProtectWebsocket:
         # "message_id":"XXX"
         # }
 
-    def device_offline(self, message):
+    def _device_offline(self, message):
         """Device Offline"""
         # {
         # "profiles":[
@@ -858,7 +858,7 @@ class SomfyProtectWebsocket:
         # "message_id":"XXX"
         # }
 
-    def device_update_connect(self, message):
+    def _device_update_connect(self, message):
         """Device Update Connect"""
         # {
         # "profiles":[
