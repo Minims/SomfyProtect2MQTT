@@ -10,14 +10,8 @@ from io import BytesIO
 
 # Suppress ffmpeg/libav warnings at C library level
 import av
-from aiortc import (
-    AudioStreamTrack,
-    RTCConfiguration,
-    RTCIceCandidate,
-    RTCIceServer,
-    RTCPeerConnection,
-    RTCSessionDescription,
-)
+from aiortc import AudioStreamTrack, RTCConfiguration, RTCIceServer, RTCPeerConnection, RTCSessionDescription
+from aiortc.rtcicetransport import candidate_from_sdp
 from business.mqtt import mqtt_publish
 
 # Set PyAV logging level to ERROR to suppress FFmpeg warnings
@@ -52,8 +46,9 @@ class SilenceAudioTrack(AudioStreamTrack):
         # Use Fraction to satisfy aiortc/av expectations for AVRational
         frame.time_base = Fraction(1, self.sample_rate)
 
-        for p in frame.planes:
-            p.update(bytes(p.buffer_size))
+        planes = getattr(frame, "planes", [])
+        for plane in planes:
+            plane.update(bytes(plane.buffer_size))
 
         self._timestamp += self.samples_per_frame
 
@@ -457,11 +452,13 @@ class WebRTCHandler:
             return
 
         try:
-            candidate = RTCIceCandidate(
-                sdpMid=candidate_data.get("sdpMid"),
-                sdpMLineIndex=candidate_data.get("sdpMLineIndex"),
-                candidate=candidate_data.get("sdp"),
-            )
+            candidate_sdp = candidate_data.get("sdp")
+            if not candidate_sdp:
+                LOGGER.warning("Missing candidate sdp for session {}".format(session_id))
+                return
+            candidate = candidate_from_sdp(candidate_sdp)
+            candidate.sdpMid = candidate_data.get("sdpMid")
+            candidate.sdpMLineIndex = candidate_data.get("sdpMLineIndex")
             await pc.addIceCandidate(candidate)
             LOGGER.info("Added remote ICE candidate: {}...".format(candidate_data.get("sdp", "")[:60]))
         except (ValueError, RuntimeError) as e:
@@ -1054,8 +1051,8 @@ class WebRTCHandler:
             if os.path.exists(old_segment_path):
                 try:
                     os.remove(old_segment_path)
-                except:
-                    pass
+                except OSError as e:
+                    LOGGER.debug("Unable to remove old segment {}: {}".format(old_segment_path, e))
 
             # Remove from memory
             if old_segment_filename in self.hls_segments[device_id]:
