@@ -5,5 +5,8 @@ extension-pkg-allow-list=av,cv2
 logging-format-style=new
 logging-modules=logging
 
+[MESSAGES CONTROL]
+disable=logging-format-interpolation,consider-using-f-string
+
 [FORMAT]
 max-line-length=120

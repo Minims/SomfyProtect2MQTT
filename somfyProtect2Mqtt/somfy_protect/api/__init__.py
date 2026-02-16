@@ -95,7 +95,7 @@ class SomfyProtectApi:
             self.sso._oauth.token = self.sso.refresh_tokens()
             return getattr(self.sso._oauth, method)(url, **kwargs)
         except RequestException as exc:
-            LOGGER.error("Request failed %s %s: %s", method.upper(), url, exc)
+            LOGGER.error("Request failed {} {}: {}".format(method.upper(), url, exc))
             raise
 
     def get(self, path: str, base_url: str = BASE_URL) -> Response:
@@ -108,7 +108,7 @@ class SomfyProtectApi:
         Returns:
             Response: Requests response object.
         """
-        LOGGER.debug("%s%s", base_url, path)
+        LOGGER.debug("{}{}".format(base_url, path))
         return self._request("get", path, base_url)
 
     def post(self, path: str, *, json: Dict[str, Any]) -> Response:
@@ -332,9 +332,9 @@ class SomfyProtectApi:
             content = response.json()
         except JSONDecodeError as exc:
             response.raise_for_status()
-            LOGGER.error("Unable to decode devices response: %s", response.text)
+            LOGGER.error("Unable to decode devices response: {}".format(response.text))
             raise exc
-        LOGGER.debug("Devices Capabilities: %s", content)
+        LOGGER.debug("Devices Capabilities: {}".format(content))
         devices += [
             Device(**d)
             for d in content.get("items")
@@ -367,7 +367,7 @@ class SomfyProtectApi:
             List[User]: Users returned by the API.
         """
         response = self.get(f"/v3/site/{site_id}/user")
-        LOGGER.debug("Users response status: %s", response.status_code)
+        LOGGER.debug("Users response status: {}".format(response.status_code))
         response.raise_for_status()
         return [User(**s) for s in response.json().get("items")]
 
@@ -382,7 +382,7 @@ class SomfyProtectApi:
             Dict[str, Any]: API response payload.
         """
         response = self.get(f"/v3/site/{site_id}/user/{user_id}")
-        LOGGER.debug("User response status: %s", response.status_code)
+        LOGGER.debug("User response status: {}".format(response.status_code))
         response.raise_for_status()
         return response.json()
 

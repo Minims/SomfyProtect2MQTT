@@ -24,7 +24,7 @@ def mqtt_publish(mqtt_client, topic, payload, qos=0, retain=False, is_json=True)
 
 def update_device(api, mqtt_client, mqtt_config, site_id, device_id):
     """Update MQTT data for a device"""
-    LOGGER.info("Live Update device %s", device_id)
+    LOGGER.info("Live Update device {}".format(device_id))
     device_label = device_id
     try:
         device = api.get_device(site_id=site_id, device_id=device_id)
@@ -44,12 +44,12 @@ def update_device(api, mqtt_client, mqtt_config, site_id, device_id):
             retain=True,
         )
     except Exception as e:
-        LOGGER.warning("Error while refreshing %s: %s", device_label, e)
+        LOGGER.warning("Error while refreshing {}: {}".format(device_label, e))
 
 
 def update_site(api, mqtt_client, mqtt_config, site_id):
     """Update MQTT data for a site"""
-    LOGGER.info("Live Update site %s", site_id)
+    LOGGER.info("Live Update site {}".format(site_id))
     try:
         site = api.get_site(site_id=site_id)
         # Push status to MQTT
@@ -60,7 +60,7 @@ def update_site(api, mqtt_client, mqtt_config, site_id):
             retain=True,
         )
     except Exception as e:
-        LOGGER.warning("Error while refreshing site %s: %s", site_id, e)
+        LOGGER.warning("Error while refreshing site {}: {}".format(site_id, e))
 
 
 def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_client: client):
@@ -68,12 +68,12 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
     try:
         text_payload = msg.payload.decode("UTF-8")
         lower_payload = text_payload.lower()
-        LOGGER.info("Payload %s", text_payload)
+        LOGGER.info("Payload {}".format(text_payload))
         topic_parts = msg.topic.split("/")
 
         def require_parts(min_parts: int, context: str) -> bool:
             if len(topic_parts) < min_parts:
-                LOGGER.warning("Invalid topic format for %s: %s", context, msg.topic)
+                LOGGER.warning("Invalid topic format for {}: {}".format(context, msg.topic))
                 return False
             return True
 
@@ -81,9 +81,9 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
             return
         # Manage Alarm Status
         if text_payload in ALARM_STATUS:
-            LOGGER.info("Security Level update ! Setting to %s", text_payload)
+            LOGGER.info("Security Level update ! Setting to {}".format(text_payload))
             site_id = topic_parts[1]
-            LOGGER.debug("Site ID: %s", site_id)
+            LOGGER.debug("Site ID: {}".format(site_id))
             # Update Alarm via API
             api.update_security_level(site_id=site_id, security_level=text_payload)
 
@@ -104,12 +104,12 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
         # Manage Siren
         elif lower_payload in ("panic", "trigger"):
             site_id = topic_parts[1]
-            LOGGER.info("Start the Siren On Site ID %s", site_id)
+            LOGGER.info("Start the Siren On Site ID {}".format(site_id))
             api.trigger_alarm(site_id=site_id, mode="alarm")
 
         elif text_payload == "stop":
             site_id = topic_parts[1]
-            LOGGER.info("Stop the Siren On Site ID %s", site_id)
+            LOGGER.info("Stop the Siren On Site ID {}".format(site_id))
             api.stop_alarm(site_id=site_id)
 
         elif text_payload in [
@@ -120,7 +120,7 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
                 return
             site_id = topic_parts[1]
             device_id = topic_parts[2]
-            LOGGER.info("Update Video Backend To (%s)", text_payload)
+            LOGGER.info("Update Video Backend To ({})".format(text_payload))
             action_device = api.action_device(
                 site_id=site_id, device_id=device_id, action="change_video_backend", video_backend=text_payload
             )
@@ -138,7 +138,7 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
             site_id = topic_parts[1]
             device_id = topic_parts[2]
             sound = text_payload.split("_")[1]
-            LOGGER.info("Test the Siren On Site ID %s (%s)", site_id, sound)
+            LOGGER.info("Test the Siren On Site ID {} ({})".format(site_id, sound))
             api.test_siren(site_id=site_id, device_id=device_id, sound=sound)
 
         # Manage Access
@@ -149,10 +149,11 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
             device_id = topic_parts[2]
             if device_id:
                 LOGGER.info(
-                    "Message received for Site ID: %s, Device ID: %s, Access: %s",
-                    site_id,
-                    device_id,
-                    text_payload,
+                    "Message received for Site ID: {}, Device ID: {}, Access: {}".format(
+                        site_id,
+                        device_id,
+                        text_payload,
+                    )
                 )
                 trigger_access = api.trigger_access(
                     site_id=site_id,
@@ -169,10 +170,11 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
             device_id = topic_parts[2]
             if device_id:
                 LOGGER.info(
-                    "Message received for Site ID: %s, Device ID: %s, Action: %s",
-                    site_id,
-                    device_id,
-                    text_payload,
+                    "Message received for Site ID: {}, Device ID: {}, Action: {}".format(
+                        site_id,
+                        device_id,
+                        text_payload,
+                    )
                 )
                 action_device = api.action_device(
                     site_id=site_id,
@@ -196,7 +198,9 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
                 thread.daemon = True
                 thread.start()
             else:
-                LOGGER.info("Message received for Site ID: %s, Action: %s", site_id, text_payload)
+                LOGGER.info(
+                    "Message received for Site ID: {}, Action: {}".format(site_id, text_payload)
+                )
 
         # Manage Manual Snapshot
         elif len(topic_parts) > 3 and topic_parts[3] == "snapshot":
@@ -249,10 +253,11 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
 
             device = api.get_device(site_id=site_id, device_id=device_id)
             LOGGER.info(
-                "Message received for Site ID: %s, Device ID: %s, Setting: %s",
-                site_id,
-                device_id,
-                setting,
+                "Message received for Site ID: {}, Device ID: {}, Setting: {}".format(
+                    site_id,
+                    device_id,
+                    setting,
+                )
             )
             settings = device.settings
             settings["global"][setting] = text_payload
@@ -284,4 +289,4 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
             thread.start()
 
     except Exception as e:
-        LOGGER.error("Error when processing message: %s: %s => %s", e, msg.topic, msg.payload)
+        LOGGER.error("Error when processing message: {}: {} => {}".format(e, msg.topic, msg.payload))

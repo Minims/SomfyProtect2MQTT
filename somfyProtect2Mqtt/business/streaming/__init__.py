@@ -16,7 +16,7 @@ def rtmps_to_hls(device_id: str, url: str, path: str) -> None:
         url (str): RTMPS stream URL.
         path (str): Output directory path.
     """
-    LOGGER.info("Path: %s", path)
+    LOGGER.info("Path: {}".format(path))
     _1080p = Representation(Size(1920, 1080), Bitrate(4096 * 1024, 640 * 1024))
     video = ffmpeg_streaming.input(url)
     hls = video.hls(Formats.h264())

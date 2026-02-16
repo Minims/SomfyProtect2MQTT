@@ -75,12 +75,12 @@ def ha_sites_config(
 
         try:
             scenarios_core = api.get_scenarios_core(site_id=my_site.id)
-            LOGGER.info("Scenarios Core for %s => %s", my_site.label, scenarios_core)
+            LOGGER.info("Scenarios Core for {} => {}".format(my_site.label, scenarios_core))
             scenarios = api.get_scenarios(site_id=my_site.id)
-            LOGGER.info("Scenarios for %s => %s", my_site.label, scenarios)
-            LOGGER.warning("v4 => %s", api.get_site_scenario(site_id=site_id))
+            LOGGER.info("Scenarios for {} => {}".format(my_site.label, scenarios))
+            LOGGER.warning("v4 => {}".format(api.get_site_scenario(site_id=site_id)))
         except Exception as e:
-            LOGGER.warning("Error while getting scenarios: %s", e)
+            LOGGER.warning("Error while getting scenarios: {}".format(e))
             continue
 
 
@@ -112,14 +112,14 @@ def ha_devices_config(
     for site_id in my_sites_id:
         my_devices = api.get_devices(site_id=site_id)
         for device in my_devices:
-            LOGGER.info("Configuring Device: %s", device.label)
+            LOGGER.info("Configuring Device: {}".format(device.label))
             settings = device.settings.get("global") or {}
             status = device.status
             status_settings = {**status, **settings}
 
             for state in status_settings:
                 if not DEVICE_CAPABILITIES.get(state):
-                    LOGGER.debug("No Config for %s", state)
+                    LOGGER.debug("No Config for {}".format(state))
                     continue
                 device_config = ha_discovery_devices(
                     site_id=site_id,
@@ -147,7 +147,7 @@ def ha_devices_config(
                     SUBSCRIBE_TOPICS.append(device_config.get("config").get("command_topic"))
 
             if "box" in device.device_definition.get("type"):
-                LOGGER.info("Found Link %s", device.device_definition.get("label"))
+                LOGGER.info("Found Link {}".format(device.device_definition.get("label")))
                 reboot = ha_discovery_devices(
                     site_id=site_id,
                     device=device,
@@ -179,7 +179,7 @@ def ha_devices_config(
                 SUBSCRIBE_TOPICS.append(halt.get("config").get("command_topic"))
 
             if "camera" in device.device_definition.get("type") or "allinone" in device.device_definition.get("type"):
-                LOGGER.info("Found Camera %s", device.device_definition.get("label"))
+                LOGGER.info("Found Camera {}".format(device.device_definition.get("label")))
                 camera_config = ha_discovery_cameras(
                     site_id=site_id,
                     device=device,
@@ -283,7 +283,7 @@ def ha_devices_config(
 
             # Works with Websockets
             if "remote" in device.device_definition.get("type"):
-                LOGGER.info("Found %s", device.device_definition.get("label"))
+                LOGGER.info("Found {}".format(device.device_definition.get("label")))
                 key_fob_config = ha_discovery_devices(
                     site_id=site_id,
                     device=device,
@@ -321,7 +321,7 @@ def ha_devices_config(
                     "intrusion",
                     "ok",
                 ]:
-                    LOGGER.info("Found mss_siren, adding sound test: %s", sensor)
+                    LOGGER.info("Found mss_siren, adding sound test: {}".format(sensor))
                     mss_siren = ha_discovery_devices(
                         site_id=site_id,
                         device=device,
@@ -339,8 +339,9 @@ def ha_devices_config(
 
             if "pir" in device.device_definition.get("type") or "tag" in device.device_definition.get("type"):
                 LOGGER.info(
-                    "Found Motion Sensor (PIR & IntelliTag) %s",
-                    device.device_definition.get("label"),
+                    "Found Motion Sensor (PIR & IntelliTag) {}".format(
+                        device.device_definition.get("label")
+                    )
                 )
                 pir_config = ha_discovery_devices(
                     site_id=site_id,
@@ -362,7 +363,7 @@ def ha_devices_config(
                 )
 
             if "smoke" in device.device_definition.get("type"):
-                LOGGER.info("Found %s", device.device_definition.get("label"))
+                LOGGER.info("Found {}".format(device.device_definition.get("label")))
                 smoke_config = ha_discovery_devices(
                     site_id=site_id,
                     device=device,
@@ -383,7 +384,7 @@ def ha_devices_config(
                 )
 
             if device.device_definition.get("type") == "doorlock":
-                LOGGER.info("DoorLock %s", device.device_definition.get("label"))
+                LOGGER.info("DoorLock {}".format(device.device_definition.get("label")))
 
                 open_door = ha_discovery_devices(
                     site_id=site_id,
@@ -416,7 +417,7 @@ def ha_devices_config(
                 SUBSCRIBE_TOPICS.append(door_force_Lock.get("config").get("command_topic"))
 
             if "videophone" in device.device_definition.get("type"):
-                LOGGER.info("VideoPhone %s", device.device_definition.get("label"))
+                LOGGER.info("VideoPhone {}".format(device.device_definition.get("label")))
                 camera_config = ha_discovery_cameras(
                     site_id=site_id,
                     device=device,
@@ -579,7 +580,7 @@ def update_sites_status(
     for site_id in my_sites_id:
         try:
             site = api.get_site(site_id=site_id)
-            LOGGER.info("Update %s Status", site.label)
+            LOGGER.info("Update {} Status".format(site.label))
 
             try:
                 # Push status to MQTT
@@ -590,12 +591,12 @@ def update_sites_status(
                     retain=True,
                 )
             except Exception as e:
-                LOGGER.warning("Error while updating MQTT: %s", e)
+                LOGGER.warning("Error while updating MQTT: {}".format(e))
                 continue
         except RemoteDisconnected:
             LOGGER.info("Retrying...")
         except Exception as e:
-            LOGGER.warning("Error while refreshing site: %s", e)
+            LOGGER.warning("Error while refreshing site: {}".format(e))
             continue
 
         try:
@@ -611,7 +612,7 @@ def update_sites_status(
                     now = datetime.now(paris_tz)
                     if now - occurred_at_date < timedelta(seconds=3600):
                         if occurred_at in HISTORY:
-                            LOGGER.debug("History still published: %s", HISTORY[occurred_at])
+                            LOGGER.debug("History still published: {}".format(HISTORY[occurred_at]))
                             continue
                         message_vars = event.get("message_vars")
                         payload = (
@@ -622,7 +623,7 @@ def update_sites_status(
                         payload = payload.replace("None", "").strip().strip('"')
                         payload = payload.replace(".", " ").title()
                         HISTORY[occurred_at] = payload
-                        LOGGER.info("Publishing History: %s", HISTORY[occurred_at])
+                        LOGGER.info("Publishing History: {}".format(HISTORY[occurred_at]))
                         mqtt_publish(
                             mqtt_client=mqtt_client,
                             topic=f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/history",
@@ -631,14 +632,15 @@ def update_sites_status(
                         )
                     else:
                         LOGGER.debug(
-                            "Event is too old %s %s %s",
-                            event.get("message_key"),
-                            message_vars.get("userDsp"),
-                            message_vars.get("siteLabel"),
+                            "Event is too old {} {} {}".format(
+                                event.get("message_key"),
+                                message_vars.get("userDsp"),
+                                message_vars.get("siteLabel"),
+                            )
                         )
 
         except Exception as e:
-            LOGGER.warning("Error while getting site history: %s", e)
+            LOGGER.warning("Error while getting site history: {}".format(e))
             continue
 
 
@@ -673,7 +675,7 @@ def update_devices_status(
                         send_to_mqtt = True
                         for event in events:
                             if event.get("clip_cloudfront_url"):
-                                LOGGER.info("Found a video: %s", event.get("clip_cloudfront_url"))
+                                LOGGER.info("Found a video: {}".format(event.get("clip_cloudfront_url")))
                                 write_to_media_folder(
                                     url=event.get("clip_cloudfront_url"),
                                     site_id=site_id,
@@ -686,7 +688,9 @@ def update_devices_status(
                                     mqtt_config=mqtt_config,
                                 )
                             if event.get("snapshot_cloudfront_url"):
-                                LOGGER.info("Found a snapshot %s", event.get("snapshot_cloudfront_url"))
+                                LOGGER.info(
+                                    "Found a snapshot {}".format(event.get("snapshot_cloudfront_url"))
+                                )
                                 write_to_media_folder(
                                     url=event.get("snapshot_cloudfront_url"),
                                     site_id=site_id,
@@ -719,7 +723,7 @@ def update_devices_status(
                     retain=True,
                 )
         except Exception as e:
-            LOGGER.warning("Error while refreshing devices: %s", e)
+            LOGGER.warning("Error while refreshing devices: {}".format(e))
             continue
 
 
@@ -742,7 +746,7 @@ def update_camera_snapshot(
             ]:
                 my_devices = api.get_devices(site_id=site_id, category=category)
                 for device in my_devices:
-                    LOGGER.info("Shutter is %s", device.status.get("shutter_state", "opened"))
+                    LOGGER.info("Shutter is {}".format(device.status.get("shutter_state", "opened")))
                     if device.status.get("shutter_state", "opened") != "closed":
                         api.camera_refresh_snapshot(site_id=site_id, device_id=device.id)
                         response = api.camera_snapshot(site_id=site_id, device_id=device.id)
@@ -781,7 +785,7 @@ def update_camera_snapshot(
                             os.remove(path)
 
         except Exception as e:
-            LOGGER.warning("Error while refreshing snapshot: %s", e)
+            LOGGER.warning("Error while refreshing snapshot: {}".format(e))
             continue
 
 
@@ -807,7 +811,7 @@ def update_visiophone_snapshot(
             for chunk in response.iter_content(1024):  # Lire en morceaux de 1 KB
                 tmp_file.write(chunk)
     except requests.exceptions.RequestException as exc:
-        LOGGER.warning("Error while Downloading snapshot: %s", exc)
+        LOGGER.warning("Error while Downloading snapshot: {}".format(exc))
         return
 
     if not path:
@@ -881,7 +885,7 @@ def write_to_media_folder(
         with open(path, "wb") as file:
             for chunk in response.iter_content(1024):  # Lire en morceaux de 1 KB
                 file.write(chunk)
-        LOGGER.info("File wrote in %s", path)
+        LOGGER.info("File wrote in {}".format(path))
 
         if send_to_mqtt and media_type == "snapshot":
             # Read and Push to MQTT
@@ -898,8 +902,8 @@ def write_to_media_folder(
             )
 
     except OSError as exc:
-        LOGGER.warning("Unable to create directory %s: %s", directory, exc)
+        LOGGER.warning("Unable to create directory {}: {}".format(directory, exc))
     except requests.exceptions.RequestException as exc:
-        LOGGER.warning("Error while Downloading clip: %s", exc)
+        LOGGER.warning("Error while Downloading clip: {}".format(exc))
     finally:
         LOGGER.info("Write Successful")

@@ -43,16 +43,16 @@ def read_config_file(config_file: str) -> Dict[str, Any]:
     if not config_file:
         LOGGER.error("Config file path is missing")
         return {}
-    logging.info(f"Reading config file {config_file}")
+    logging.info("Reading config file {}".format(config_file))
     if not os.path.isfile(config_file):
-        LOGGER.error("File %s not found", config_file)
+        LOGGER.error("File {} not found".format(config_file))
         return {}
 
     with codecs.open(config_file, "r", "utf8") as file_handler:
         try:
             conf = yaml.load(file_handler, Loader=yaml.FullLoader)
         except ParserError:
-            logging.warning(f"Unable to parse config file {config_file}")
+            logging.warning("Unable to parse config file {}".format(config_file))
             conf = None
     if conf is None:
         conf = {}
@@ -74,7 +74,7 @@ def close_and_exit(
         frame: Signal frame (unused).
     """
     if signal:
-        LOGGER.debug("Signal %s received", signal)
+        LOGGER.debug("Signal {} received".format(signal))
     LOGGER.info("Stopping Application")
     if robot:
         robot.close()

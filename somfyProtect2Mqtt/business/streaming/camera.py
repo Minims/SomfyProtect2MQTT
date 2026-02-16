@@ -45,5 +45,5 @@ class VideoCamera(object):
                 return None
             return jpeg.tobytes()
         except Exception as exc:
-            LOGGER.debug("Unable to get Frame: %s", exc)
+            LOGGER.debug("Unable to get Frame: {}".format(exc))
             return None
