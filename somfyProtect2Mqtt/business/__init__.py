@@ -33,6 +33,7 @@ LOGGER = logging.getLogger(__name__)
 
 DEVICE_TAG = {}
 HISTORY = {}
+REQUEST_TIMEOUT = 10
 
 
 def _publish_config(mqtt_client: MQTTClient, config: dict, payload: Optional[dict] = None) -> None:
@@ -608,7 +609,7 @@ def update_visiophone_snapshot(
     path = None
 
     try:
-        response = requests.get(url, stream=True, timeout=10)
+        response = requests.get(url, stream=True, timeout=REQUEST_TIMEOUT)
         response.raise_for_status()
 
         path = f"{device_id}-{timestamp}.jpeg"
@@ -686,7 +687,7 @@ def write_to_media_folder(
     try:
         os.makedirs(directory, exist_ok=True)
 
-        response = requests.get(url, stream=True, timeout=10)
+        response = requests.get(url, stream=True, timeout=REQUEST_TIMEOUT)
         response.raise_for_status()
 
         path = f"{directory}/{label}-{occurred_at}-{event_id}.{extention}"

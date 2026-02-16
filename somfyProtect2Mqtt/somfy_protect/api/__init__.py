@@ -29,6 +29,7 @@ BASE_URL = "https://api.myfox.io"
 # Don't know how it works for now.
 VIDEO_URL = "https://video.myfox.io"
 # (MEDIA_TYPE_VIDEO, 1, 1; MEDIA_TYPE_AUDIO, 0, 0)
+REQUEST_TIMEOUT = 10
 
 ACCESS_LIST = ["gate", "latch", "lock", "unlock", "force_lock"]
 
@@ -97,7 +98,7 @@ class SomfyProtectApi:
         """
 
         url = f"{base_url}{path}"
-        kwargs.setdefault("timeout", 10)
+        kwargs.setdefault("timeout", REQUEST_TIMEOUT)
         try:
             return getattr(self.sso.oauth, method)(url, **kwargs)
         except TokenExpiredError:
