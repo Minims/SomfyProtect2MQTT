@@ -48,8 +48,8 @@ def somfy_protect_wss_loop(sso, debug, config, mqtt_client, api):
     try:
         wss = SomfyProtectWebsocket(sso=sso, debug=debug, config=config, mqtt_client=mqtt_client, api=api)
         wss.run_forever()
-    except Exception as exc:
-        LOGGER.error("Force stopping WebSocket {}".format(exc))
+    except (OSError, RuntimeError) as e:
+        LOGGER.error("Force stopping WebSocket {}".format(e))
         if wss:
             wss.close()
     finally:
@@ -139,5 +139,5 @@ if __name__ == "__main__":
 
             time.sleep(1)
 
-    except Exception as e:
+    except (OSError, RuntimeError) as e:
         LOGGER.error("Force stopping application {}".format(e))
