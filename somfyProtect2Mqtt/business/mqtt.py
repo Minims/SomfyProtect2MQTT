@@ -16,6 +16,22 @@ LOGGER = logging.getLogger(__name__)
 SUBSCRIBE_TOPICS = []
 
 
+def build_device_status_payload(device) -> dict:
+    """Build MQTT payload for a device status snapshot.
+
+    Args:
+        device: SomfyProtect device instance.
+
+    Returns:
+        dict: Serialized status payload.
+    """
+    settings = device.settings.get("global") or {}
+    status = device.status
+    status_settings = {**status, **settings}
+    keys_values = status_settings.items()
+    return {str(key): str(value) for key, value in keys_values}
+
+
 def mqtt_publish(mqtt_client, topic, payload, qos=0, retain=False, is_json=True):
     """MQTT publish"""
     if is_json:
@@ -30,13 +46,7 @@ def update_device(api, mqtt_client, mqtt_config, site_id, device_id):
     try:
         device = api.get_device(site_id=site_id, device_id=device_id)
         device_label = device.label
-        settings = device.settings.get("global") or {}
-        status = device.status
-        status_settings = {**status, **settings}
-
-        # Convert Values to String
-        keys_values = status_settings.items()
-        payload = {str(key): str(value) for key, value in keys_values}
+        payload = build_device_status_payload(device)
         # Push status to MQTT
         mqtt_publish(
             mqtt_client=mqtt_client,

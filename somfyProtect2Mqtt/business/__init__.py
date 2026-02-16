@@ -9,7 +9,7 @@ from time import sleep
 import pytz
 import requests
 import schedule
-from business.mqtt import SUBSCRIBE_TOPICS, mqtt_publish
+from business.mqtt import SUBSCRIBE_TOPICS, build_device_status_payload, mqtt_publish
 from business.watermark import insert_watermark
 from exceptions import SomfyProtectInitError
 from homeassistant.ha_discovery import (
@@ -702,12 +702,7 @@ def update_devices_status(
                 user_id = settings.get("user_id")
                 if user_id:
                     DEVICE_TAG[user_id] = device.id
-                status = device.status
-                status_settings = {**status, **settings}
-
-                # Convert Values to String
-                keys_values = status_settings.items()
-                payload = {str(key): str(value) for key, value in keys_values}
+                payload = build_device_status_payload(device)
 
                 # Push status to MQTT
                 mqtt_publish(
