@@ -7,7 +7,7 @@ import cv2
 LOGGER = logging.getLogger(__name__)
 
 
-class VideoCamera(object):
+class VideoCamera:
     """OpenCV-backed video capture helper."""
 
     def __init__(self, url: str):
