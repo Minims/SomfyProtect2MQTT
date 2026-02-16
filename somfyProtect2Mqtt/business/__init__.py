@@ -5,6 +5,7 @@ import os
 from datetime import datetime, timedelta
 from http.client import RemoteDisconnected
 from time import sleep
+from typing import Optional
 
 import pytz
 import requests
@@ -31,6 +32,39 @@ DEVICE_TAG = {}
 HISTORY = {}
 
 
+def _publish_config(mqtt_client: MQTTClient, config: dict, payload: Optional[dict] = None) -> None:
+    mqtt_publish(
+        mqtt_client=mqtt_client,
+        topic=config.get("topic"),
+        payload=payload if payload is not None else config.get("config"),
+        retain=True,
+    )
+
+
+def _subscribe_command(mqtt_client: MQTTClient, config: dict) -> None:
+    command_topic = config.get("config").get("command_topic")
+    if command_topic:
+        mqtt_client.client.subscribe(command_topic)
+        SUBSCRIBE_TOPICS.append(command_topic)
+
+
+def _publish_and_subscribe(mqtt_client: MQTTClient, config: dict, payload: Optional[dict] = None) -> None:
+    _publish_config(mqtt_client, config, payload=payload)
+    _subscribe_command(mqtt_client, config)
+
+
+def _publish_snapshot_command_topics(mqtt_client: MQTTClient, mqtt_config: dict, site_id: str, device_id: str) -> None:
+    topic_prefix = mqtt_config.get("topic_prefix", "somfyProtect2mqtt")
+    SUBSCRIBE_TOPICS.append(f"{topic_prefix}/{site_id}/{device_id}/video_backend")
+
+
+def _publish_stream_command_topics(mqtt_client: MQTTClient, mqtt_config: dict, site_id: str, device_id: str) -> None:
+    topic_prefix = mqtt_config.get("topic_prefix", "somfyProtect2mqtt")
+    stream_topic = f"{topic_prefix}/{site_id}/{device_id}/stream"
+    mqtt_client.client.subscribe(stream_topic)
+    SUBSCRIBE_TOPICS.append(stream_topic)
+
+
 def ha_sites_config(
     api: SomfyProtectApi,
     mqtt_client: MQTTClient,
@@ -49,29 +83,14 @@ def ha_sites_config(
             homeassistant_config=homeassistant_config,
         )
         site_extended = ha_discovery_alarm_actions(site=my_site, mqtt_config=mqtt_config)
-        configs = [site, site_extended]
-        for site_config in configs:
-            mqtt_publish(
-                mqtt_client=mqtt_client,
-                topic=site_config.get("topic"),
-                payload=site_config.get("config"),
-                retain=True,
-            )
-            mqtt_client.client.subscribe(site_config.get("config").get("command_topic"))
-            SUBSCRIBE_TOPICS.append(site_config.get("config").get("command_topic"))
+        for site_config in [site, site_extended]:
+            _publish_and_subscribe(mqtt_client, site_config)
 
-            history = ha_discovery_history(
-                site=my_site,
-                mqtt_config=mqtt_config,
-            )
-            configs = [history]
-            for history_config in configs:
-                mqtt_publish(
-                    mqtt_client=mqtt_client,
-                    topic=history_config.get("topic"),
-                    payload=history_config.get("config"),
-                    retain=True,
-                )
+        history = ha_discovery_history(
+            site=my_site,
+            mqtt_config=mqtt_config,
+        )
+        _publish_config(mqtt_client, history)
 
         try:
             scenarios_core = api.get_scenarios_core(site_id=my_site.id)
@@ -101,6 +120,248 @@ def convert_utc_to_paris(date: datetime) -> datetime:
     return paris_date
 
 
+def _configure_device_state_sensors(mqtt_client: MQTTClient, mqtt_config: dict, site_id: str, device) -> None:
+    settings = device.settings.get("global") or {}
+    status = device.status
+    status_settings = {**status, **settings}
+    for state in status_settings:
+        if not DEVICE_CAPABILITIES.get(state):
+            LOGGER.debug("No Config for {}".format(state))
+            continue
+        device_config = ha_discovery_devices(
+            site_id=site_id,
+            device=device,
+            mqtt_config=mqtt_config,
+            sensor_name=state,
+        )
+        if state in ["human_detect_enabled"]:
+            _publish_config(mqtt_client, device_config, payload={})
+        else:
+            _publish_config(mqtt_client, device_config)
+        _subscribe_command(mqtt_client, device_config)
+
+
+def _configure_box_device(mqtt_client: MQTTClient, mqtt_config: dict, site_id: str, device, device_type: str) -> None:
+    if "box" not in device_type:
+        return
+    LOGGER.info("Found Link {}".format(device.device_definition.get("label")))
+    for action in ["reboot", "halt"]:
+        config = ha_discovery_devices(
+            site_id=site_id,
+            device=device,
+            mqtt_config=mqtt_config,
+            sensor_name=action,
+        )
+        _publish_and_subscribe(mqtt_client, config)
+
+
+def _configure_camera_device(
+    mqtt_client: MQTTClient, mqtt_config: dict, site_id: str, device, device_type: str
+) -> None:
+    if "camera" not in device_type and "allinone" not in device_type:
+        return
+    LOGGER.info("Found Camera {}".format(device.device_definition.get("label")))
+    camera_config = ha_discovery_cameras(
+        site_id=site_id,
+        device=device,
+        mqtt_config=mqtt_config,
+    )
+    _publish_config(mqtt_client, camera_config)
+    for action in ["reboot", "halt"]:
+        config = ha_discovery_devices(
+            site_id=site_id,
+            device=device,
+            mqtt_config=mqtt_config,
+            sensor_name=action,
+        )
+        _publish_and_subscribe(mqtt_client, config)
+    device_config = ha_discovery_devices(
+        site_id=site_id,
+        device=device,
+        mqtt_config=mqtt_config,
+        sensor_name="snapshot",
+    )
+    _publish_and_subscribe(mqtt_client, device_config)
+    video_backend = ha_discovery_devices(
+        site_id=site_id,
+        device=device,
+        mqtt_config=mqtt_config,
+        sensor_name="video_backend",
+    )
+    _publish_and_subscribe(mqtt_client, video_backend)
+    if video_backend.get("config").get("command_topic"):
+        _publish_snapshot_command_topics(mqtt_client, mqtt_config, site_id, device.id)
+    stream = ha_discovery_devices(
+        site_id=site_id,
+        device=device,
+        mqtt_config=mqtt_config,
+        sensor_name="stream",
+    )
+    _publish_and_subscribe(mqtt_client, stream)
+    if stream.get("config").get("command_topic"):
+        _publish_stream_command_topics(mqtt_client, mqtt_config, site_id, device.id)
+
+
+def _configure_remote_device(
+    mqtt_client: MQTTClient, mqtt_config: dict, site_id: str, device, device_type: str
+) -> None:
+    if "remote" not in device_type:
+        return
+    LOGGER.info("Found {}".format(device.device_definition.get("label")))
+    key_fob_config = ha_discovery_devices(
+        site_id=site_id,
+        device=device,
+        mqtt_config=mqtt_config,
+        sensor_name="presence",
+    )
+    _publish_config(mqtt_client, key_fob_config)
+
+
+def _configure_outdoor_siren(mqtt_client: MQTTClient, mqtt_config: dict, site_id: str, device) -> None:
+    if "mss_outdoor_siren" not in device.device_definition.get("device_definition_id"):
+        return
+    config = ha_discovery_devices(
+        site_id=site_id,
+        device=device,
+        mqtt_config=mqtt_config,
+        sensor_name="test_siren1s",
+    )
+    _publish_and_subscribe(mqtt_client, config)
+
+
+def _configure_siren(mqtt_client: MQTTClient, mqtt_config: dict, site_id: str, device) -> None:
+    if "mss_siren" not in device.device_definition.get("device_definition_id"):
+        return
+    mss_siren = None
+    for sensor in SIREN_TEST_SOUNDS:
+        LOGGER.info("Found mss_siren, adding sound test: {}".format(sensor))
+        mss_siren = ha_discovery_devices(
+            site_id=site_id,
+            device=device,
+            mqtt_config=mqtt_config,
+            sensor_name=f"test_{sensor}",
+        )
+        _publish_config(mqtt_client, mss_siren)
+    if mss_siren:
+        _subscribe_command(mqtt_client, mss_siren)
+
+
+def _configure_motion_device(
+    mqtt_client: MQTTClient, mqtt_config: dict, site_id: str, device, device_type: str
+) -> None:
+    if "pir" not in device_type and "tag" not in device_type:
+        return
+    LOGGER.info("Found Motion Sensor (PIR & IntelliTag) {}".format(device.device_definition.get("label")))
+    pir_config = ha_discovery_devices(
+        site_id=site_id,
+        device=device,
+        mqtt_config=mqtt_config,
+        sensor_name="motion_sensor",
+    )
+    _publish_config(mqtt_client, pir_config)
+    mqtt_publish(
+        mqtt_client=mqtt_client,
+        topic=pir_config.get("config").get("state_topic"),
+        payload={"motion_sensor": "False"},
+        retain=True,
+    )
+
+
+def _configure_smoke_device(mqtt_client: MQTTClient, mqtt_config: dict, site_id: str, device, device_type: str) -> None:
+    if "smoke" not in device_type:
+        return
+    LOGGER.info("Found {}".format(device.device_definition.get("label")))
+    smoke_config = ha_discovery_devices(
+        site_id=site_id,
+        device=device,
+        mqtt_config=mqtt_config,
+        sensor_name="smoke",
+    )
+    _publish_config(mqtt_client, smoke_config)
+    mqtt_publish(
+        mqtt_client=mqtt_client,
+        topic=smoke_config.get("config").get("state_topic"),
+        payload={"smoke": "False"},
+        retain=True,
+    )
+
+
+def _configure_doorlock_device(
+    mqtt_client: MQTTClient, mqtt_config: dict, site_id: str, device, device_type: str
+) -> None:
+    if device_type != "doorlock":
+        return
+    LOGGER.info("DoorLock {}".format(device.device_definition.get("label")))
+    for sensor_name in ["open_door", "door_force_Lock"]:
+        config = ha_discovery_devices(
+            site_id=site_id,
+            device=device,
+            mqtt_config=mqtt_config,
+            sensor_name=sensor_name,
+        )
+        _publish_and_subscribe(mqtt_client, config)
+
+
+def _configure_videophone_device(
+    mqtt_client: MQTTClient, mqtt_config: dict, site_id: str, device, device_type: str
+) -> None:
+    if "videophone" not in device_type:
+        return
+    LOGGER.info("VideoPhone {}".format(device.device_definition.get("label")))
+    camera_config = ha_discovery_cameras(
+        site_id=site_id,
+        device=device,
+        mqtt_config=mqtt_config,
+    )
+    _publish_config(mqtt_client, camera_config)
+    ringing_config = ha_discovery_devices(
+        site_id=site_id,
+        device=device,
+        mqtt_config=mqtt_config,
+        sensor_name="ringing",
+    )
+    _publish_config(mqtt_client, ringing_config)
+    mqtt_publish(
+        mqtt_client=mqtt_client,
+        topic=ringing_config.get("config").get("state_topic"),
+        payload={"ringing": "False"},
+        retain=True,
+    )
+    for action in ["reboot", "halt", "open_latch", "open_gate"]:
+        config = ha_discovery_devices(
+            site_id=site_id,
+            device=device,
+            mqtt_config=mqtt_config,
+            sensor_name=action,
+        )
+        _publish_and_subscribe(mqtt_client, config)
+    device_config = ha_discovery_devices(
+        site_id=site_id,
+        device=device,
+        mqtt_config=mqtt_config,
+        sensor_name="snapshot",
+    )
+    _publish_and_subscribe(mqtt_client, device_config)
+    stream = ha_discovery_devices(
+        site_id=site_id,
+        device=device,
+        mqtt_config=mqtt_config,
+        sensor_name="stream",
+    )
+    _publish_and_subscribe(mqtt_client, stream)
+    if stream.get("config").get("command_topic"):
+        _publish_stream_command_topics(mqtt_client, mqtt_config, site_id, device.id)
+    video_backend = ha_discovery_devices(
+        site_id=site_id,
+        device=device,
+        mqtt_config=mqtt_config,
+        sensor_name="video_backend",
+    )
+    _publish_and_subscribe(mqtt_client, video_backend)
+    if video_backend.get("config").get("command_topic"):
+        _publish_snapshot_command_topics(mqtt_client, mqtt_config, site_id, device.id)
+
+
 def ha_devices_config(
     api: SomfyProtectApi,
     mqtt_client: MQTTClient,
@@ -113,449 +374,17 @@ def ha_devices_config(
         my_devices = api.get_devices(site_id=site_id)
         for device in my_devices:
             LOGGER.info("Configuring Device: {}".format(device.label))
-            settings = device.settings.get("global") or {}
-            status = device.status
-            status_settings = {**status, **settings}
-
-            for state in status_settings:
-                if not DEVICE_CAPABILITIES.get(state):
-                    LOGGER.debug("No Config for {}".format(state))
-                    continue
-                device_config = ha_discovery_devices(
-                    site_id=site_id,
-                    device=device,
-                    mqtt_config=mqtt_config,
-                    sensor_name=state,
-                )
-                if state in ["human_detect_enabled"]:
-                    mqtt_publish(
-                        mqtt_client=mqtt_client,
-                        topic=device_config.get("topic"),
-                        payload={},
-                        retain=True,
-                    )
-                else:
-                    mqtt_publish(
-                        mqtt_client=mqtt_client,
-                        topic=device_config.get("topic"),
-                        payload=device_config.get("config"),
-                        retain=True,
-                    )
-
-                if device_config.get("config").get("command_topic"):
-                    mqtt_client.client.subscribe(device_config.get("config").get("command_topic"))
-                    SUBSCRIBE_TOPICS.append(device_config.get("config").get("command_topic"))
-
-            if "box" in device.device_definition.get("type"):
-                LOGGER.info("Found Link {}".format(device.device_definition.get("label")))
-                reboot = ha_discovery_devices(
-                    site_id=site_id,
-                    device=device,
-                    mqtt_config=mqtt_config,
-                    sensor_name="reboot",
-                )
-                mqtt_publish(
-                    mqtt_client=mqtt_client,
-                    topic=reboot.get("topic"),
-                    payload=reboot.get("config"),
-                    retain=True,
-                )
-                mqtt_client.client.subscribe(reboot.get("config").get("command_topic"))
-                SUBSCRIBE_TOPICS.append(reboot.get("config").get("command_topic"))
-
-                halt = ha_discovery_devices(
-                    site_id=site_id,
-                    device=device,
-                    mqtt_config=mqtt_config,
-                    sensor_name="halt",
-                )
-                mqtt_publish(
-                    mqtt_client=mqtt_client,
-                    topic=halt.get("topic"),
-                    payload=halt.get("config"),
-                    retain=True,
-                )
-                mqtt_client.client.subscribe(halt.get("config").get("command_topic"))
-                SUBSCRIBE_TOPICS.append(halt.get("config").get("command_topic"))
-
-            if "camera" in device.device_definition.get("type") or "allinone" in device.device_definition.get("type"):
-                LOGGER.info("Found Camera {}".format(device.device_definition.get("label")))
-                camera_config = ha_discovery_cameras(
-                    site_id=site_id,
-                    device=device,
-                    mqtt_config=mqtt_config,
-                )
-                mqtt_publish(
-                    mqtt_client=mqtt_client,
-                    topic=camera_config.get("topic"),
-                    payload=camera_config.get("config"),
-                    retain=True,
-                )
-                reboot = ha_discovery_devices(
-                    site_id=site_id,
-                    device=device,
-                    mqtt_config=mqtt_config,
-                    sensor_name="reboot",
-                )
-                mqtt_publish(
-                    mqtt_client=mqtt_client,
-                    topic=reboot.get("topic"),
-                    payload=reboot.get("config"),
-                    retain=True,
-                )
-                mqtt_client.client.subscribe(reboot.get("config").get("command_topic"))
-                SUBSCRIBE_TOPICS.append(reboot.get("config").get("command_topic"))
-
-                halt = ha_discovery_devices(
-                    site_id=site_id,
-                    device=device,
-                    mqtt_config=mqtt_config,
-                    sensor_name="halt",
-                )
-                mqtt_publish(
-                    mqtt_client=mqtt_client,
-                    topic=halt.get("topic"),
-                    payload=halt.get("config"),
-                    retain=True,
-                )
-                mqtt_client.client.subscribe(halt.get("config").get("command_topic"))
-                SUBSCRIBE_TOPICS.append(halt.get("config").get("command_topic"))
-
-                # Manual Snapshot
-                device_config = ha_discovery_devices(
-                    site_id=site_id,
-                    device=device,
-                    mqtt_config=mqtt_config,
-                    sensor_name="snapshot",
-                )
-                mqtt_publish(
-                    mqtt_client=mqtt_client,
-                    topic=device_config.get("topic"),
-                    payload=device_config.get("config"),
-                    retain=True,
-                )
-                if device_config.get("config").get("command_topic"):
-                    mqtt_client.client.subscribe(device_config.get("config").get("command_topic"))
-                    SUBSCRIBE_TOPICS.append(device_config.get("config").get("command_topic"))
-
-                # Video Backend
-                video_backend = ha_discovery_devices(
-                    site_id=site_id,
-                    device=device,
-                    mqtt_config=mqtt_config,
-                    sensor_name="video_backend",
-                )
-                mqtt_publish(
-                    mqtt_client=mqtt_client,
-                    topic=video_backend.get("topic"),
-                    payload=video_backend.get("config"),
-                    retain=True,
-                )
-                if video_backend.get("config").get("command_topic"):
-                    mqtt_client.client.subscribe(video_backend.get("config").get("command_topic"))
-                    SUBSCRIBE_TOPICS.append(video_backend.get("config").get("command_topic"))
-                    SUBSCRIBE_TOPICS.append(
-                        f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/video_backend"
-                    )
-
-                # Stream
-                stream = ha_discovery_devices(
-                    site_id=site_id,
-                    device=device,
-                    mqtt_config=mqtt_config,
-                    sensor_name="stream",
-                )
-                mqtt_publish(
-                    mqtt_client=mqtt_client,
-                    topic=stream.get("topic"),
-                    payload=stream.get("config"),
-                    retain=True,
-                )
-                if stream.get("config").get("command_topic"):
-                    mqtt_client.client.subscribe(stream.get("config").get("command_topic"))
-                    mqtt_client.client.subscribe(
-                        f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/stream"
-                    )
-                    SUBSCRIBE_TOPICS.append(stream.get("config").get("command_topic"))
-                    SUBSCRIBE_TOPICS.append(
-                        f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/stream"
-                    )
-
-            # Works with Websockets
-            if "remote" in device.device_definition.get("type"):
-                LOGGER.info("Found {}".format(device.device_definition.get("label")))
-                key_fob_config = ha_discovery_devices(
-                    site_id=site_id,
-                    device=device,
-                    mqtt_config=mqtt_config,
-                    sensor_name="presence",
-                )
-                mqtt_publish(
-                    mqtt_client=mqtt_client,
-                    topic=key_fob_config.get("topic"),
-                    payload=key_fob_config.get("config"),
-                    retain=True,
-                )
-            if "mss_outdoor_siren" in device.device_definition.get("device_definition_id"):
-                mss_outdoor_siren = ha_discovery_devices(
-                    site_id=site_id,
-                    device=device,
-                    mqtt_config=mqtt_config,
-                    sensor_name="test_siren1s",
-                )
-                mqtt_publish(
-                    mqtt_client=mqtt_client,
-                    topic=mss_outdoor_siren.get("topic"),
-                    payload=mss_outdoor_siren.get("config"),
-                    retain=True,
-                )
-                mqtt_client.client.subscribe(mss_outdoor_siren.get("config").get("command_topic"))
-                SUBSCRIBE_TOPICS.append(mss_outdoor_siren.get("config").get("command_topic"))
-
-            if "mss_siren" in device.device_definition.get("device_definition_id"):
-                for sensor in SIREN_TEST_SOUNDS:
-                    LOGGER.info("Found mss_siren, adding sound test: {}".format(sensor))
-                    mss_siren = ha_discovery_devices(
-                        site_id=site_id,
-                        device=device,
-                        mqtt_config=mqtt_config,
-                        sensor_name=f"test_{sensor}",
-                    )
-                    mqtt_publish(
-                        mqtt_client=mqtt_client,
-                        topic=mss_siren.get("topic"),
-                        payload=mss_siren.get("config"),
-                        retain=True,
-                    )
-                mqtt_client.client.subscribe(mss_siren.get("config").get("command_topic"))
-                SUBSCRIBE_TOPICS.append(mss_siren.get("config").get("command_topic"))
-
-            if "pir" in device.device_definition.get("type") or "tag" in device.device_definition.get("type"):
-                LOGGER.info("Found Motion Sensor (PIR & IntelliTag) {}".format(device.device_definition.get("label")))
-                pir_config = ha_discovery_devices(
-                    site_id=site_id,
-                    device=device,
-                    mqtt_config=mqtt_config,
-                    sensor_name="motion_sensor",
-                )
-                mqtt_publish(
-                    mqtt_client=mqtt_client,
-                    topic=pir_config.get("topic"),
-                    payload=pir_config.get("config"),
-                    retain=True,
-                )
-                mqtt_publish(
-                    mqtt_client=mqtt_client,
-                    topic=pir_config.get("config").get("state_topic"),
-                    payload={"motion_sensor": "False"},
-                    retain=True,
-                )
-
-            if "smoke" in device.device_definition.get("type"):
-                LOGGER.info("Found {}".format(device.device_definition.get("label")))
-                smoke_config = ha_discovery_devices(
-                    site_id=site_id,
-                    device=device,
-                    mqtt_config=mqtt_config,
-                    sensor_name="smoke",
-                )
-                mqtt_publish(
-                    mqtt_client=mqtt_client,
-                    topic=smoke_config.get("topic"),
-                    payload=smoke_config.get("config"),
-                    retain=True,
-                )
-                mqtt_publish(
-                    mqtt_client=mqtt_client,
-                    topic=smoke_config.get("config").get("state_topic"),
-                    payload={"smoke": "False"},
-                    retain=True,
-                )
-
-            if device.device_definition.get("type") == "doorlock":
-                LOGGER.info("DoorLock {}".format(device.device_definition.get("label")))
-
-                open_door = ha_discovery_devices(
-                    site_id=site_id,
-                    device=device,
-                    mqtt_config=mqtt_config,
-                    sensor_name="open_door",
-                )
-                mqtt_publish(
-                    mqtt_client=mqtt_client,
-                    topic=open_door.get("topic"),
-                    payload=open_door.get("config"),
-                    retain=True,
-                )
-                mqtt_client.client.subscribe(open_door.get("config").get("command_topic"))
-                SUBSCRIBE_TOPICS.append(open_door.get("config").get("command_topic"))
-
-                door_force_Lock = ha_discovery_devices(
-                    site_id=site_id,
-                    device=device,
-                    mqtt_config=mqtt_config,
-                    sensor_name="door_force_Lock",
-                )
-                mqtt_publish(
-                    mqtt_client=mqtt_client,
-                    topic=door_force_Lock.get("topic"),
-                    payload=door_force_Lock.get("config"),
-                    retain=True,
-                )
-                mqtt_client.client.subscribe(door_force_Lock.get("config").get("command_topic"))
-                SUBSCRIBE_TOPICS.append(door_force_Lock.get("config").get("command_topic"))
-
-            if "videophone" in device.device_definition.get("type"):
-                LOGGER.info("VideoPhone {}".format(device.device_definition.get("label")))
-                camera_config = ha_discovery_cameras(
-                    site_id=site_id,
-                    device=device,
-                    mqtt_config=mqtt_config,
-                )
-                mqtt_publish(
-                    mqtt_client=mqtt_client,
-                    topic=camera_config.get("topic"),
-                    payload=camera_config.get("config"),
-                    retain=True,
-                )
-                ringing_config = ha_discovery_devices(
-                    site_id=site_id,
-                    device=device,
-                    mqtt_config=mqtt_config,
-                    sensor_name="ringing",
-                )
-                mqtt_publish(
-                    mqtt_client=mqtt_client,
-                    topic=ringing_config.get("topic"),
-                    payload=ringing_config.get("config"),
-                    retain=True,
-                )
-                mqtt_publish(
-                    mqtt_client=mqtt_client,
-                    topic=ringing_config.get("config").get("state_topic"),
-                    payload={"ringing": "False"},
-                    retain=True,
-                )
-
-                reboot = ha_discovery_devices(
-                    site_id=site_id,
-                    device=device,
-                    mqtt_config=mqtt_config,
-                    sensor_name="reboot",
-                )
-                mqtt_publish(
-                    mqtt_client=mqtt_client,
-                    topic=reboot.get("topic"),
-                    payload=reboot.get("config"),
-                    retain=True,
-                )
-                mqtt_client.client.subscribe(reboot.get("config").get("command_topic"))
-                SUBSCRIBE_TOPICS.append(reboot.get("config").get("command_topic"))
-
-                halt = ha_discovery_devices(
-                    site_id=site_id,
-                    device=device,
-                    mqtt_config=mqtt_config,
-                    sensor_name="halt",
-                )
-                mqtt_publish(
-                    mqtt_client=mqtt_client,
-                    topic=halt.get("topic"),
-                    payload=halt.get("config"),
-                    retain=True,
-                )
-                mqtt_client.client.subscribe(halt.get("config").get("command_topic"))
-                SUBSCRIBE_TOPICS.append(halt.get("config").get("command_topic"))
-
-                open_latch = ha_discovery_devices(
-                    site_id=site_id,
-                    device=device,
-                    mqtt_config=mqtt_config,
-                    sensor_name="open_latch",
-                )
-                mqtt_publish(
-                    mqtt_client=mqtt_client,
-                    topic=open_latch.get("topic"),
-                    payload=open_latch.get("config"),
-                    retain=True,
-                )
-                mqtt_client.client.subscribe(open_latch.get("config").get("command_topic"))
-                SUBSCRIBE_TOPICS.append(open_latch.get("config").get("command_topic"))
-
-                open_gate = ha_discovery_devices(
-                    site_id=site_id,
-                    device=device,
-                    mqtt_config=mqtt_config,
-                    sensor_name="open_gate",
-                )
-                mqtt_publish(
-                    mqtt_client=mqtt_client,
-                    topic=open_gate.get("topic"),
-                    payload=open_gate.get("config"),
-                    retain=True,
-                )
-                mqtt_client.client.subscribe(open_gate.get("config").get("command_topic"))
-                SUBSCRIBE_TOPICS.append(open_gate.get("config").get("command_topic"))
-
-                # Manual Snapshot
-                device_config = ha_discovery_devices(
-                    site_id=site_id,
-                    device=device,
-                    mqtt_config=mqtt_config,
-                    sensor_name="snapshot",
-                )
-                mqtt_publish(
-                    mqtt_client=mqtt_client,
-                    topic=device_config.get("topic"),
-                    payload=device_config.get("config"),
-                    retain=True,
-                )
-                if device_config.get("config").get("command_topic"):
-                    mqtt_client.client.subscribe(device_config.get("config").get("command_topic"))
-                    SUBSCRIBE_TOPICS.append(device_config.get("config").get("command_topic"))
-
-                # Stream
-                stream = ha_discovery_devices(
-                    site_id=site_id,
-                    device=device,
-                    mqtt_config=mqtt_config,
-                    sensor_name="stream",
-                )
-                mqtt_publish(
-                    mqtt_client=mqtt_client,
-                    topic=stream.get("topic"),
-                    payload=stream.get("config"),
-                    retain=True,
-                )
-                if stream.get("config").get("command_topic"):
-                    mqtt_client.client.subscribe(stream.get("config").get("command_topic"))
-                    mqtt_client.client.subscribe(
-                        f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/stream"
-                    )
-                    SUBSCRIBE_TOPICS.append(stream.get("config").get("command_topic"))
-                    SUBSCRIBE_TOPICS.append(
-                        f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/stream"
-                    )
-
-                # Video Backend
-                video_backend = ha_discovery_devices(
-                    site_id=site_id,
-                    device=device,
-                    mqtt_config=mqtt_config,
-                    sensor_name="video_backend",
-                )
-                mqtt_publish(
-                    mqtt_client=mqtt_client,
-                    topic=video_backend.get("topic"),
-                    payload=video_backend.get("config"),
-                    retain=True,
-                )
-                if video_backend.get("config").get("command_topic"):
-                    mqtt_client.client.subscribe(video_backend.get("config").get("command_topic"))
-                    SUBSCRIBE_TOPICS.append(video_backend.get("config").get("command_topic"))
-                    SUBSCRIBE_TOPICS.append(
-                        f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/video_backend"
-                    )
+            device_type = device.device_definition.get("type") or ""
+            _configure_device_state_sensors(mqtt_client, mqtt_config, site_id, device)
+            _configure_box_device(mqtt_client, mqtt_config, site_id, device, device_type)
+            _configure_camera_device(mqtt_client, mqtt_config, site_id, device, device_type)
+            _configure_remote_device(mqtt_client, mqtt_config, site_id, device, device_type)
+            _configure_outdoor_siren(mqtt_client, mqtt_config, site_id, device)
+            _configure_siren(mqtt_client, mqtt_config, site_id, device)
+            _configure_motion_device(mqtt_client, mqtt_config, site_id, device, device_type)
+            _configure_smoke_device(mqtt_client, mqtt_config, site_id, device, device_type)
+            _configure_doorlock_device(mqtt_client, mqtt_config, site_id, device, device_type)
+            _configure_videophone_device(mqtt_client, mqtt_config, site_id, device, device_type)
 
 
 def update_sites_status(
