@@ -345,7 +345,14 @@ class SomfyProtectApi:
             LOGGER.error("Unable to decode devices response: {}".format(response.text))
             raise exc
         LOGGER.debug("Devices Capabilities: {}".format(content))
-        devices += [Device(**d) for d in content.get("items") if _device_matches_category(d, category)]
+        for device_data in content.get("items"):
+            device = Device(**device_data)
+            if category is None:
+                devices.append(device)
+                continue
+            label = device.device_definition.get("label") or ""
+            if category.value.lower() in label.lower():
+                devices.append(device)
 
         return devices
 
@@ -499,8 +506,14 @@ class SomfyProtectApi:
             Dict[str, Any]: API response payload.
         """
         token = read_token_from_file().get("access_token")
-        response = self.get(f"/event/site/{site_id}/device/{device_id}/events?access_token={token}", base_url=VIDEO_URL)
-        LOGGER.info(response.json())
+        if not token:
+            LOGGER.error("Missing access token for device events")
+            return {}
+        response = self.get(
+            f"/event/site/{site_id}/device/{device_id}/events?access_token={token}",
+            base_url=VIDEO_URL,
+        )
+        LOGGER.debug("Device events response status: {}".format(response.status_code))
         response.raise_for_status()
         return response.json()
 
@@ -529,11 +542,3 @@ class SomfyProtectApi:
         )
         response.raise_for_status()
         return response.json()
-
-
-def _device_matches_category(device_data: Dict[str, Any], category: Optional[Category]) -> bool:
-    if category is None:
-        return True
-    device = Device(**device_data)
-    label = device.device_definition.get("label") or ""
-    return category.value.lower() in label.lower()
