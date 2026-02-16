@@ -797,7 +797,7 @@ def update_visiophone_snapshot(
     path = None
 
     try:
-        response = requests.get(url, stream=True)
+        response = requests.get(url, stream=True, timeout=10)
         response.raise_for_status()
 
         path = f"{device_id}-{timestamp}.jpeg"
@@ -871,7 +871,7 @@ def write_to_media_folder(
     try:
         os.makedirs(directory, exist_ok=True)
 
-        response = requests.get(url, stream=True)
+        response = requests.get(url, stream=True, timeout=10)
         response.raise_for_status()
 
         path = f"{directory}/{label}-{occurred_at}-{event_id}.{extention}"
