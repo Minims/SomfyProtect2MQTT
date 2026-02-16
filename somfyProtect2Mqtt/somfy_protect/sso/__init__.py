@@ -9,7 +9,7 @@ from typing import Any, Callable, Dict, List, Optional, Union
 
 from exceptions import SomfyProtectInitError
 from oauthlib.oauth2 import LegacyApplicationClient, TokenExpiredError
-from requests import Response
+from requests import RequestException, Response
 from requests.adapters import HTTPAdapter
 from requests_oauthlib import OAuth2Session
 from urllib3.util.retry import Retry
@@ -116,7 +116,11 @@ class SomfyProtectSso:
             Dict[str, Union[str, int]]: Token
         """
         LOGGER.info("Refreshing Token")
-        token = self._oauth.refresh_token(SOMFY_PROTECT_TOKEN)
+        try:
+            token = self._oauth.refresh_token(SOMFY_PROTECT_TOKEN)
+        except (RequestException, TokenExpiredError, ValueError) as e:
+            LOGGER.warning("Refresh failed, requesting new token: {}".format(e))
+            token = self.request_token()
 
         if self.token_updater is not None:
             self.token_updater(token)
