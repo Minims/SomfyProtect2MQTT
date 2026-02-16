@@ -44,6 +44,6 @@ class VideoCamera(object):
             if not ret:
                 return None
             return jpeg.tobytes()
-        except Exception as exc:
-            LOGGER.debug("Unable to get Frame: {}".format(exc))
+        except (cv2.error, ValueError) as e:
+            LOGGER.debug("Unable to get Frame: {}".format(e))
             return None
