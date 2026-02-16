@@ -349,14 +349,6 @@ class SomfyProtectApi:
 
         return devices
 
-
-def _device_matches_category(device_data: Dict[str, Any], category: Optional[Category]) -> bool:
-    if category is None:
-        return True
-    device = Device(**device_data)
-    label = device.device_definition.get("label") or ""
-    return category.value.lower() in label.lower()
-
     def get_device(self, site_id: str, device_id: str) -> Device:
         """Get device details.
 
@@ -537,3 +529,11 @@ def _device_matches_category(device_data: Dict[str, Any], category: Optional[Cat
         )
         response.raise_for_status()
         return response.json()
+
+
+def _device_matches_category(device_data: Dict[str, Any], category: Optional[Category]) -> bool:
+    if category is None:
+        return True
+    device = Device(**device_data)
+    label = device.device_definition.get("label") or ""
+    return category.value.lower() in label.lower()
