@@ -79,7 +79,7 @@ def ha_sites_config(
             scenarios = api.get_scenarios(site_id=my_site.id)
             LOGGER.info("Scenarios for {} => {}".format(my_site.label, scenarios))
             LOGGER.warning("v4 => {}".format(api.get_site_scenario(site_id=site_id)))
-        except Exception as e:
+        except (requests.exceptions.RequestException, KeyError, ValueError) as e:
             LOGGER.warning("Error while getting scenarios: {}".format(e))
             continue
 
