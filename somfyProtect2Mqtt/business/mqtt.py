@@ -7,6 +7,7 @@ from time import sleep
 
 from homeassistant.ha_discovery import ALARM_STATUS
 from paho.mqtt import client
+from requests import RequestException
 from somfy_protect.api import ACCESS_LIST, ACTION_LIST, SomfyProtectApi
 
 # from business.streaming import rtmps_to_hls
@@ -43,7 +44,7 @@ def update_device(api, mqtt_client, mqtt_config, site_id, device_id):
             payload=payload,
             retain=True,
         )
-    except Exception as e:
+    except (RequestException, AttributeError, KeyError, ValueError) as e:
         LOGGER.warning("Error while refreshing {}: {}".format(device_label, e))
 
 
@@ -59,7 +60,7 @@ def update_site(api, mqtt_client, mqtt_config, site_id):
             payload={"security_level": ALARM_STATUS.get(site.security_level, "disarmed")},
             retain=True,
         )
-    except Exception as e:
+    except (RequestException, AttributeError, KeyError, ValueError) as e:
         LOGGER.warning("Error while refreshing site {}: {}".format(site_id, e))
 
 
@@ -286,5 +287,5 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
             thread.daemon = True
             thread.start()
 
-    except Exception as e:
+    except (RequestException, AttributeError, KeyError, ValueError) as e:
         LOGGER.error("Error when processing message: {}: {} => {}".format(e, msg.topic, msg.payload))
