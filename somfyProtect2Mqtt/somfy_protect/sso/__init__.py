@@ -10,7 +10,9 @@ from typing import Any, Callable, Dict, List, Optional, Union
 from exceptions import SomfyProtectInitError
 from oauthlib.oauth2 import LegacyApplicationClient, TokenExpiredError
 from requests import Response
+from requests.adapters import HTTPAdapter
 from requests_oauthlib import OAuth2Session
+from urllib3.util.retry import Retry
 
 LOGGER = logging.getLogger(__name__)
 
@@ -70,6 +72,19 @@ class SomfyProtectSso:
             token_updater=token_updater,
         )
         self._oauth.headers["User-Agent"] = "Somfy Protect"
+        retry = Retry(
+            total=3,
+            connect=3,
+            read=3,
+            status=3,
+            backoff_factor=0.5,
+            status_forcelist=[429, 500, 502, 503, 504],
+            allowed_methods=frozenset(["HEAD", "GET", "POST", "PUT", "DELETE", "OPTIONS", "TRACE", "PATCH"]),
+            raise_on_status=False,
+        )
+        adapter = HTTPAdapter(max_retries=retry)
+        self._oauth.mount("https://", adapter)
+        self._oauth.mount("http://", adapter)
 
     @property
     def oauth(self) -> OAuth2Session:
