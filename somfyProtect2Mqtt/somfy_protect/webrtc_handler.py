@@ -34,7 +34,7 @@ class HLSHandler(BaseHTTPRequestHandler):
 
     handler: Optional["WebRTCHandler"] = None
 
-    def log_message(self, *args, **kwargs):
+    def log_message(self, *args, **_kwargs):
         """Suppress default HTTP server logs."""
         return
 
