@@ -302,6 +302,10 @@ class SomfyProtectWebsocket:
         """Someone is ringing at the door."""
         site_id = message.get("site_id")
         device_id = message.get("device_id")
+        if not site_id or not device_id:
+            LOGGER.warning("Missing site_id or device_id for ring event")
+            return
+        mqtt_config = self.mqtt_config or {}
         LOGGER.info("Someone is ringing on {}".format(device_id))
         topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/ringing"
         payload = {"ringing": "True"}
@@ -317,13 +321,17 @@ class SomfyProtectWebsocket:
                 site_id=site_id,
                 device_id=device_id,
                 mqtt_client=self.mqtt_client,
-                mqtt_config=self.mqtt_config,
+                mqtt_config=mqtt_config,
             )
 
     def _device_missed_call(self, message):
         """Call missed."""
         site_id = message.get("site_id")
         device_id = message.get("device_id")
+        if not site_id or not device_id:
+            LOGGER.warning("Missing site_id or device_id for missed call")
+            return
+        mqtt_config = self.mqtt_config or {}
         LOGGER.info("Someone has rang on {}".format(device_id))
         snapshot_cloudfront_url = message.get("snapshot_cloudfront_url")
         clip_cloudfront_url = message.get("clip_cloudfront_url")
@@ -334,11 +342,21 @@ class SomfyProtectWebsocket:
                 site_id=site_id,
                 device_id=device_id,
                 mqtt_client=self.mqtt_client,
-                mqtt_config=self.mqtt_config,
+                mqtt_config=mqtt_config,
             )
         if clip_cloudfront_url:
             LOGGER.info("Found Clip !")
-            write_to_media_folder(url=clip_cloudfront_url)
+            write_to_media_folder(
+                url=clip_cloudfront_url,
+                site_id=site_id,
+                device_id=device_id,
+                label=message.get("label") or device_id,
+                event_id=message.get("event_id") or "unknown",
+                occurred_at=message.get("occurred_at") or "unknown",
+                media_type="video",
+                mqtt_client=self.mqtt_client,
+                mqtt_config=mqtt_config,
+            )
 
     def _publish_snapshot_bytes(self, site_id: str, device_id: str, byte_arr: bytearray) -> None:
         publish_snapshot_bytes(

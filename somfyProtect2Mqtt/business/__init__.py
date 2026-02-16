@@ -53,12 +53,12 @@ def _publish_and_subscribe(mqtt_client: MQTTClient, config: dict, payload: Optio
     _subscribe_command(mqtt_client, config)
 
 
-def _publish_snapshot_command_topics(mqtt_client: MQTTClient, mqtt_config: dict, site_id: str, device_id: str) -> None:
+def _publish_snapshot_command_topics(mqtt_config: dict, site_id: str, device_id: str) -> None:
     topic_prefix = mqtt_config.get("topic_prefix", "somfyProtect2mqtt")
     SUBSCRIBE_TOPICS.append(f"{topic_prefix}/{site_id}/{device_id}/video_backend")
 
 
-def _publish_stream_command_topics(mqtt_client: MQTTClient, mqtt_config: dict, site_id: str, device_id: str) -> None:
+def _publish_stream_command_topics(mqtt_config: dict, site_id: str, device_id: str) -> None:
     topic_prefix = mqtt_config.get("topic_prefix", "somfyProtect2mqtt")
     stream_topic = f"{topic_prefix}/{site_id}/{device_id}/stream"
     mqtt_client.client.subscribe(stream_topic)
@@ -190,7 +190,7 @@ def _configure_camera_device(
     )
     _publish_and_subscribe(mqtt_client, video_backend)
     if video_backend.get("config").get("command_topic"):
-        _publish_snapshot_command_topics(mqtt_client, mqtt_config, site_id, device.id)
+        _publish_snapshot_command_topics(mqtt_config, site_id, device.id)
     stream = ha_discovery_devices(
         site_id=site_id,
         device=device,
@@ -199,7 +199,7 @@ def _configure_camera_device(
     )
     _publish_and_subscribe(mqtt_client, stream)
     if stream.get("config").get("command_topic"):
-        _publish_stream_command_topics(mqtt_client, mqtt_config, site_id, device.id)
+        _publish_stream_command_topics(mqtt_config, site_id, device.id)
 
 
 def _configure_remote_device(
@@ -350,7 +350,7 @@ def _configure_videophone_device(
     )
     _publish_and_subscribe(mqtt_client, stream)
     if stream.get("config").get("command_topic"):
-        _publish_stream_command_topics(mqtt_client, mqtt_config, site_id, device.id)
+        _publish_stream_command_topics(mqtt_config, site_id, device.id)
     video_backend = ha_discovery_devices(
         site_id=site_id,
         device=device,
@@ -359,7 +359,7 @@ def _configure_videophone_device(
     )
     _publish_and_subscribe(mqtt_client, video_backend)
     if video_backend.get("config").get("command_topic"):
-        _publish_snapshot_command_topics(mqtt_client, mqtt_config, site_id, device.id)
+        _publish_snapshot_command_topics(mqtt_config, site_id, device.id)
 
 
 def ha_devices_config(

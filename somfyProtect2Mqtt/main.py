@@ -19,14 +19,13 @@ VERSION = "2026.1.1"
 LOGGER = logging.getLogger(__name__)
 
 # Global flag for shutdown
-shutdown_flag = False
+shutdown_event = threading.Event()
 
 
 def signal_handler(sig, _frame):
     """Handle shutdown signals"""
-    global shutdown_flag
     LOGGER.info("Received signal {}, shutting down gracefully...".format(sig))
-    shutdown_flag = True
+    shutdown_event.set()
     sys.exit(0)
 
 
@@ -107,7 +106,7 @@ if __name__ == "__main__":
         p1.start()
         p2.start()
         while True:
-            if shutdown_flag:
+            if shutdown_event.is_set():
                 LOGGER.info("Shutdown requested, stopping threads...")
                 break
 
