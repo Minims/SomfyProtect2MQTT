@@ -14,6 +14,15 @@ from somfy_protect.api.model import AvailableStatus, Device, Site, User
 from somfy_protect.sso import SomfyProtectSso, read_token_from_file
 
 LOGGER = logging.getLogger(__name__)
+SIREN_TEST_SOUNDS = [
+    "smokeExtended",
+    "siren1s",
+    "armed",
+    "disarmed",
+    "intrusion",
+    "ok",
+]
+TEST_SIREN_ACTIONS = [f"test_{sound}" for sound in SIREN_TEST_SOUNDS]
 
 
 BASE_URL = "https://api.myfox.io"
@@ -455,14 +464,7 @@ class SomfyProtectApi:
         Returns:
             Dict[str, Any]: API response payload.
         """
-        if sound not in [
-            "smokeExtended",
-            "siren1s",
-            "armed",
-            "disarmed",
-            "intrusion",
-            "ok",
-        ]:
+        if sound not in SIREN_TEST_SOUNDS:
             raise ValueError("Sound value is not valid")
         response = self.post(f"/v3/site/{site_id}/device/{device_id}/sound/{sound}", json={})
         response.raise_for_status()

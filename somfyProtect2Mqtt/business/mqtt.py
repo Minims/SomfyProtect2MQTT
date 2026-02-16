@@ -8,7 +8,7 @@ from time import sleep
 from homeassistant.ha_discovery import ALARM_STATUS
 from paho.mqtt import client
 from requests import RequestException
-from somfy_protect.api import ACCESS_LIST, ACTION_LIST, SomfyProtectApi
+from somfy_protect.api import ACCESS_LIST, ACTION_LIST, TEST_SIREN_ACTIONS, SomfyProtectApi
 
 # from business.streaming import rtmps_to_hls
 
@@ -50,6 +50,19 @@ def publish_device_state(mqtt_client, mqtt_config, site_id, device) -> None:
         topic=f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/state",
         payload=payload,
         retain=True,
+    )
+
+
+def publish_snapshot_bytes(mqtt_client, mqtt_config, site_id, device_id, byte_arr) -> None:
+    """Publish snapshot bytes to MQTT."""
+    topic = f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/snapshot"
+    mqtt_publish(
+        mqtt_client,
+        topic,
+        byte_arr,
+        retain=True,
+        is_json=False,
+        qos=2,
     )
 
 
@@ -116,14 +129,7 @@ def _handle_video_backend(text_payload, topic_parts, api) -> bool:
 
 
 def _handle_test_siren(text_payload, topic_parts, api) -> bool:
-    if text_payload not in [
-        "test_smokeExtended",
-        "test_siren1s",
-        "test_armed",
-        "test_disarmed",
-        "test_intrusion",
-        "test_ok",
-    ]:
+    if text_payload not in TEST_SIREN_ACTIONS:
         return False
     site_id = topic_parts[1]
     device_id = topic_parts[2]
@@ -201,15 +207,7 @@ def _handle_snapshot(lower_payload, topic_parts, api, mqtt_client, mqtt_config) 
         with open(path, "rb") as snapshot_file:
             image = snapshot_file.read()
         byte_array = bytearray(image)
-        topic = f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/snapshot"
-        mqtt_publish(
-            mqtt_client,
-            topic,
-            byte_array,
-            retain=True,
-            is_json=False,
-            qos=2,
-        )
+        publish_snapshot_bytes(mqtt_client, mqtt_config, site_id, device_id, byte_array)
     return True
 
 
@@ -248,16 +246,9 @@ def _handle_setting(text_payload, topic_parts, api, mqtt_client, mqtt_config) ->
 def _requires_device_topic(text_payload, topic_parts) -> bool:
     if len(topic_parts) > 3 and topic_parts[3] == "snapshot":
         return True
-    if text_payload in [
-        "evostream",
-        "webrtc",
-        "test_smokeExtended",
-        "test_siren1s",
-        "test_armed",
-        "test_disarmed",
-        "test_intrusion",
-        "test_ok",
-    ]:
+    if text_payload in ["evostream", "webrtc"]:
+        return True
+    if text_payload in TEST_SIREN_ACTIONS:
         return True
     if text_payload in ACCESS_LIST:
         return True

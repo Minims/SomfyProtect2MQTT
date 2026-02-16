@@ -22,7 +22,7 @@ from homeassistant.ha_discovery import (
     ha_discovery_history,
 )
 from mqtt import MQTTClient
-from somfy_protect.api import SomfyProtectApi
+from somfy_protect.api import SIREN_TEST_SOUNDS, SomfyProtectApi
 from somfy_protect.api.devices.category import Category
 
 LOGGER = logging.getLogger(__name__)
@@ -313,14 +313,7 @@ def ha_devices_config(
                 SUBSCRIBE_TOPICS.append(mss_outdoor_siren.get("config").get("command_topic"))
 
             if "mss_siren" in device.device_definition.get("device_definition_id"):
-                for sensor in [
-                    "smokeExtended",
-                    "siren1s",
-                    "armed",
-                    "disarmed",
-                    "intrusion",
-                    "ok",
-                ]:
+                for sensor in SIREN_TEST_SOUNDS:
                     LOGGER.info("Found mss_siren, adding sound test: {}".format(sensor))
                     mss_siren = ha_discovery_devices(
                         site_id=site_id,

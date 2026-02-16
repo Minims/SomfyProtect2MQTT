@@ -12,7 +12,7 @@ from io import BytesIO
 # Suppress ffmpeg/libav warnings at C library level
 import av
 from aiortc import AudioStreamTrack, RTCConfiguration, RTCIceServer, RTCPeerConnection, RTCSessionDescription
-from business.mqtt import mqtt_publish
+from business.mqtt import publish_snapshot_bytes
 
 # Set PyAV logging level to ERROR to suppress FFmpeg warnings
 av.logging.set_level(av.logging.ERROR)
@@ -245,13 +245,12 @@ class WebRTCHandler:
                                     byte_arr = bytearray(buffer.getvalue())
 
                                     # Publish to MQTT
-                                    mqtt_publish(
-                                        mqtt_client=self.mqtt_client,
-                                        topic=topic,
-                                        payload=byte_arr,
-                                        retain=True,
-                                        is_json=False,
-                                        qos=2,
+                                    publish_snapshot_bytes(
+                                        self.mqtt_client,
+                                        self.mqtt_config,
+                                        site_id,
+                                        device_id,
+                                        byte_arr,
                                     )
                                     LOGGER.debug("Published frame to MQTT topic: {}".format(topic))
                                     frame_skip_counter = 0

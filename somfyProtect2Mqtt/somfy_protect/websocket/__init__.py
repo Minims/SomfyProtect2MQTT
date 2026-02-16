@@ -11,7 +11,7 @@ import uuid
 
 import websocket
 from business import update_visiophone_snapshot, write_to_media_folder
-from business.mqtt import mqtt_publish, update_device, update_site
+from business.mqtt import mqtt_publish, publish_snapshot_bytes, update_device, update_site
 from business.streaming.camera import VideoCamera
 from homeassistant.ha_discovery import ALARM_STATUS
 from mqtt import MQTTClient
@@ -390,14 +390,12 @@ class SomfyProtectWebsocket:
                 if frame is None:
                     break
                 byte_arr = bytearray(frame)
-                topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/snapshot"
-                mqtt_publish(
-                    mqtt_client=self.mqtt_client,
-                    topic=topic,
-                    payload=byte_arr,
-                    retain=True,
-                    is_json=False,
-                    qos=2,
+                publish_snapshot_bytes(
+                    self.mqtt_client,
+                    self.mqtt_config,
+                    site_id,
+                    device_id,
+                    byte_arr,
                 )
             camera.release()
 
