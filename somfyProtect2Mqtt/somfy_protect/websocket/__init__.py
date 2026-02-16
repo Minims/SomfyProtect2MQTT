@@ -82,6 +82,13 @@ class SomfyProtectWebsocket:
         asyncio.set_event_loop(self.loop)
         self.loop.run_forever()
 
+    def _run_io_task(self, func, *args, **kwargs) -> None:
+        if hasattr(self, "loop") and self.loop and self.loop.is_running():
+            asyncio.run_coroutine_threadsafe(asyncio.to_thread(func, *args, **kwargs), self.loop)
+        else:
+            thread = threading.Thread(target=func, args=args, kwargs=kwargs, daemon=True)
+            thread.start()
+
     def _on_message_wrapper(self, _ws_app, message):
         """Wrapper to handle async on_message in sync context"""
         try:
@@ -321,7 +328,8 @@ class SomfyProtectWebsocket:
         snapshot_url = message.get("snapshot_url")
         if snapshot_url:
             LOGGER.info("Found a snapshot !")
-            update_visiophone_snapshot(
+            self._run_io_task(
+                update_visiophone_snapshot,
                 url=snapshot_url,
                 site_id=site_id,
                 device_id=device_id,
@@ -342,7 +350,8 @@ class SomfyProtectWebsocket:
         clip_cloudfront_url = message.get("clip_cloudfront_url")
         if snapshot_cloudfront_url:
             LOGGER.info("Found a snapshot !")
-            update_visiophone_snapshot(
+            self._run_io_task(
+                update_visiophone_snapshot,
                 url=snapshot_cloudfront_url,
                 site_id=site_id,
                 device_id=device_id,
@@ -351,7 +360,8 @@ class SomfyProtectWebsocket:
             )
         if clip_cloudfront_url:
             LOGGER.info("Found Clip !")
-            write_to_media_folder(
+            self._run_io_task(
+                write_to_media_folder,
                 url=clip_cloudfront_url,
                 site_id=site_id,
                 device_id=device_id,
