@@ -10,6 +10,7 @@ disable=logging-format-interpolation,consider-using-f-string
 
 [DESIGN]
 max-args=12
+max-positional-arguments=12
 max-attributes=15
 max-branches=30
 max-locals=30
@@ -18,6 +19,7 @@ max-returns=15
 max-statements=150
 max-nested-blocks=10
 max-module-lines=1200
+min-public-methods=0
 
 [BASIC]
 good-names=geoFence
