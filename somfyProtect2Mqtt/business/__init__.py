@@ -1,11 +1,13 @@
 """Business Functions"""
 
+from __future__ import annotations
+
 import logging
 import os
 from datetime import datetime, timedelta
 from http.client import RemoteDisconnected
 from time import sleep
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 import pytz
 import requests
@@ -22,7 +24,8 @@ from homeassistant.ha_discovery import (
     ha_discovery_devices,
     ha_discovery_history,
 )
-from mqtt import MQTTClient
+if TYPE_CHECKING:
+    from mqtt import MQTTClient
 from somfy_protect.api import SIREN_TEST_SOUNDS, SomfyProtectApi
 from somfy_protect.api.devices.category import Category
 
