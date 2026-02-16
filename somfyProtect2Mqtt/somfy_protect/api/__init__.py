@@ -5,6 +5,7 @@ import json
 import logging
 from json import JSONDecodeError
 from typing import Any, Callable, Dict, List, Optional, Union
+from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 from oauthlib.oauth2 import TokenExpiredError
 from requests import RequestException, Response
@@ -109,7 +110,7 @@ class SomfyProtectApi:
             self.sso.oauth.token = self.sso.refresh_tokens()
             response = _execute_request()
         except RequestException as exc:
-            LOGGER.error("Request failed {} {}: {}".format(method.upper(), url, exc))
+            LOGGER.error("Request failed {} {}: {}".format(method.upper(), _redact_url(url), exc))
             raise
 
         if response.status_code in (401, 403):
@@ -128,7 +129,7 @@ class SomfyProtectApi:
         Returns:
             Response: Requests response object.
         """
-        LOGGER.debug("{}{}".format(base_url, path))
+        LOGGER.debug("{}".format(_redact_url(f"{base_url}{path}")))
         return self._request("get", path, base_url)
 
     def post(self, path: str, *, payload: Dict[str, Any]) -> Response:
@@ -553,3 +554,21 @@ class SomfyProtectApi:
         )
         response.raise_for_status()
         return response.json()
+
+
+def _redact_url(url: str) -> str:
+    parsed = urlparse(url)
+    query = parse_qs(parsed.query)
+    if "access_token" in query:
+        query["access_token"] = ["****"]
+    redacted_query = urlencode(query, doseq=True)
+    return urlunparse(
+        (
+            parsed.scheme,
+            parsed.netloc,
+            parsed.path,
+            parsed.params,
+            redacted_query,
+            parsed.fragment,
+        )
+    )
