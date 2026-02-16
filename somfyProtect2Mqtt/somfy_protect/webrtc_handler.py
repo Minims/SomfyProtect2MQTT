@@ -464,7 +464,7 @@ class WebRTCHandler:
             )
             await pc.addIceCandidate(candidate)
             LOGGER.info("Added remote ICE candidate: {}...".format(candidate_data.get("sdp", "")[:60]))
-        except Exception as e:
+        except (ValueError, RuntimeError) as e:
             LOGGER.error("Failed to add remote ICE candidate: {}".format(e))
 
     async def close_session(self, session_id):
@@ -482,7 +482,7 @@ class WebRTCHandler:
                 if session_id in self.turn_configs:
                     del self.turn_configs[session_id]
                 LOGGER.info("Closed and removed peer connection for session {}".format(session_id))
-            except Exception as e:
+            except (ValueError, RuntimeError) as e:
                 LOGGER.error("Error closing peer connection: {}".format(e))
 
     async def cleanup(self):
@@ -509,7 +509,7 @@ class WebRTCHandler:
             for session_id in list(self.peer_connections.keys()):
                 try:
                     await self.close_session(session_id)
-                except Exception as e:
+                except (ValueError, RuntimeError) as e:
                     LOGGER.error("Error closing session {}: {}".format(session_id, e))
             self.peer_connections.clear()
 
