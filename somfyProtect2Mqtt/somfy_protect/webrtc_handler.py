@@ -34,11 +34,15 @@ class HLSHandler(BaseHTTPRequestHandler):
 
     handler: Optional["WebRTCHandler"] = None
 
-    def log_message(self, format, *args):
+    def log_message(self, *args, **kwargs):
         """Suppress default HTTP server logs."""
         return
 
     def do_GET(self):
+        """Handle playlist and segment requests."""
+        return self._do_get()
+
+    def _do_get(self):
         """Handle playlist and segment requests."""
         handler = self.__class__.handler
         if handler is None:

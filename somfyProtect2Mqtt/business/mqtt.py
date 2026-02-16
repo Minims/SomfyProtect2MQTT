@@ -19,6 +19,8 @@ SUBSCRIBE_TOPICS = []
 
 @dataclass
 class MqttContext:
+    """Context for MQTT message handling."""
+
     api: SomfyProtectApi
     mqtt_client: client
     mqtt_config: dict
