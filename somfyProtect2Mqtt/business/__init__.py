@@ -24,14 +24,12 @@ from homeassistant.ha_discovery import (
     ha_discovery_devices,
     ha_discovery_history,
 )
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
+from somfy_protect.api import SIREN_TEST_SOUNDS, SomfyProtectApi
+from somfy_protect.api.devices.category import Category
+from utils import build_retry_adapter
 
 if TYPE_CHECKING:
     from mqtt import MQTTClient
-
-from somfy_protect.api import SIREN_TEST_SOUNDS, SomfyProtectApi
-from somfy_protect.api.devices.category import Category
 
 LOGGER = logging.getLogger(__name__)
 
@@ -43,17 +41,7 @@ RETRY_STATUS_CODES = [429, 500, 502, 503, 504]
 
 def _create_http_session() -> requests.Session:
     session = requests.Session()
-    retry = Retry(
-        total=3,
-        connect=3,
-        read=3,
-        status=3,
-        backoff_factor=0.5,
-        status_forcelist=RETRY_STATUS_CODES,
-        allowed_methods=frozenset(["HEAD", "GET", "POST", "PUT", "DELETE", "OPTIONS", "TRACE", "PATCH"]),
-        raise_on_status=False,
-    )
-    adapter = HTTPAdapter(max_retries=retry)
+    adapter = build_retry_adapter(RETRY_STATUS_CODES)
     session.mount("https://", adapter)
     session.mount("http://", adapter)
     return session

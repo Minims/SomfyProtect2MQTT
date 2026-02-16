@@ -5,9 +5,11 @@ import logging
 import logging.handlers
 import os
 import sys
-from typing import Any, Dict
+from typing import Any, Dict, Iterable, Optional
 
 import yaml
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 from yaml.parser import ParserError
 
 LOGGER = logging.getLogger(__name__)
@@ -62,7 +64,7 @@ def read_config_file(config_file: str) -> Dict[str, Any]:
 def close_and_exit(
     robot,
     code: int = 0,
-    signal: int = None,
+    signal: Optional[int] = None,
     _frame=None,
 ) -> None:
     """Close resources and exit.
@@ -79,3 +81,25 @@ def close_and_exit(
     if robot:
         robot.close()
     sys.exit(code)
+
+
+def build_retry_adapter(status_forcelist: Iterable[int]) -> HTTPAdapter:
+    """Create a retry adapter for requests sessions.
+
+    Args:
+        status_forcelist (Iterable[int]): HTTP status codes to retry.
+
+    Returns:
+        HTTPAdapter: Configured retry adapter.
+    """
+    retry = Retry(
+        total=3,
+        connect=3,
+        read=3,
+        status=3,
+        backoff_factor=0.5,
+        status_forcelist=list(status_forcelist),
+        allowed_methods=frozenset(["HEAD", "GET", "POST", "PUT", "DELETE", "OPTIONS", "TRACE", "PATCH"]),
+        raise_on_status=False,
+    )
+    return HTTPAdapter(max_retries=retry)
