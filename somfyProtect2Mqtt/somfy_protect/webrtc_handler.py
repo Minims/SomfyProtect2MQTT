@@ -528,7 +528,7 @@ class WebRTCHandler:
             try:
                 self.hls_server.shutdown()
                 LOGGER.info("HLS server stopped")
-            except Exception as e:
+            except (OSError, RuntimeError) as e:
                 LOGGER.error("Error stopping HLS server: {}".format(e))
 
         LOGGER.info("WebRTC handler cleanup completed")
@@ -656,7 +656,7 @@ class WebRTCHandler:
                         muxer["video_ready"] = True
                 except asyncio.QueueFull:
                     LOGGER.debug("Video queue full for {}, dropping frame".format(device_id))
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError) as e:
             LOGGER.error("Error reading video frames: {}".format(e))
 
     async def _read_audio_frames(self, device_id, track):
@@ -697,7 +697,7 @@ class WebRTCHandler:
                         LOGGER.warning("[AUDIO] No audio frames from camera for device {}".format(device_id))
                     await asyncio.sleep(0.5)
 
-                except Exception as frame_error:
+                except (OSError, RuntimeError, ValueError) as frame_error:
                     error_count += 1
                     # Log only every 100 errors to avoid spam
                     if error_count % 100 == 1:
@@ -722,7 +722,7 @@ class WebRTCHandler:
                     )
                     return
 
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError) as e:
             LOGGER.error("[AUDIO] Fatal error in audio reader: {}".format(e))
 
     async def _hls_muxer_task(self, device_id):
@@ -795,7 +795,7 @@ class WebRTCHandler:
                         for packet in muxer["video_stream"].encode(video_frame):
                             muxer["container"].mux(packet)
                         muxer["frame_count"] += 1
-                    except Exception as e:
+                    except (OSError, RuntimeError, ValueError) as e:
                         LOGGER.warning("Error encoding video: {}".format(e))
 
                 if audio_frame and muxer.get("audio_failed"):
@@ -819,7 +819,7 @@ class WebRTCHandler:
                             LOGGER.debug("[AUDIO] Encoded frame into {} packets".format(len(packets)))
                         else:
                             LOGGER.debug("[AUDIO] No packets produced")
-                    except Exception as e:
+                    except (OSError, RuntimeError, ValueError) as e:
                         LOGGER.error("[AUDIO] Encoding error: {}".format(e), exc_info=True)
                 elif audio_frame and not muxer["audio_stream"]:
                     audio_no_stream_warns += 1
@@ -830,7 +830,7 @@ class WebRTCHandler:
                 if not video_frame and not audio_frame:
                     await asyncio.sleep(0.001)
 
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError) as e:
             LOGGER.error("Error in HLS muxer task: {}".format(e))
             LOGGER.exception("Details:")
 
@@ -902,7 +902,7 @@ class WebRTCHandler:
 
                 # Put the frame back in the queue
                 muxer["video_queue"].put_nowait(video_frame)
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError) as e:
                 LOGGER.warning("Error adding video stream: {}".format(e))
                 muxer["container"] = None
                 return
@@ -935,7 +935,7 @@ class WebRTCHandler:
                         audio_stream.channels = num_channels
                         audio_stream.time_base = Fraction(1, sample_rate)
                         muxer["audio_stream"] = audio_stream
-                    except Exception:
+                    except (OSError, RuntimeError, ValueError):
                         # Fallback to MP3 if AAC fails
                         try:
                             audio_stream = container.add_stream("libmp3lame", rate=sample_rate)
@@ -943,7 +943,7 @@ class WebRTCHandler:
                             audio_stream.time_base = Fraction(1, sample_rate)
                             muxer["audio_stream"] = audio_stream
                             LOGGER.info("[AUDIO] Using MP3 codec (AAC unavailable)")
-                        except Exception as e:
+                        except (OSError, RuntimeError, ValueError) as e:
                             LOGGER.error("[AUDIO] Failed to create audio stream: {}".format(e))
                             muxer["audio_stream"] = None
                             muxer["audio_failed"] = True
@@ -951,7 +951,7 @@ class WebRTCHandler:
                     # Put the frame back in the queue
                     if muxer["audio_stream"]:
                         muxer["audio_queue"].put_nowait(audio_frame)
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError) as e:
                 LOGGER.error("[AUDIO] Error adding audio stream: {}".format(e))
                 muxer["audio_failed"] = True
 
@@ -1000,7 +1000,7 @@ class WebRTCHandler:
             muxer["audio_stream"] = None
             muxer["segment_start_time"] = None
 
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError) as e:
             LOGGER.error("Error closing HLS segment: {}".format(e))
 
     def _update_hls_playlist(self, device_id):
