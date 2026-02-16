@@ -25,17 +25,17 @@ CLIENT_SECRET = "NGRzcWZudGlldTB3Y2t3d280MGt3ODQ4Z3c0bzBjOGs0b3djODBrNGdvMGNzMGs
 CACHE_PATH = "token.json"
 
 
-def read_token_from_file(cache_path: dict = CACHE_PATH) -> Dict:
-    """Retrieve a token from a file"""
+def read_token_from_file(cache_path: str = CACHE_PATH) -> Dict[str, Any]:
+    """Retrieve a token from a file."""
     try:
         with open(file=cache_path, mode="r", encoding="utf8") as cache:
             return json.loads(cache.read())
-    except IOError:
+    except (IOError, JSONDecodeError):
         return {}
 
 
-def write_token_to_file(token, cache_path: dict = CACHE_PATH) -> None:
-    """Write a token into a file"""
+def write_token_to_file(token: Dict[str, Any], cache_path: str = CACHE_PATH) -> None:
+    """Write a token into a file."""
     with open(file=cache_path, mode="w", encoding="utf8") as cache:
         cache.write(json.dumps(token))
 
@@ -47,8 +47,8 @@ class SomfyProtectSso:
         self,
         username: str,
         password: str,
-        token: Optional[Dict[str, str]] = read_token_from_file(),
-        token_updater: Optional[Callable[[str], None]] = write_token_to_file,
+        token: Optional[Dict[str, Any]] = None,
+        token_updater: Optional[Callable[[Dict[str, Any]], None]] = write_token_to_file,
     ):
         self.username = username
         self.password = password
@@ -61,6 +61,8 @@ class SomfyProtectSso:
             "client_secret": self.client_secret,
         }
 
+        if token is None:
+            token = read_token_from_file()
         self._oauth = OAuth2Session(
             client=LegacyApplicationClient(client_id=self.client_id),
             token=token,
