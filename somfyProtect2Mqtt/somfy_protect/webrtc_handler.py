@@ -1,6 +1,7 @@
 """WebRTC Handler for Somfy Protect Cameras"""
 
 import asyncio
+import importlib
 import json
 import logging
 import re
@@ -11,7 +12,6 @@ from io import BytesIO
 # Suppress ffmpeg/libav warnings at C library level
 import av
 from aiortc import AudioStreamTrack, RTCConfiguration, RTCIceServer, RTCPeerConnection, RTCSessionDescription
-from aiortc.rtcicetransport import candidate_from_sdp
 from business.mqtt import mqtt_publish
 
 # Set PyAV logging level to ERROR to suppress FFmpeg warnings
@@ -46,8 +46,7 @@ class SilenceAudioTrack(AudioStreamTrack):
         # Use Fraction to satisfy aiortc/av expectations for AVRational
         frame.time_base = Fraction(1, self.sample_rate)
 
-        planes = getattr(frame, "planes", [])
-        for plane in planes:
+        for plane in list(getattr(frame, "planes", [])):
             plane.update(bytes(plane.buffer_size))
 
         self._timestamp += self.samples_per_frame
@@ -456,7 +455,9 @@ class WebRTCHandler:
             if not candidate_sdp:
                 LOGGER.warning("Missing candidate sdp for session {}".format(session_id))
                 return
-            candidate = candidate_from_sdp(candidate_sdp)
+            rtc_transport = importlib.import_module("aiortc.rtcicetransport")
+            candidate_factory = getattr(rtc_transport, "candidate_from_sdp")
+            candidate = candidate_factory(candidate_sdp)
             candidate.sdpMid = candidate_data.get("sdpMid")
             candidate.sdpMLineIndex = candidate_data.get("sdpMLineIndex")
             await pc.addIceCandidate(candidate)
