@@ -99,10 +99,10 @@ class SomfyProtectApi:
         url = f"{base_url}{path}"
         kwargs.setdefault("timeout", 10)
         try:
-            return getattr(self.sso._oauth, method)(url, **kwargs)
+            return getattr(self.sso.oauth, method)(url, **kwargs)
         except TokenExpiredError:
-            self.sso._oauth.token = self.sso.refresh_tokens()
-            return getattr(self.sso._oauth, method)(url, **kwargs)
+            self.sso.oauth.token = self.sso.refresh_tokens()
+            return getattr(self.sso.oauth, method)(url, **kwargs)
         except RequestException as exc:
             LOGGER.error("Request failed {} {}: {}".format(method.upper(), url, exc))
             raise
@@ -120,29 +120,29 @@ class SomfyProtectApi:
         LOGGER.debug("{}{}".format(base_url, path))
         return self._request("get", path, base_url)
 
-    def post(self, path: str, *, json: Dict[str, Any]) -> Response:
+    def post(self, path: str, *, payload: Dict[str, Any]) -> Response:
         """Post data to the Somfy Protect API.
 
         Args:
             path (str): Request path.
-            json (Dict[str, Any]): JSON payload.
+            payload (Dict[str, Any]): JSON payload.
 
         Returns:
             Response: Requests response object.
         """
-        return self._request("post", path, json=json)
+        return self._request("post", path, json=payload)
 
-    def put(self, path: str, *, json: Dict[str, Any]) -> Response:
+    def put(self, path: str, *, payload: Dict[str, Any]) -> Response:
         """Put data to the Somfy Protect API.
 
         Args:
             path (str): Request path.
-            json (Dict[str, Any]): JSON payload.
+            payload (Dict[str, Any]): JSON payload.
 
         Returns:
             Response: Requests response object.
         """
-        return self._request("put", path, json=json)
+        return self._request("put", path, json=payload)
 
     def get_sites(self) -> List[Site]:
         """Get all sites.
@@ -193,7 +193,7 @@ class SomfyProtectApi:
             Dict[str, Any]: API response payload.
         """
         payload = {"status": security_level.name.lower()}
-        response = self.put(f"/v3/site/{site_id}/security", json=payload)
+        response = self.put(f"/v3/site/{site_id}/security", payload=payload)
         response.raise_for_status()
         return response.json()
 
@@ -206,7 +206,7 @@ class SomfyProtectApi:
         Returns:
             Dict[str, Any]: API response payload.
         """
-        response = self.put(f"/v3/site/{site_id}/alarm/stop", json={})
+        response = self.put(f"/v3/site/{site_id}/alarm/stop", payload={})
         response.raise_for_status()
         return response.json()
 
@@ -223,7 +223,7 @@ class SomfyProtectApi:
         if mode not in ["silent", "alarm"]:
             raise ValueError("Mode must be 'silent' or 'alarm'")
         payload = {"type": mode}
-        response = self.post(f"/v3/site/{site_id}/panic", json=payload)
+        response = self.post(f"/v3/site/{site_id}/panic", payload=payload)
         response.raise_for_status()
         return response.json()
 
@@ -251,12 +251,12 @@ class SomfyProtectApi:
         if video_backend:
             response = self.post(
                 f"/v3/site/{site_id}/device/{device_id}/action",
-                json={"action": action, "video_backend": video_backend},
+                payload={"action": action, "video_backend": video_backend},
             )
         else:
             response = self.post(
                 f"/v3/site/{site_id}/device/{device_id}/action",
-                json={"action": action},
+                payload={"action": action},
             )
         response.raise_for_status()
         return response.json()
@@ -286,7 +286,7 @@ class SomfyProtectApi:
         settings.pop("object", None)
 
         payload = {"settings": settings, "label": device_label}
-        response = self.put(f"/v3/site/{site_id}/device/{device_id}", json=payload)
+        response = self.put(f"/v3/site/{site_id}/device/{device_id}", payload=payload)
         response.raise_for_status()
         return response.json()
 
@@ -302,11 +302,12 @@ class SomfyProtectApi:
         """
         response = self.post(
             f"/video/site/{site_id}/device/{device_id}/snapshot",
-            json={"refresh": 10},
+            payload={"refresh": 10},
         )
         response.raise_for_status()
         if response.status_code == 200:
             return response
+        return None
 
     def camera_refresh_snapshot(self, site_id: str, device_id: str) -> Dict[str, Any]:
         """Request a camera snapshot refresh.
@@ -320,7 +321,7 @@ class SomfyProtectApi:
         """
         response = self.post(
             f"/video/site/{site_id}/device/{device_id}/refresh-snapshot",
-            json={},
+            payload={},
         )
         response.raise_for_status()
         return response.json()
@@ -344,13 +345,17 @@ class SomfyProtectApi:
             LOGGER.error("Unable to decode devices response: {}".format(response.text))
             raise exc
         LOGGER.debug("Devices Capabilities: {}".format(content))
-        devices += [
-            Device(**d)
-            for d in content.get("items")
-            if category is None or category.value.lower() in Device(**d).device_definition.get("label").lower()
-        ]
+        devices += [Device(**d) for d in content.get("items") if _device_matches_category(d, category)]
 
         return devices
+
+
+def _device_matches_category(device_data: Dict[str, Any], category: Optional[Category]) -> bool:
+    if category is None:
+        return True
+    device = Device(**device_data)
+    label = device.device_definition.get("label") or ""
+    return category.value.lower() in label.lower()
 
     def get_device(self, site_id: str, device_id: str) -> Device:
         """Get device details.
@@ -416,7 +421,7 @@ class SomfyProtectApi:
 
         response = self.post(
             f"/v3/site/{site_id}/user/{user_id}/action",
-            json={"action": action},
+            payload={"action": action},
         )
         response.raise_for_status()
         return response.json()
@@ -466,7 +471,7 @@ class SomfyProtectApi:
         """
         if sound not in SIREN_TEST_SOUNDS:
             raise ValueError("Sound value is not valid")
-        response = self.post(f"/v3/site/{site_id}/device/{device_id}/sound/{sound}", json={})
+        response = self.post(f"/v3/site/{site_id}/device/{device_id}/sound/{sound}", payload={})
         response.raise_for_status()
         return response.json()
 
@@ -528,7 +533,7 @@ class SomfyProtectApi:
 
         response = self.post(
             f"/v3/site/{site_id}/device/{device_id}/access/trigger",
-            json={"type": access},
+            payload={"type": access},
         )
         response.raise_for_status()
         return response.json()

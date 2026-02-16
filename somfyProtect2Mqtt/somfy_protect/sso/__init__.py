@@ -67,6 +67,11 @@ class SomfyProtectSso:
             auto_refresh_kwargs=extra,
             token_updater=token_updater,
         )
+
+    @property
+    def oauth(self) -> OAuth2Session:
+        """Expose the underlying OAuth2 session."""
+        return self._oauth
         self._oauth.headers["User-Agent"] = "Somfy Protect"
 
     def request_token(
