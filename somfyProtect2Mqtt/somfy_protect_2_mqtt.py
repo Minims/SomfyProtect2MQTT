@@ -70,9 +70,7 @@ class SomfyProtect2Mqtt:
                 self.my_sites_id.append(site.id)
             else:
                 LOGGER.info(
-                    "Site '{}' is not set in configuration, Update it if you want to add this Site".format(
-                        site.label
-                    )
+                    "Site '{}' is not set in configuration, Update it if you want to add this Site".format(site.label)
                 )
 
     def close(self) -> None:

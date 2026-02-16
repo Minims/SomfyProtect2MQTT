@@ -198,9 +198,7 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
                 thread.daemon = True
                 thread.start()
             else:
-                LOGGER.info(
-                    "Message received for Site ID: {}, Action: {}".format(site_id, text_payload)
-                )
+                LOGGER.info("Message received for Site ID: {}, Action: {}".format(site_id, text_payload))
 
         # Manage Manual Snapshot
         elif len(topic_parts) > 3 and topic_parts[3] == "snapshot":

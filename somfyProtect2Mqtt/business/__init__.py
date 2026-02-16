@@ -338,11 +338,7 @@ def ha_devices_config(
                 SUBSCRIBE_TOPICS.append(mss_siren.get("config").get("command_topic"))
 
             if "pir" in device.device_definition.get("type") or "tag" in device.device_definition.get("type"):
-                LOGGER.info(
-                    "Found Motion Sensor (PIR & IntelliTag) {}".format(
-                        device.device_definition.get("label")
-                    )
-                )
+                LOGGER.info("Found Motion Sensor (PIR & IntelliTag) {}".format(device.device_definition.get("label")))
                 pir_config = ha_discovery_devices(
                     site_id=site_id,
                     device=device,
@@ -688,9 +684,7 @@ def update_devices_status(
                                     mqtt_config=mqtt_config,
                                 )
                             if event.get("snapshot_cloudfront_url"):
-                                LOGGER.info(
-                                    "Found a snapshot {}".format(event.get("snapshot_cloudfront_url"))
-                                )
+                                LOGGER.info("Found a snapshot {}".format(event.get("snapshot_cloudfront_url")))
                                 write_to_media_folder(
                                     url=event.get("snapshot_cloudfront_url"),
                                     site_id=site_id,

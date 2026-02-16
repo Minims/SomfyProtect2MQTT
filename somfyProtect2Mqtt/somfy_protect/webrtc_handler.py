@@ -164,11 +164,7 @@ class WebRTCHandler:
         # Add audio track - silence for MQTT, nothing for go2rtc (let it auto-negotiate)
         if self.streaming_config != "go2rtc":
             pc.addTrack(SilenceAudioTrack())
-            LOGGER.info(
-                "[SDP] Added silence audio track (streaming_config={})".format(
-                    self.streaming_config
-                )
-            )
+            LOGGER.info("[SDP] Added silence audio track (streaming_config={})".format(self.streaming_config))
         else:
             LOGGER.info("[SDP] No audio track added - go2rtc will receive only")
 
@@ -346,9 +342,7 @@ class WebRTCHandler:
                     return
             if pc.iceConnectionState in ["new", "checking"]:
                 LOGGER.warning(
-                    "ICE connection timeout - state stuck at {}, closing connection".format(
-                        pc.iceConnectionState
-                    )
+                    "ICE connection timeout - state stuck at {}, closing connection".format(pc.iceConnectionState)
                 )
                 await pc.close()
 
@@ -469,11 +463,7 @@ class WebRTCHandler:
                 candidate=candidate_data.get("sdp"),
             )
             await pc.addIceCandidate(candidate)
-            LOGGER.info(
-                "Added remote ICE candidate: {}...".format(
-                    candidate_data.get("sdp", "")[:60]
-                )
-            )
+            LOGGER.info("Added remote ICE candidate: {}...".format(candidate_data.get("sdp", "")[:60]))
         except Exception as e:
             LOGGER.error("Failed to add remote ICE candidate: {}".format(e))
 
@@ -607,11 +597,7 @@ class WebRTCHandler:
                 )
             )
         else:
-            LOGGER.info(
-                "HLS HTTP server started on http://0.0.0.0:{}/<device_id>/playlist.m3u8".format(
-                    self.hls_port
-                )
-            )
+            LOGGER.info("HLS HTTP server started on http://0.0.0.0:{}/<device_id>/playlist.m3u8".format(self.hls_port))
 
     def _init_hls_muxer(self, device_id):
         """Initialize HLS muxer for a device"""
@@ -708,9 +694,7 @@ class WebRTCHandler:
                 except asyncio.TimeoutError:
                     error_count += 1
                     if error_count == 1:
-                        LOGGER.warning(
-                            "[AUDIO] No audio frames from camera for device {}".format(device_id)
-                        )
+                        LOGGER.warning("[AUDIO] No audio frames from camera for device {}".format(device_id))
                     await asyncio.sleep(0.5)
 
                 except Exception as frame_error:
@@ -755,11 +739,7 @@ class WebRTCHandler:
             while not muxer["video_ready"]:
                 elapsed = time.time() - wait_start
                 if elapsed > 5:
-                    LOGGER.error(
-                        "[TRACKS] Timeout waiting for video track (>{:.1f}s), aborting muxer".format(
-                            elapsed
-                        )
-                    )
+                    LOGGER.error("[TRACKS] Timeout waiting for video track (>{:.1f}s), aborting muxer".format(elapsed))
                     return
                 await asyncio.sleep(0.1)
 
@@ -826,11 +806,7 @@ class WebRTCHandler:
                     try:
                         # Reformat audio if needed
                         if audio_frame.format.name != "s16":
-                            LOGGER.debug(
-                                "[AUDIO] Reformatting from {} to s16".format(
-                                    audio_frame.format.name
-                                )
-                            )
+                            LOGGER.debug("[AUDIO] Reformatting from {} to s16".format(audio_frame.format.name))
                             audio_frame = audio_frame.reformat(format="s16")
 
                         audio_frame.pts = muxer.get("audio_pts", 0)
@@ -840,9 +816,7 @@ class WebRTCHandler:
                         if packets:
                             for packet in packets:
                                 muxer["container"].mux(packet)
-                            LOGGER.debug(
-                                "[AUDIO] Encoded frame into {} packets".format(len(packets))
-                            )
+                            LOGGER.debug("[AUDIO] Encoded frame into {} packets".format(len(packets)))
                         else:
                             LOGGER.debug("[AUDIO] No packets produced")
                     except Exception as e:

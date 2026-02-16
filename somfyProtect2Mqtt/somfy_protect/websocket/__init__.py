@@ -144,9 +144,7 @@ class SomfyProtectWebsocket:
             "session_id": session_id,
         }
         self.send_websocket_message(message)
-        LOGGER.info(
-            "Sent video.webrtc.start for device {}, session {}".format(device_id, session_id)
-        )
+        LOGGER.info("Sent video.webrtc.start for device {}, session {}".format(device_id, session_id))
         return session_id
 
     def on_ping(self, _ws_app, message):
@@ -241,9 +239,7 @@ class SomfyProtectWebsocket:
 
     def on_close(self, _ws_app, close_status_code, close_msg):
         """Handle Websocket Close Connection"""
-        LOGGER.info(
-            "Websocket on_close, status {} => {}".format(close_status_code, close_msg)
-        )
+        LOGGER.info("Websocket on_close, status {} => {}".format(close_status_code, close_msg))
 
     def device_gate_triggered_from_monitor(self, message):
         """Gate Open from Monitor"""
