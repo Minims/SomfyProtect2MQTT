@@ -27,3 +27,4 @@ class Category(Enum):
         for member in cls:
             if member.name.lower() == name.lower():
                 return member
+        return None
