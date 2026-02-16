@@ -3,6 +3,7 @@
 import json
 import logging
 import threading
+from dataclasses import dataclass
 from time import sleep
 
 from homeassistant.ha_discovery import ALARM_STATUS
@@ -14,6 +15,14 @@ from somfy_protect.api import ACCESS_LIST, ACTION_LIST, TEST_SIREN_ACTIONS, Somf
 
 LOGGER = logging.getLogger(__name__)
 SUBSCRIBE_TOPICS = []
+
+
+@dataclass
+class MqttContext:
+    api: SomfyProtectApi
+    mqtt_client: client
+    mqtt_config: dict
+    topic_parts: list
 
 
 def build_device_status_payload(device) -> dict:
@@ -93,57 +102,62 @@ def _schedule_device_refresh(api, mqtt_client, mqtt_config, site_id, device_id) 
     )
 
 
-def _handle_alarm_status(text_payload, topic_parts, api, mqtt_client, mqtt_config) -> bool:
+def _handle_alarm_status(text_payload, context: MqttContext) -> bool:
     if text_payload not in ALARM_STATUS:
         return False
-    site_id = topic_parts[1]
+    site_id = context.topic_parts[1]
     LOGGER.info("Security Level update ! Setting to {}".format(text_payload))
     LOGGER.debug("Site ID: {}".format(site_id))
-    api.update_security_level(site_id=site_id, security_level=text_payload)
-    _start_background(_schedule_site_refresh, api, mqtt_client, mqtt_config, site_id)
+    context.api.update_security_level(site_id=site_id, security_level=text_payload)
+    _start_background(_schedule_site_refresh, context.api, context.mqtt_client, context.mqtt_config, site_id)
     return True
 
 
-def _handle_siren(text_payload, topic_parts, api) -> bool:
+def _handle_siren(text_payload, context: MqttContext) -> bool:
     if text_payload.lower() in ("panic", "trigger"):
-        site_id = topic_parts[1]
+        site_id = context.topic_parts[1]
         LOGGER.info("Start the Siren On Site ID {}".format(site_id))
-        api.trigger_alarm(site_id=site_id, mode="alarm")
+        context.api.trigger_alarm(site_id=site_id, mode="alarm")
         return True
     if text_payload == "stop":
-        site_id = topic_parts[1]
+        site_id = context.topic_parts[1]
         LOGGER.info("Stop the Siren On Site ID {}".format(site_id))
-        api.stop_alarm(site_id=site_id)
+        context.api.stop_alarm(site_id=site_id)
         return True
     return False
 
 
-def _handle_video_backend(text_payload, topic_parts, api) -> bool:
+def _handle_video_backend(text_payload, context: MqttContext) -> bool:
     if text_payload not in ["evostream", "webrtc"]:
         return False
-    site_id = topic_parts[1]
-    device_id = topic_parts[2]
+    site_id = context.topic_parts[1]
+    device_id = context.topic_parts[2]
     LOGGER.info("Update Video Backend To ({})".format(text_payload))
-    api.action_device(site_id=site_id, device_id=device_id, action="change_video_backend", video_backend=text_payload)
+    context.api.action_device(
+        site_id=site_id,
+        device_id=device_id,
+        action="change_video_backend",
+        video_backend=text_payload,
+    )
     return True
 
 
-def _handle_test_siren(text_payload, topic_parts, api) -> bool:
+def _handle_test_siren(text_payload, context: MqttContext) -> bool:
     if text_payload not in TEST_SIREN_ACTIONS:
         return False
-    site_id = topic_parts[1]
-    device_id = topic_parts[2]
+    site_id = context.topic_parts[1]
+    device_id = context.topic_parts[2]
     sound = text_payload.split("_")[1]
     LOGGER.info("Test the Siren On Site ID {} ({})".format(site_id, sound))
-    api.test_siren(site_id=site_id, device_id=device_id, sound=sound)
+    context.api.test_siren(site_id=site_id, device_id=device_id, sound=sound)
     return True
 
 
-def _handle_access(text_payload, topic_parts, api) -> bool:
+def _handle_access(text_payload, context: MqttContext) -> bool:
     if text_payload not in ACCESS_LIST:
         return False
-    site_id = topic_parts[1]
-    device_id = topic_parts[2]
+    site_id = context.topic_parts[1]
+    device_id = context.topic_parts[2]
     if device_id:
         LOGGER.info(
             "Message received for Site ID: {}, Device ID: {}, Access: {}".format(
@@ -152,7 +166,7 @@ def _handle_access(text_payload, topic_parts, api) -> bool:
                 text_payload,
             )
         )
-        trigger_access = api.trigger_access(
+        trigger_access = context.api.trigger_access(
             site_id=site_id,
             device_id=device_id,
             access=text_payload,
@@ -161,11 +175,11 @@ def _handle_access(text_payload, topic_parts, api) -> bool:
     return True
 
 
-def _handle_action(text_payload, topic_parts, api, mqtt_client, mqtt_config) -> bool:
+def _handle_action(text_payload, context: MqttContext) -> bool:
     if text_payload not in ACTION_LIST:
         return False
-    site_id = topic_parts[1]
-    device_id = topic_parts[2]
+    site_id = context.topic_parts[1]
+    device_id = context.topic_parts[2]
     if device_id:
         LOGGER.info(
             "Message received for Site ID: {}, Device ID: {}, Action: {}".format(
@@ -174,28 +188,35 @@ def _handle_action(text_payload, topic_parts, api, mqtt_client, mqtt_config) -> 
                 text_payload,
             )
         )
-        action_device = api.action_device(
+        action_device = context.api.action_device(
             site_id=site_id,
             device_id=device_id,
             action=text_payload,
         )
         LOGGER.debug(action_device)
-        _start_background(_schedule_device_refresh, api, mqtt_client, mqtt_config, site_id, device_id)
+        _start_background(
+            _schedule_device_refresh,
+            context.api,
+            context.mqtt_client,
+            context.mqtt_config,
+            site_id,
+            device_id,
+        )
     else:
         LOGGER.info("Message received for Site ID: {}, Action: {}".format(site_id, text_payload))
     return True
 
 
-def _handle_snapshot(lower_payload, topic_parts, api, mqtt_client, mqtt_config) -> bool:
-    if len(topic_parts) <= 3 or topic_parts[3] != "snapshot":
+def _handle_snapshot(lower_payload, context: MqttContext) -> bool:
+    if len(context.topic_parts) <= 3 or context.topic_parts[3] != "snapshot":
         return False
-    site_id = topic_parts[1]
-    device_id = topic_parts[2]
+    site_id = context.topic_parts[1]
+    device_id = context.topic_parts[2]
     if lower_payload not in ("true", "1", "yes", "on"):
         return True
     LOGGER.info("Manual Snapshot")
-    api.camera_refresh_snapshot(site_id=site_id, device_id=device_id)
-    response = api.camera_snapshot(site_id=site_id, device_id=device_id)
+    context.api.camera_refresh_snapshot(site_id=site_id, device_id=device_id)
+    response = context.api.camera_snapshot(site_id=site_id, device_id=device_id)
     if response is None:
         LOGGER.warning("Snapshot response missing")
         return True
@@ -207,21 +228,21 @@ def _handle_snapshot(lower_payload, topic_parts, api, mqtt_client, mqtt_config) 
         with open(path, "rb") as snapshot_file:
             image = snapshot_file.read()
         byte_array = bytearray(image)
-        publish_snapshot_bytes(mqtt_client, mqtt_config, site_id, device_id, byte_array)
+        publish_snapshot_bytes(context.mqtt_client, context.mqtt_config, site_id, device_id, byte_array)
     return True
 
 
-def _handle_setting(text_payload, topic_parts, api, mqtt_client, mqtt_config) -> None:
-    site_id = topic_parts[1]
-    device_id = topic_parts[2]
-    setting = topic_parts[3]
+def _handle_setting(text_payload, context: MqttContext) -> None:
+    site_id = context.topic_parts[1]
+    device_id = context.topic_parts[2]
+    setting = context.topic_parts[3]
     if setting == "stream":
         return
     if text_payload == "True":
         text_payload = bool(True)
     elif text_payload == "False":
         text_payload = bool(False)
-    device = api.get_device(site_id=site_id, device_id=device_id)
+    device = context.api.get_device(site_id=site_id, device_id=device_id)
     LOGGER.info(
         "Message received for Site ID: {}, Device ID: {}, Setting: {}".format(
             site_id,
@@ -234,13 +255,20 @@ def _handle_setting(text_payload, topic_parts, api, mqtt_client, mqtt_config) ->
     settings = {k: v for k, v in settings.items() if v is not None}
     if setting == "night_vision":
         settings["global"] = {"night_vision": text_payload}
-    api.update_device(
+    context.api.update_device(
         site_id=site_id,
         device_id=device_id,
         device_label=device.label,
         settings=settings,
     )
-    _start_background(_schedule_device_refresh, api, mqtt_client, mqtt_config, site_id, device_id)
+    _start_background(
+        _schedule_device_refresh,
+        context.api,
+        context.mqtt_client,
+        context.mqtt_config,
+        site_id,
+        device_id,
+    )
 
 
 def _requires_device_topic(text_payload, topic_parts) -> bool:
@@ -300,6 +328,7 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
         lower_payload = text_payload.lower()
         LOGGER.info("Payload {}".format(text_payload))
         topic_parts = msg.topic.split("/")
+        context = MqttContext(api=api, mqtt_client=mqtt_client, mqtt_config=mqtt_config, topic_parts=topic_parts)
 
         def require_parts(min_parts: int, context: str) -> bool:
             if len(topic_parts) < min_parts:
@@ -309,26 +338,26 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
 
         if not require_parts(2, "site"):
             return
-        if _handle_alarm_status(text_payload, topic_parts, api, mqtt_client, mqtt_config):
+        if _handle_alarm_status(text_payload, context):
             return
-        if _handle_siren(text_payload, topic_parts, api):
+        if _handle_siren(text_payload, context):
             return
         if _requires_device_topic(text_payload, topic_parts):
             if not require_parts(3, "device"):
                 return
-        if _handle_video_backend(text_payload, topic_parts, api):
+        if _handle_video_backend(text_payload, context):
             return
-        if _handle_test_siren(text_payload, topic_parts, api):
+        if _handle_test_siren(text_payload, context):
             return
-        if _handle_access(text_payload, topic_parts, api):
+        if _handle_access(text_payload, context):
             return
-        if _handle_action(text_payload, topic_parts, api, mqtt_client, mqtt_config):
+        if _handle_action(text_payload, context):
             return
-        if _handle_snapshot(lower_payload, topic_parts, api, mqtt_client, mqtt_config):
+        if _handle_snapshot(lower_payload, context):
             return
         if not require_parts(4, "setting"):
             return
-        _handle_setting(text_payload, topic_parts, api, mqtt_client, mqtt_config)
+        _handle_setting(text_payload, context)
 
     except (RequestException, AttributeError, KeyError, ValueError) as e:
         LOGGER.error("Error when processing message: {}: {} => {}".format(e, msg.topic, msg.payload))
