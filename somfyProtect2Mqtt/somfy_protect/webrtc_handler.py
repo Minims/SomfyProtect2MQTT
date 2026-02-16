@@ -261,7 +261,7 @@ class WebRTCHandler:
                                     )
                                     LOGGER.debug("Published frame to MQTT topic: {}".format(topic))
                                     frame_skip_counter = 0
-                                except Exception as e:
+                                except (OSError, ValueError, RuntimeError) as e:
                                     frame_skip_counter += 1
                                     # Skip frames with decoding errors (especially at start due to missing SPS/PPS)
                                     if frame_skip_counter <= 10:
@@ -274,11 +274,11 @@ class WebRTCHandler:
                                     else:
                                         LOGGER.error("Multiple frame decoding failures: {}".format(e))
 
-                            except Exception as e:
+                            except (OSError, ValueError, RuntimeError) as e:
                                 LOGGER.error("Error receiving video frame: {}".format(e))
                                 await asyncio.sleep(0.1)
 
-                    except Exception as e:
+                    except (OSError, ValueError, RuntimeError) as e:
                         LOGGER.error("Error receiving video frames: {}".format(e))
 
                 elif self.streaming_config == "go2rtc":
