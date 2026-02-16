@@ -4,10 +4,16 @@ import asyncio
 import importlib
 import json
 import logging
+import math
+import os
 import re
+import tempfile
+import threading
 import time
 from fractions import Fraction
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from io import BytesIO
+from typing import Optional
 
 # Suppress ffmpeg/libav warnings at C library level
 import av
@@ -21,6 +27,53 @@ av.logging.set_level(av.logging.ERROR)
 logging.getLogger("libav.h264").setLevel(logging.CRITICAL)
 logging.getLogger("libav.swscaler").setLevel(logging.CRITICAL)
 logging.getLogger("aiortc.codecs.h264").setLevel(logging.ERROR)
+
+
+class HLSHandler(BaseHTTPRequestHandler):
+    """Serve HLS playlists and segments from memory."""
+
+    handler: Optional["WebRTCHandler"] = None
+
+    def log_message(self, format, *args):
+        """Suppress default HTTP server logs."""
+        return
+
+    def do_GET(self):
+        """Handle playlist and segment requests."""
+        handler = self.__class__.handler
+        if handler is None:
+            self.send_error(404)
+            return
+        path_parts = self.path.strip("/").split("/")
+        if len(path_parts) < 2:
+            self.send_error(404)
+            return
+        device_id = path_parts[0]
+        filename = path_parts[1]
+        if device_id not in handler.hls_segments:
+            self.send_error(404)
+            return
+        segments = handler.hls_segments[device_id]
+        if filename == "playlist.m3u8":
+            self.send_response(200)
+            self.send_header("Content-Type", "application/vnd.apple.mpegurl")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            playlist = segments.get("playlist", b"")
+            self.wfile.write(playlist)
+            return
+        if filename.endswith(".ts"):
+            if filename in segments:
+                self.send_response(200)
+                self.send_header("Content-Type", "video/mp2t")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(segments[filename])
+            else:
+                self.send_error(404)
+            return
+        self.send_error(404)
+
 
 LOGGER = logging.getLogger(__name__)
 
@@ -532,56 +585,7 @@ class WebRTCHandler:
 
     def _start_hls_server(self, device_id=None):
         """Start HTTP server for HLS streaming"""
-        import threading
-        from http.server import BaseHTTPRequestHandler, HTTPServer
-
-        handler = self
-
-        class HLSHandler(BaseHTTPRequestHandler):
-            """Serve HLS playlists and segments from memory."""
-
-            def log_message(self, format, *args):
-                """Suppress default HTTP server logs."""
-                pass  # Suppress HTTP logs
-
-            def do_GET(self):
-                """Handle playlist and segment requests."""
-                # Parse path: /{device_id}/playlist.m3u8 or /{device_id}/segment{N}.ts
-                path_parts = self.path.strip("/").split("/")
-                if len(path_parts) >= 2:
-                    device_id = path_parts[0]
-                    filename = path_parts[1]
-
-                    if device_id in handler.hls_segments:
-                        segments = handler.hls_segments[device_id]
-
-                        if filename == "playlist.m3u8":
-                            # Serve playlist
-                            self.send_response(200)
-                            self.send_header("Content-Type", "application/vnd.apple.mpegurl")
-                            self.send_header("Access-Control-Allow-Origin", "*")
-                            self.end_headers()
-
-                            playlist = segments.get("playlist", b"")
-                            self.wfile.write(playlist)
-
-                        elif filename.endswith(".ts"):
-                            # Serve segment
-                            if filename in segments:
-                                self.send_response(200)
-                                self.send_header("Content-Type", "video/mp2t")
-                                self.send_header("Access-Control-Allow-Origin", "*")
-                                self.end_headers()
-                                self.wfile.write(segments[filename])
-                            else:
-                                self.send_error(404)
-                        else:
-                            self.send_error(404)
-                    else:
-                        self.send_error(404)
-                else:
-                    self.send_error(404)
-
+        HLSHandler.handler = self
         server = HTTPServer(("0.0.0.0", self.hls_port), HLSHandler)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
@@ -598,8 +602,6 @@ class WebRTCHandler:
 
     def _init_hls_muxer(self, device_id):
         """Initialize HLS muxer for a device"""
-        import tempfile
-
         # Create temporary directory for HLS segments
         temp_dir = tempfile.mkdtemp(prefix=f"hls_{device_id}_")
 
@@ -633,11 +635,11 @@ class WebRTCHandler:
         task.add_done_callback(self.active_tasks.discard)
 
         LOGGER.info(
-            "Initialized HLS muxer for device {} in {}. Playlist: http://0.0.0.0:{}/{}/playlist.m3u8".format(
-                device_id,
-                temp_dir,
-                self.hls_port,
-                device_id,
+            "Initialized HLS muxer for device {device_id} in {temp_dir}. "
+            "Playlist: http://0.0.0.0:{port}/{device_id}/playlist.m3u8".format(
+                device_id=device_id,
+                temp_dir=temp_dir,
+                port=self.hls_port,
             )
         )
 
@@ -1002,9 +1004,6 @@ class WebRTCHandler:
 
     def _update_hls_playlist(self, device_id):
         """Update HLS playlist for a device"""
-        import math
-        import os
-
         muxer = self.hls_muxers.get(device_id)
         if not muxer:
             return
