@@ -786,9 +786,9 @@ class WebRTCHandler:
                     return
                 await asyncio.sleep(0.1)
 
-            # Give audio up to 5s but continue without it if absent
+            # Give audio up to 1s but continue without it if absent
             wait_start = time.time()
-            while not muxer["audio_ready"] and (time.time() - wait_start) < 5:
+            while not muxer["audio_ready"] and (time.time() - wait_start) < 1:
                 await asyncio.sleep(0.1)
 
             LOGGER.info(
@@ -906,10 +906,10 @@ class WebRTCHandler:
         # Add video stream if ready
         if muxer["video_ready"]:
             try:
-                # Wait up to 1 second for a video frame to get correct dimensions
+                # Wait up to 0.2 seconds for a video frame to get correct dimensions
                 video_frame = None
                 wait_count = 0
-                while wait_count < 100 and not video_frame:
+                while wait_count < 40 and not video_frame:
                     try:
                         video_item = muxer["video_queue"].get_nowait()
                         if isinstance(video_item, tuple):
@@ -917,7 +917,7 @@ class WebRTCHandler:
                         else:
                             video_frame = video_item
                     except asyncio.QueueEmpty:
-                        await asyncio.sleep(0.01)
+                        await asyncio.sleep(0.005)
                         wait_count += 1
 
                 if not video_frame:
