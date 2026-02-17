@@ -21,7 +21,7 @@ import av
 from aiortc import AudioStreamTrack, RTCConfiguration, RTCIceServer, RTCPeerConnection, RTCSessionDescription
 from aiortc.mediastreams import MediaStreamError
 from business.mqtt import publish_snapshot_bytes
-from PIL import Image, ImageDraw, ImageFont
+from PIL import ImageDraw, ImageFont
 
 # Set PyAV logging level to ERROR to suppress FFmpeg warnings
 av.logging.set_level(av.logging.ERROR)
@@ -908,16 +908,14 @@ class WebRTCHandler:
             try:
                 # Wait up to 1 second for a video frame to get correct dimensions
                 video_frame = None
-                video_received_at = None
                 wait_count = 0
                 while wait_count < 100 and not video_frame:
                     try:
                         video_item = muxer["video_queue"].get_nowait()
                         if isinstance(video_item, tuple):
-                            video_frame, video_received_at = video_item
+                            video_frame, _ = video_item
                         else:
                             video_frame = video_item
-                            video_received_at = datetime.now()
                     except asyncio.QueueEmpty:
                         await asyncio.sleep(0.01)
                         wait_count += 1
