@@ -826,7 +826,12 @@ class WebRTCHandler:
                 audio_frame = None
 
                 try:
-                    video_frame, video_received_at = muxer["video_queue"].get_nowait()
+                    video_item = muxer["video_queue"].get_nowait()
+                    if isinstance(video_item, tuple):
+                        video_frame, video_received_at = video_item
+                    else:
+                        video_frame = video_item
+                        video_received_at = datetime.now()
                 except asyncio.QueueEmpty:
                     pass
 
@@ -907,7 +912,12 @@ class WebRTCHandler:
                 wait_count = 0
                 while wait_count < 100 and not video_frame:
                     try:
-                        video_frame, video_received_at = muxer["video_queue"].get_nowait()
+                        video_item = muxer["video_queue"].get_nowait()
+                        if isinstance(video_item, tuple):
+                            video_frame, video_received_at = video_item
+                        else:
+                            video_frame = video_item
+                            video_received_at = datetime.now()
                     except asyncio.QueueEmpty:
                         await asyncio.sleep(0.01)
                         wait_count += 1
