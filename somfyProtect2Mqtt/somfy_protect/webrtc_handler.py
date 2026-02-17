@@ -159,7 +159,7 @@ class WebRTCHandler:
         self.hls_segments = {}  # Store HLS segments and playlists per device_id
         self.hls_server = None
         self.hls_port = 8090
-        self.hls_segment_duration = 1  # seconds per segment (shorter to reduce boundary stalls)
+        self.hls_segment_duration = 2  # seconds per segment (longer reduces churn)
 
     def store_turn_config(self, session_id, turn_data):
         """Store TURN server configuration for a session"""
@@ -633,8 +633,8 @@ class WebRTCHandler:
             "temp_dir": temp_dir,
             "video_track": None,
             "audio_track": None,
-            "video_queue": asyncio.Queue(maxsize=30),
-            "audio_queue": asyncio.Queue(maxsize=30),
+            "video_queue": asyncio.Queue(maxsize=90),
+            "audio_queue": asyncio.Queue(maxsize=90),
             "container": None,
             "video_stream": None,
             "audio_stream": None,
