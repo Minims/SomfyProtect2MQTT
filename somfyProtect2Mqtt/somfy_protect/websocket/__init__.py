@@ -47,6 +47,8 @@ class SomfyProtectWebsocket:
         self.api = api
         self.sso = sso
         self.time = time.time()
+        self._last_pong = self.time
+        self._keepalive_future = None
 
         # Initialize WebRTC handler
         self.webrtc_handler = WebRTCHandler(
@@ -82,6 +84,33 @@ class SomfyProtectWebsocket:
         asyncio.set_event_loop(self.loop)
         self.loop.run_forever()
 
+    async def _keepalive_loop(self):
+        try:
+            while True:
+                if self._websocket and self._websocket.sock and self._websocket.sock.connected:
+                    try:
+                        self._websocket.sock.ping()
+                    except (RuntimeError, ValueError) as e:
+                        LOGGER.warning("WebSocket ping failed: {}".format(e))
+                    if (time.time() - self._last_pong) > WEBSOCKET_PING_TIMEOUT:
+                        LOGGER.warning("WebSocket ping timeout, closing connection")
+                        self.close()
+                        return
+                await asyncio.sleep(WEBSOCKET_PING_INTERVAL)
+        except asyncio.CancelledError:
+            return
+
+    def _start_keepalive(self) -> None:
+        if self._keepalive_future is not None:
+            return
+        self._keepalive_future = asyncio.run_coroutine_threadsafe(self._keepalive_loop(), self.loop)
+
+    def _stop_keepalive(self) -> None:
+        if self._keepalive_future is None:
+            return
+        self._keepalive_future.cancel()
+        self._keepalive_future = None
+
     def _run_io_task(self, func, *args, **kwargs) -> None:
         if hasattr(self, "loop") and self.loop and self.loop.is_running():
             asyncio.run_coroutine_threadsafe(asyncio.to_thread(func, *args, **kwargs), self.loop)
@@ -102,8 +131,8 @@ class SomfyProtectWebsocket:
         """Run Forever Loop"""
         self._websocket.run_forever(
             # dispatcher=rel,
-            ping_timeout=WEBSOCKET_PING_TIMEOUT,
-            ping_interval=WEBSOCKET_PING_INTERVAL,
+            ping_timeout=0,
+            ping_interval=0,
             reconnect=WEBSOCKET_RECONNECT,
             sslopt={"cert_reqs": ssl.CERT_NONE},
         )
@@ -112,6 +141,8 @@ class SomfyProtectWebsocket:
     def close(self):
         """Close Websocket Connection"""
         LOGGER.info("WebSocket Close")
+
+        self._stop_keepalive()
 
         # Close websocket connection
         if self._websocket:
@@ -166,6 +197,7 @@ class SomfyProtectWebsocket:
     def _on_pong(self, _ws_app, message):
         """Handle Pong Message"""
         LOGGER.debug("Pong Message: {}".format(message))
+        self._last_pong = time.time()
         if (time.time() - self.time) > WEBSOCKET_IDLE_CLOSE_SECONDS:
             self.close()
 
@@ -248,6 +280,8 @@ class SomfyProtectWebsocket:
     def _on_open(self, _ws_app):
         """Handle Websocket Open Connection"""
         LOGGER.info("Opened connection")
+        self._last_pong = time.time()
+        self._start_keepalive()
 
     def _on_close(self, _ws_app, close_status_code, close_msg):
         """Handle Websocket Close Connection"""
