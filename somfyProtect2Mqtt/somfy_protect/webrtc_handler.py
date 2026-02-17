@@ -10,6 +10,7 @@ import re
 import tempfile
 import threading
 import time
+from datetime import datetime
 from fractions import Fraction
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from io import BytesIO
@@ -20,6 +21,7 @@ import av
 from aiortc import AudioStreamTrack, RTCConfiguration, RTCIceServer, RTCPeerConnection, RTCSessionDescription
 from aiortc.mediastreams import MediaStreamError
 from business.mqtt import publish_snapshot_bytes
+from PIL import Image, ImageDraw, ImageFont
 
 # Set PyAV logging level to ERROR to suppress FFmpeg warnings
 av.logging.set_level(av.logging.ERROR)
@@ -78,6 +80,22 @@ class HLSHandler(BaseHTTPRequestHandler):
                 self.send_error(404)
             return
         self.send_error(404)
+
+
+def _format_timestamp(timestamp: datetime) -> str:
+    return timestamp.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+
+
+def _overlay_timestamp(frame: av.VideoFrame, timestamp: datetime) -> av.VideoFrame:
+    text = _format_timestamp(timestamp)
+    image = frame.to_image()
+    draw = ImageDraw.Draw(image)
+    font = ImageFont.load_default()
+    x, y = 8, 8
+    shadow_offset = 1
+    draw.text((x + shadow_offset, y + shadow_offset), text, font=font, fill="black")
+    draw.text((x, y), text, font=font, fill="white")
+    return av.VideoFrame.from_image(image)
 
 
 LOGGER = logging.getLogger(__name__)
@@ -656,10 +674,11 @@ class WebRTCHandler:
         try:
             while True:
                 frame = await track.recv()
+                received_at = datetime.now()
                 try:
                     muxer = self.hls_muxers.get(device_id)
                     if muxer:
-                        muxer["video_queue"].put_nowait(frame)
+                        muxer["video_queue"].put_nowait((frame, received_at))
                         muxer["video_ready"] = True
                 except asyncio.QueueFull:
                     LOGGER.debug("Video queue full for {}, dropping frame".format(device_id))
@@ -803,10 +822,11 @@ class WebRTCHandler:
 
                 # Try to get frames from queues
                 video_frame = None
+                video_received_at = None
                 audio_frame = None
 
                 try:
-                    video_frame = muxer["video_queue"].get_nowait()
+                    video_frame, video_received_at = muxer["video_queue"].get_nowait()
                 except asyncio.QueueEmpty:
                     pass
 
@@ -818,6 +838,8 @@ class WebRTCHandler:
                 # Process frames
                 if video_frame and muxer["video_stream"]:
                     try:
+                        if video_received_at:
+                            video_frame = _overlay_timestamp(video_frame, video_received_at)
                         # Monotonic PTS based on 30fps -> 90000/30 = 3000 ticks per frame
                         video_frame.pts = muxer.get("video_pts", 0)
                         muxer["video_pts"] = video_frame.pts + 3000
@@ -881,10 +903,11 @@ class WebRTCHandler:
             try:
                 # Wait up to 1 second for a video frame to get correct dimensions
                 video_frame = None
+                video_received_at = None
                 wait_count = 0
                 while wait_count < 100 and not video_frame:
                     try:
-                        video_frame = muxer["video_queue"].get_nowait()
+                        video_frame, video_received_at = muxer["video_queue"].get_nowait()
                     except asyncio.QueueEmpty:
                         await asyncio.sleep(0.01)
                         wait_count += 1
