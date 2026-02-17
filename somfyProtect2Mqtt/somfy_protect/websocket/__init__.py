@@ -13,6 +13,14 @@ import websocket
 from business import update_visiophone_snapshot, write_to_media_folder
 from business.mqtt import mqtt_publish, publish_snapshot_bytes, update_device, update_site
 from business.streaming.camera import VideoCamera
+from constants import (
+    SNAPSHOT_QUEUE_MAXSIZE,
+    WEBSOCKET_IDLE_CLOSE_SECONDS,
+    WEBSOCKET_PING_INTERVAL,
+    WEBSOCKET_PING_TIMEOUT,
+    WEBSOCKET_RECONNECT,
+    WEBSOCKET_TIMEOUT,
+)
 from homeassistant.ha_discovery import ALARM_STATUS
 from mqtt import MQTTClient
 from somfy_protect.api import SomfyProtectApi
@@ -21,11 +29,6 @@ from somfy_protect.webrtc_handler import WebRTCHandler
 from websocket import WebSocketApp
 
 WEBSOCKET = "wss://websocket.myfox.io/events/websocket?token="
-WEBSOCKET_TIMEOUT = 5
-WEBSOCKET_PING_INTERVAL = 15
-WEBSOCKET_PING_TIMEOUT = 10
-WEBSOCKET_RECONNECT = 5
-WEBSOCKET_IDLE_CLOSE_SECONDS = 1800
 
 LOGGER = logging.getLogger(__name__)
 

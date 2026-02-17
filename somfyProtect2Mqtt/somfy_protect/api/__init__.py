@@ -7,6 +7,7 @@ from json import JSONDecodeError
 from typing import Any, Callable, Dict, List, Optional, Union
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
+from constants import REQUEST_TIMEOUT
 from oauthlib.oauth2 import TokenExpiredError
 from requests import RequestException, Response
 from requests_oauthlib import OAuth2Session
@@ -30,7 +31,6 @@ BASE_URL = "https://api.myfox.io"
 # Don't know how it works for now.
 VIDEO_URL = "https://video.myfox.io"
 # (MEDIA_TYPE_VIDEO, 1, 1; MEDIA_TYPE_AUDIO, 0, 0)
-REQUEST_TIMEOUT = 10
 
 ACCESS_LIST = ["gate", "latch", "lock", "unlock", "force_lock"]
 

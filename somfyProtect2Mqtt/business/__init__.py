@@ -14,6 +14,7 @@ import requests
 import schedule
 from business.mqtt import SUBSCRIBE_TOPICS, mqtt_publish, publish_device_state, publish_site_state
 from business.watermark import insert_watermark
+from constants import REQUEST_TIMEOUT, RETRY_STATUS_CODES
 from exceptions import SomfyProtectInitError
 from homeassistant.ha_discovery import (
     ALARM_STATUS,
@@ -35,8 +36,6 @@ LOGGER = logging.getLogger(__name__)
 
 DEVICE_TAG = {}
 HISTORY = {}
-REQUEST_TIMEOUT = 10
-RETRY_STATUS_CODES = [429, 500, 502, 503, 504]
 
 
 def _create_http_session() -> requests.Session:
