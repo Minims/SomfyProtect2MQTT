@@ -789,6 +789,9 @@ class WebRTCHandler:
                 # Initialize segment if needed
                 if muxer["container"] is None:
                     await self._create_hls_segment(device_id)
+                    if muxer["container"] is None:
+                        await asyncio.sleep(0.05)
+                        continue
 
                 # Check if we need to close current segment
                 if (
@@ -887,12 +890,10 @@ class WebRTCHandler:
                         wait_count += 1
 
                 if not video_frame:
-                    LOGGER.error("Video ready but no frame available to start segment; retrying later")
+                    LOGGER.warning("Video ready but no frame available to start segment; retrying later")
                     muxer["no_frame_retries"] += 1
                     muxer["container"] = None
-                    if muxer["no_frame_retries"] >= 3:
-                        LOGGER.warning("No video frames for device {}, stopping muxer".format(device_id))
-                        muxer["stopped"] = True
+                    await asyncio.sleep(min(0.5, 0.05 * muxer["no_frame_retries"]))
                     return
                 muxer["no_frame_retries"] = 0
 
