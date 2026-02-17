@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 import os
+import queue
 import ssl
 import threading
 import time
@@ -52,6 +53,10 @@ class SomfyProtectWebsocket:
         self.time = time.time()
         self._last_pong = self.time
         self._keepalive_future = None
+        self._io_queue = queue.Queue(maxsize=SNAPSHOT_QUEUE_MAXSIZE)
+        self._io_worker_stop = threading.Event()
+        self._io_worker = threading.Thread(target=self._io_worker_loop, daemon=True)
+        self._io_worker.start()
 
         # Initialize WebRTC handler
         self.webrtc_handler = WebRTCHandler(
@@ -87,6 +92,23 @@ class SomfyProtectWebsocket:
         asyncio.set_event_loop(self.loop)
         self.loop.run_forever()
 
+    def _io_worker_loop(self) -> None:
+        while not self._io_worker_stop.is_set():
+            try:
+                job = self._io_queue.get(timeout=0.5)
+            except queue.Empty:
+                continue
+            if job is None:
+                self._io_queue.task_done()
+                break
+            func, args, kwargs = job
+            try:
+                func(*args, **kwargs)
+            except (OSError, RuntimeError, ValueError) as e:
+                LOGGER.warning("IO task failed: {}".format(e))
+            finally:
+                self._io_queue.task_done()
+
     async def _keepalive_loop(self):
         try:
             while True:
@@ -115,11 +137,10 @@ class SomfyProtectWebsocket:
         self._keepalive_future = None
 
     def _run_io_task(self, func, *args, **kwargs) -> None:
-        if hasattr(self, "loop") and self.loop and self.loop.is_running():
-            asyncio.run_coroutine_threadsafe(asyncio.to_thread(func, *args, **kwargs), self.loop)
-        else:
-            thread = threading.Thread(target=func, args=args, kwargs=kwargs, daemon=True)
-            thread.start()
+        try:
+            self._io_queue.put_nowait((func, args, kwargs))
+        except queue.Full:
+            LOGGER.warning("IO task dropped: queue full")
 
     def _on_message_wrapper(self, _ws_app, message):
         """Wrapper to handle async on_message in sync context"""
@@ -146,6 +167,11 @@ class SomfyProtectWebsocket:
         LOGGER.info("WebSocket Close")
 
         self._stop_keepalive()
+        self._io_worker_stop.set()
+        try:
+            self._io_queue.put_nowait(None)
+        except queue.Full:
+            pass
 
         # Close websocket connection
         if self._websocket:
