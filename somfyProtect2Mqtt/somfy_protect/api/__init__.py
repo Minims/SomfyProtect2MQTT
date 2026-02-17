@@ -3,6 +3,7 @@
 import base64
 import json
 import logging
+import time
 from json import JSONDecodeError
 from typing import Any, Callable, Dict, List, Optional, Union
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
@@ -78,6 +79,7 @@ class SomfyProtectApi:
 
     def __init__(self, sso: SomfyProtectSso):
         self.sso = sso
+        self._metrics = {}
 
     def _request(self, method: str, path: str, base_url: str = BASE_URL, **kwargs: Any) -> Response:
         """Make an HTTP request.
@@ -104,10 +106,13 @@ class SomfyProtectApi:
         def _execute_request() -> Response:
             return getattr(self.sso.oauth, method)(url, **kwargs)
 
+        start_time = time.monotonic()
+        refreshed = False
         try:
             response = _execute_request()
         except TokenExpiredError:
             self.sso.oauth.token = self.sso.refresh_tokens()
+            refreshed = True
             response = _execute_request()
         except RequestException as exc:
             LOGGER.error("Request failed {} {}: {}".format(method.upper(), _redact_url(url), exc))
@@ -115,9 +120,32 @@ class SomfyProtectApi:
 
         if response.status_code in (401, 403):
             self.sso.oauth.token = self.sso.refresh_tokens()
+            refreshed = True
             response = _execute_request()
 
+        elapsed_ms = (time.monotonic() - start_time) * 1000
+        self._record_metrics(method, path, response.status_code, elapsed_ms, refreshed)
+        LOGGER.debug(
+            "API {} {} -> {} in {:.1f}ms".format(
+                method.upper(),
+                _redact_url(url),
+                response.status_code,
+                elapsed_ms,
+            )
+        )
+
         return response
+
+    def _record_metrics(self, method: str, path: str, status: int, elapsed_ms: float, refreshed: bool) -> None:
+        key = f"{method.upper()} {path}"
+        stats = self._metrics.get(key, {"count": 0, "total_ms": 0.0, "errors": 0, "refresh": 0})
+        stats["count"] += 1
+        stats["total_ms"] += elapsed_ms
+        if status >= 400:
+            stats["errors"] += 1
+        if refreshed:
+            stats["refresh"] += 1
+        self._metrics[key] = stats
 
     def get(self, path: str, base_url: str = BASE_URL) -> Response:
         """Fetch a URL from the Somfy Protect API.
