@@ -7,6 +7,7 @@ import logging
 import math
 import os
 import re
+import shutil
 import tempfile
 import threading
 import time
@@ -65,6 +66,7 @@ class HLSHandler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-Type", "application/vnd.apple.mpegurl")
             self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Cache-Control", "no-cache, no-store")
             self.end_headers()
             playlist = segments.get("playlist", b"")
             self.wfile.write(playlist)
@@ -591,8 +593,25 @@ class WebRTCHandler:
         if hasattr(self, "turn_configs"):
             self.turn_configs.clear()
 
-        # Clear HLS resources
+        # Clear HLS resources (close open containers and remove temp dirs)
         if hasattr(self, "hls_muxers"):
+            for dev_id, muxer_data in self.hls_muxers.items():
+                # Close any open PyAV container
+                container = muxer_data.get("container")
+                if container is not None:
+                    try:
+                        container.close()
+                        LOGGER.debug("Closed open container for device {}".format(dev_id))
+                    except (OSError, RuntimeError, ValueError) as e:
+                        LOGGER.debug("Error closing container for device {}: {}".format(dev_id, e))
+                # Remove temp directory
+                temp_dir = muxer_data.get("temp_dir")
+                if temp_dir and os.path.isdir(temp_dir):
+                    try:
+                        shutil.rmtree(temp_dir)
+                        LOGGER.debug("Removed temp dir {}".format(temp_dir))
+                    except OSError as e:
+                        LOGGER.debug("Error removing temp dir {}: {}".format(temp_dir, e))
             self.hls_muxers.clear()
         if hasattr(self, "hls_segments"):
             self.hls_segments.clear()
@@ -644,11 +663,14 @@ class WebRTCHandler:
             "frame_count": 0,
             "audio_pts": 0,
             "video_pts": 0,
+            "video_first_time": None,
             "video_ready": False,
             "audio_ready": False,
             "audio_failed": False,
             "stopped": False,
             "no_frame_retries": 0,
+            "segments": [],
+            "segment_durations": {},
         }
 
         self.hls_segments[device_id] = {
@@ -845,9 +867,13 @@ class WebRTCHandler:
                     try:
                         if video_received_at:
                             video_frame = _overlay_timestamp(video_frame, video_received_at)
-                        # Monotonic PTS based on 30fps -> 90000/30 = 3000 ticks per frame
-                        video_frame.pts = muxer.get("video_pts", 0)
-                        muxer["video_pts"] = video_frame.pts + 3000
+                        # Wall-clock PTS: use actual elapsed time since first frame
+                        if muxer.get("video_first_time") is None:
+                            muxer["video_first_time"] = time.monotonic()
+                            muxer["video_pts"] = 0
+                        elapsed = time.monotonic() - muxer["video_first_time"]
+                        video_frame.pts = int(elapsed * 90000)
+                        muxer["video_pts"] = video_frame.pts
                         for packet in muxer["video_stream"].encode(video_frame):
                             muxer["container"].mux(packet)
                         muxer["frame_count"] += 1
@@ -963,8 +989,11 @@ class WebRTCHandler:
                 }
                 muxer["video_stream"] = video_stream
 
-                # Put the frame back in the queue
-                muxer["video_queue"].put_nowait(video_frame)
+                # Put the frame back in the queue (safe: we just removed one)
+                try:
+                    muxer["video_queue"].put_nowait(video_frame)
+                except asyncio.QueueFull:
+                    LOGGER.debug("[VIDEO] Queue full when returning peeked frame, frame will be skipped")
             except (OSError, RuntimeError, ValueError) as e:
                 LOGGER.warning("Error adding video stream: {}".format(e))
                 muxer["container"] = None
@@ -1013,7 +1042,10 @@ class WebRTCHandler:
 
                     # Put the frame back in the queue
                     if muxer["audio_stream"]:
-                        muxer["audio_queue"].put_nowait(audio_frame)
+                        try:
+                            muxer["audio_queue"].put_nowait(audio_frame)
+                        except asyncio.QueueFull:
+                            LOGGER.debug("[AUDIO] Queue full when returning peeked frame, frame will be skipped")
             except (OSError, RuntimeError, ValueError) as e:
                 LOGGER.error("[AUDIO] Error adding audio stream: {}".format(e))
                 muxer["audio_failed"] = True
@@ -1054,6 +1086,21 @@ class WebRTCHandler:
                 )
             )
 
+            segment_index = muxer["segment_index"] - 1
+            segment_filename = f"segment{segment_index}.ts"
+            segment_path = f"{muxer['temp_dir']}/{segment_filename}"
+            # Compute actual segment duration from wall-clock time
+            actual_duration = (
+                time.time() - muxer["segment_start_time"] if muxer["segment_start_time"] else self.hls_segment_duration
+            )
+            if os.path.exists(segment_path):
+                with open(segment_path, "rb") as f:
+                    segment_data = f.read()
+                    if len(segment_data) > 0:
+                        self.hls_segments[device_id][segment_filename] = segment_data
+                        muxer["segments"].append(segment_filename)
+                        muxer["segment_durations"][segment_filename] = actual_duration
+
             # Update playlist
             self._update_hls_playlist(device_id)
 
@@ -1074,49 +1121,49 @@ class WebRTCHandler:
 
         # Keep only last 8 segments in memory (short window to reduce latency)
         max_segments = 8
-        segment_index = muxer["segment_index"]
-        start_index = max(0, segment_index - max_segments)
+        segments = muxer.get("segments", [])
+        segment_durations = muxer.get("segment_durations", {})
+        if len(segments) > max_segments:
+            drop_count = len(segments) - max_segments
+            for _ in range(drop_count):
+                old_segment = segments.pop(0)
+                old_segment_path = f"{muxer['temp_dir']}/{old_segment}"
+                if old_segment in self.hls_segments[device_id]:
+                    del self.hls_segments[device_id][old_segment]
+                segment_durations.pop(old_segment, None)
+                if os.path.exists(old_segment_path):
+                    try:
+                        os.remove(old_segment_path)
+                    except OSError as e:
+                        LOGGER.debug("Unable to remove old segment {}: {}".format(old_segment_path, e))
 
-        # Build playlist for live streaming
-        target_duration = max(1, int(math.ceil(self.hls_segment_duration)))
+        segment_index = muxer["segment_index"]
+        start_index = max(0, segment_index - len(segments))
+
+        # Compute accurate target duration (must be >= every EXTINF, rounded up)
+        max_duration = self.hls_segment_duration
+        for segment_filename in segments:
+            dur = segment_durations.get(segment_filename, self.hls_segment_duration)
+            if dur > max_duration:
+                max_duration = dur
+        target_duration = max(1, int(math.ceil(max_duration)))
+
+        # Build playlist for live sliding-window streaming (no PLAYLIST-TYPE tag)
         playlist = "#EXTM3U\n"
         playlist += "#EXT-X-VERSION:3\n"
         playlist += "#EXT-X-INDEPENDENT-SEGMENTS\n"
-        playlist += "#EXT-X-PLAYLIST-TYPE:EVENT\n"
         playlist += f"#EXT-X-TARGETDURATION:{target_duration}\n"
         playlist += f"#EXT-X-MEDIA-SEQUENCE:{start_index}\n"
 
-        # Load segments into memory
         segment_count = 0
-        for i in range(start_index, segment_index):
-            segment_filename = f"segment{i}.ts"
-            segment_path = f"{muxer['temp_dir']}/{segment_filename}"
-
-            if os.path.exists(segment_path):
-                # Load segment into memory
-                with open(segment_path, "rb") as f:
-                    segment_data = f.read()
-                    if len(segment_data) > 0:  # Only add non-empty segments
-                        self.hls_segments[device_id][segment_filename] = segment_data
-                        playlist += f"#EXTINF:{self.hls_segment_duration:.1f},\n"
-                        playlist += f"{segment_filename}\n"
-                        segment_count += 1
+        for segment_filename in segments:
+            if segment_filename in self.hls_segments[device_id]:
+                dur = segment_durations.get(segment_filename, self.hls_segment_duration)
+                playlist += f"#EXTINF:{dur:.3f},\n"
+                playlist += f"{segment_filename}\n"
+                segment_count += 1
 
         self.hls_segments[device_id]["playlist"] = playlist.encode("utf-8")
         LOGGER.debug("Updated playlist for {} with {} segments".format(device_id, segment_count))
 
-        # Clean up old segments from disk and memory
-        for i in range(max(0, start_index - 10), start_index):
-            old_segment_filename = f"segment{i}.ts"
-            old_segment_path = f"{muxer['temp_dir']}/{old_segment_filename}"
-
-            # Remove from disk
-            if os.path.exists(old_segment_path):
-                try:
-                    os.remove(old_segment_path)
-                except OSError as e:
-                    LOGGER.debug("Unable to remove old segment {}: {}".format(old_segment_path, e))
-
-            # Remove from memory
-            if old_segment_filename in self.hls_segments[device_id]:
-                del self.hls_segments[device_id][old_segment_filename]
+        muxer["segments"] = segments
