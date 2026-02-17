@@ -1062,8 +1062,8 @@ class WebRTCHandler:
                 )
             )
 
-            # Update playlist
-            self._update_hls_playlist(device_id)
+            # Update playlist (offload disk IO)
+            await asyncio.to_thread(self._update_hls_playlist, device_id)
 
             # Reset for next segment
             muxer["container"] = None
