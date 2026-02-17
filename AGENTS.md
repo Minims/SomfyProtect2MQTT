@@ -108,6 +108,7 @@ Keep changes small, follow existing patterns, and update docs if behavior change
 - The main loop uses threads for API and WebSocket loops.
 - Keep thread targets small and robust; handle exceptions and clean shutdown.
 - Avoid long blocking operations without timeouts.
+- Prefer websocket-client built-in ping/pong; avoid custom keepalive loops unless required.
 
 ## MQTT and API Usage
 
