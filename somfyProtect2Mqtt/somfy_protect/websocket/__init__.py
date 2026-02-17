@@ -308,6 +308,20 @@ class SomfyProtectWebsocket:
     def _video_webrtc_keep_alive(self, message):
         """WEBRTC KeepAlive"""
         LOGGER.info("WEBRTC KeepAlive: {}".format(message))
+        site_id = message.get("site_id")
+        device_id = message.get("device_id")
+        session_id = message.get("session_id")
+        if not site_id or not device_id or not session_id:
+            LOGGER.warning("Missing keepalive identifiers")
+            return
+        keepalive = {
+            "site_id": site_id,
+            "device_id": device_id,
+            "session_id": session_id,
+            "forward": True,
+            "key": "video.webrtc.keep_alive",
+        }
+        self.send_websocket_message(keepalive)
 
     def _video_webrtc_session(self, message):
         """WEBRTC Session"""
