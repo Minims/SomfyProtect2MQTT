@@ -51,8 +51,6 @@ class SomfyProtectWebsocket:
         self.api = api
         self.sso = sso
         self.time = time.time()
-        self._last_pong = self.time
-        self._keepalive_future = None
         self._io_queue = queue.Queue(maxsize=SNAPSHOT_QUEUE_MAXSIZE)
         self._io_worker_stop = threading.Event()
         self._io_worker = threading.Thread(target=self._io_worker_loop, daemon=True)
@@ -109,33 +107,6 @@ class SomfyProtectWebsocket:
             finally:
                 self._io_queue.task_done()
 
-    async def _keepalive_loop(self):
-        try:
-            while True:
-                if self._websocket and self._websocket.sock and self._websocket.sock.connected:
-                    try:
-                        self._websocket.sock.ping()
-                    except (RuntimeError, ValueError) as e:
-                        LOGGER.warning("WebSocket ping failed: {}".format(e))
-                    if (time.time() - self._last_pong) > WEBSOCKET_PING_TIMEOUT:
-                        LOGGER.warning("WebSocket ping timeout, closing connection")
-                        self.close()
-                        return
-                await asyncio.sleep(WEBSOCKET_PING_INTERVAL)
-        except asyncio.CancelledError:
-            return
-
-    def _start_keepalive(self) -> None:
-        if self._keepalive_future is not None:
-            return
-        self._keepalive_future = asyncio.run_coroutine_threadsafe(self._keepalive_loop(), self.loop)
-
-    def _stop_keepalive(self) -> None:
-        if self._keepalive_future is None:
-            return
-        self._keepalive_future.cancel()
-        self._keepalive_future = None
-
     def _run_io_task(self, func, *args, **kwargs) -> None:
         try:
             self._io_queue.put_nowait((func, args, kwargs))
@@ -166,7 +137,6 @@ class SomfyProtectWebsocket:
         """Close Websocket Connection"""
         LOGGER.info("WebSocket Close")
 
-        self._stop_keepalive()
         self._io_worker_stop.set()
         try:
             self._io_queue.put_nowait(None)
@@ -226,7 +196,6 @@ class SomfyProtectWebsocket:
     def _on_pong(self, _ws_app, message):
         """Handle Pong Message"""
         LOGGER.debug("Pong Message: {}".format(message))
-        self._last_pong = time.time()
         if (time.time() - self.time) > WEBSOCKET_IDLE_CLOSE_SECONDS:
             self.close()
 
@@ -309,8 +278,6 @@ class SomfyProtectWebsocket:
     def _on_open(self, _ws_app):
         """Handle Websocket Open Connection"""
         LOGGER.info("Opened connection")
-        self._last_pong = time.time()
-        self._start_keepalive()
 
     def _on_close(self, _ws_app, close_status_code, close_msg):
         """Handle Websocket Close Connection"""
