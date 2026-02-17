@@ -638,7 +638,6 @@ class WebRTCHandler:
             "container": None,
             "video_stream": None,
             "audio_stream": None,
-            "pending_video": None,
             "segment_index": 0,
             "segment_start_time": None,
             "current_segment_path": None,
@@ -826,17 +825,13 @@ class WebRTCHandler:
                 video_received_at = None
                 audio_frame = None
 
-                if muxer.get("pending_video"):
-                    video_frame, video_received_at = muxer.pop("pending_video")
-
                 try:
-                    if video_frame is None:
-                        video_item = muxer["video_queue"].get_nowait()
-                        if isinstance(video_item, tuple):
-                            video_frame, video_received_at = video_item
-                        else:
-                            video_frame = video_item
-                            video_received_at = datetime.now()
+                    video_item = muxer["video_queue"].get_nowait()
+                    if isinstance(video_item, tuple):
+                        video_frame, video_received_at = video_item
+                    else:
+                        video_frame = video_item
+                        video_received_at = datetime.now()
                 except asyncio.QueueEmpty:
                     pass
 
@@ -913,16 +908,14 @@ class WebRTCHandler:
             try:
                 # Wait up to 1 second for a video frame to get correct dimensions
                 video_frame = None
-                video_received_at = None
                 wait_count = 0
                 while wait_count < 100 and not video_frame:
                     try:
                         video_item = muxer["video_queue"].get_nowait()
                         if isinstance(video_item, tuple):
-                            video_frame, video_received_at = video_item
+                            video_frame, _ = video_item
                         else:
                             video_frame = video_item
-                            video_received_at = datetime.now()
                     except asyncio.QueueEmpty:
                         await asyncio.sleep(0.01)
                         wait_count += 1
@@ -970,9 +963,8 @@ class WebRTCHandler:
                 }
                 muxer["video_stream"] = video_stream
 
-                # Hold the first frame so it can be encoded after stream setup
-                if video_frame is not None:
-                    muxer["pending_video"] = (video_frame, video_received_at)
+                # Put the frame back in the queue
+                muxer["video_queue"].put_nowait(video_frame)
             except (OSError, RuntimeError, ValueError) as e:
                 LOGGER.warning("Error adding video stream: {}".format(e))
                 muxer["container"] = None
