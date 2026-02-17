@@ -159,7 +159,7 @@ class WebRTCHandler:
         self.hls_segments = {}  # Store HLS segments and playlists per device_id
         self.hls_server = None
         self.hls_port = 8090
-        self.hls_segment_duration = 2  # seconds per segment (longer reduces churn)
+        self.hls_segment_duration = 3  # seconds per segment (longer reduces churn)
 
     def store_turn_config(self, session_id, turn_data):
         """Store TURN server configuration for a session"""
