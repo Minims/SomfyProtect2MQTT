@@ -155,8 +155,8 @@ class SomfyProtectWebsocket:
         """Run Forever Loop"""
         self._websocket.run_forever(
             # dispatcher=rel,
-            ping_timeout=0,
-            ping_interval=0,
+            ping_timeout=WEBSOCKET_PING_TIMEOUT,
+            ping_interval=WEBSOCKET_PING_INTERVAL,
             reconnect=WEBSOCKET_RECONNECT,
             sslopt={"cert_reqs": ssl.CERT_NONE},
         )
