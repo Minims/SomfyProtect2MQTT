@@ -18,6 +18,7 @@ from typing import Optional
 # Suppress ffmpeg/libav warnings at C library level
 import av
 from aiortc import AudioStreamTrack, RTCConfiguration, RTCIceServer, RTCPeerConnection, RTCSessionDescription
+from aiortc.mediastreams import MediaStreamError
 from business.mqtt import publish_snapshot_bytes
 
 # Set PyAV logging level to ERROR to suppress FFmpeg warnings
@@ -628,6 +629,8 @@ class WebRTCHandler:
             "video_ready": False,
             "audio_ready": False,
             "audio_failed": False,
+            "stopped": False,
+            "no_frame_retries": 0,
         }
 
         self.hls_segments[device_id] = {
@@ -660,6 +663,11 @@ class WebRTCHandler:
                         muxer["video_ready"] = True
                 except asyncio.QueueFull:
                     LOGGER.debug("Video queue full for {}, dropping frame".format(device_id))
+        except MediaStreamError:
+            muxer = self.hls_muxers.get(device_id)
+            if muxer:
+                muxer["stopped"] = True
+            LOGGER.info("Video stream ended for device {}".format(device_id))
         except (OSError, RuntimeError, ValueError) as e:
             LOGGER.error("Error reading video frames: {}".format(e))
 
@@ -701,7 +709,13 @@ class WebRTCHandler:
                         LOGGER.warning("[AUDIO] No audio frames from camera for device {}".format(device_id))
                     await asyncio.sleep(0.5)
 
-                except (OSError, RuntimeError, ValueError) as frame_error:
+                except (MediaStreamError, OSError, RuntimeError, ValueError) as frame_error:
+                    if isinstance(frame_error, MediaStreamError):
+                        muxer = self.hls_muxers.get(device_id)
+                        if muxer:
+                            muxer["audio_failed"] = True
+                        LOGGER.info("[AUDIO] Stream ended for device {}".format(device_id))
+                        return
                     error_count += 1
                     # Log only every 100 errors to avoid spam
                     if error_count % 100 == 1:
@@ -726,7 +740,13 @@ class WebRTCHandler:
                     )
                     return
 
-        except (OSError, RuntimeError, ValueError) as e:
+        except (MediaStreamError, OSError, RuntimeError, ValueError) as e:
+            if isinstance(e, MediaStreamError):
+                muxer = self.hls_muxers.get(device_id)
+                if muxer:
+                    muxer["audio_failed"] = True
+                LOGGER.info("[AUDIO] Stream ended for device {}".format(device_id))
+                return
             LOGGER.error("[AUDIO] Fatal error in audio reader: {}".format(e))
 
     async def _hls_muxer_task(self, device_id):
@@ -762,6 +782,8 @@ class WebRTCHandler:
             audio_no_stream_warns = 0
 
             while True:
+                if muxer.get("stopped"):
+                    return
                 current_time = time.time()
 
                 # Initialize segment if needed
@@ -866,8 +888,13 @@ class WebRTCHandler:
 
                 if not video_frame:
                     LOGGER.error("Video ready but no frame available to start segment; retrying later")
+                    muxer["no_frame_retries"] += 1
                     muxer["container"] = None
+                    if muxer["no_frame_retries"] >= 3:
+                        LOGGER.warning("No video frames for device {}, stopping muxer".format(device_id))
+                        muxer["stopped"] = True
                     return
+                muxer["no_frame_retries"] = 0
 
                 width = video_frame.width
                 height = video_frame.height
