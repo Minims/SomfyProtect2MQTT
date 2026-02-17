@@ -24,8 +24,9 @@ from constants import (
 )
 from homeassistant.ha_discovery import ALARM_STATUS
 from mqtt import MQTTClient
+from oauthlib.oauth2 import MissingTokenError
 from somfy_protect.api import SomfyProtectApi
-from somfy_protect.sso import SomfyProtectSso
+from somfy_protect.sso import SomfyProtectSso, read_token_from_file
 from somfy_protect.webrtc_handler import WebRTCHandler
 from websocket import WebSocketApp
 
@@ -73,7 +74,7 @@ class SomfyProtectWebsocket:
         if debug:
             websocket.enableTrace(True)
             LOGGER.debug("Opening websocket connection to {}".format(WEBSOCKET))
-        self.token = self.sso.request_token()
+        self.token = self._load_token()
         websocket.setdefaulttimeout(WEBSOCKET_TIMEOUT)
         self._websocket = WebSocketApp(
             f"{WEBSOCKET}{self.token.get('access_token')}",
@@ -89,6 +90,19 @@ class SomfyProtectWebsocket:
         """Run the event loop in a dedicated thread"""
         asyncio.set_event_loop(self.loop)
         self.loop.run_forever()
+
+    def _load_token(self) -> dict:
+        token = self.sso.oauth.token or read_token_from_file()
+        if token and token.get("access_token"):
+            return token
+        try:
+            token = self.sso.request_token()
+        except MissingTokenError as e:
+            LOGGER.error("Unable to request access token: {}".format(e))
+            raise
+        if self.sso.token_updater is not None:
+            self.sso.token_updater(token)
+        return token
 
     def _io_worker_loop(self) -> None:
         while not self._io_worker_stop.is_set():
