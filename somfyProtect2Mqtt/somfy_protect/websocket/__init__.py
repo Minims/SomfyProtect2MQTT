@@ -94,6 +94,10 @@ class SomfyProtectWebsocket:
     def _load_token(self) -> dict:
         token = self.sso.oauth.token or read_token_from_file()
         if token and token.get("access_token"):
+            if self._is_token_expired(token):
+                LOGGER.info("Websocket token expired, refreshing")
+                token = self.sso.refresh_tokens()
+                self.sso.oauth.token = token
             return token
         try:
             token = self.sso.request_token()
@@ -102,7 +106,19 @@ class SomfyProtectWebsocket:
             raise
         if self.sso.token_updater is not None:
             self.sso.token_updater(token)
+        self.sso.oauth.token = token
         return token
+
+    @staticmethod
+    def _is_token_expired(token: dict, leeway_seconds: int = 60) -> bool:
+        expires_at = token.get("expires_at")
+        if not expires_at:
+            return False
+        try:
+            expires_at = float(expires_at)
+        except (TypeError, ValueError):
+            return False
+        return expires_at <= (time.time() + leeway_seconds)
 
     def _io_worker_loop(self) -> None:
         while not self._io_worker_stop.is_set():
@@ -220,6 +236,12 @@ class SomfyProtectWebsocket:
             return
 
         if "websocket.error.token" in message:
+            LOGGER.warning("Websocket token error, refreshing and reconnecting")
+            try:
+                self.token = self.sso.refresh_tokens()
+                self.sso.oauth.token = self.token
+            except (MissingTokenError, OSError, RuntimeError, ValueError) as e:
+                LOGGER.error("Unable to refresh websocket token: {}".format(e))
             self._websocket.close()
             return
 
@@ -296,6 +318,11 @@ class SomfyProtectWebsocket:
     def _on_close(self, _ws_app, close_status_code, close_msg):
         """Handle Websocket Close Connection"""
         LOGGER.info("Websocket on_close, status {} => {}".format(close_status_code, close_msg))
+        if close_status_code is None and close_msg is None:
+            expires_at = None
+            if hasattr(self, "token") and isinstance(self.token, dict):
+                expires_at = self.token.get("expires_at")
+            LOGGER.info("Websocket closed without status, token expires_at: {}".format(expires_at))
 
     def _device_gate_triggered_from_monitor(self, message):
         """Gate Open from Monitor"""

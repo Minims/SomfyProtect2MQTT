@@ -7,6 +7,7 @@ import sys
 import threading
 import time
 
+from constants import WEBSOCKET_RECONNECT
 from exceptions import SomfyProtectInitError
 from mqtt import init_mqtt
 from somfy_protect.api import SomfyProtectApi
@@ -105,12 +106,17 @@ if __name__ == "__main__":
         )
         p1.start()
         p2.start()
+        last_wss_restart = 0.0
         while True:
             if shutdown_event.is_set():
                 LOGGER.info("Shutdown requested, stopping threads...")
                 break
 
             if not p2.is_alive():
+                now = time.monotonic()
+                elapsed = now - last_wss_restart
+                if elapsed < WEBSOCKET_RECONNECT:
+                    time.sleep(WEBSOCKET_RECONNECT - elapsed)
                 LOGGER.warning("Websocket is DEAD, restarting")
                 p2 = threading.Thread(
                     target=somfy_protect_wss_loop,
@@ -123,6 +129,7 @@ if __name__ == "__main__":
                     ),
                 )
                 p2.start()
+                last_wss_restart = time.monotonic()
 
             if not p1.is_alive():
                 LOGGER.warning("API is DEAD, restarting")
