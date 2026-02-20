@@ -76,7 +76,7 @@ class SomfyProtect2Mqtt:
     def close(self) -> None:
         """Close"""
 
-    def loop(self) -> None:
+    def loop(self, shutdown_event=None) -> None:
         """Main Loop"""
         # Config
         ha_sites_config(
@@ -139,5 +139,8 @@ class SomfyProtect2Mqtt:
             )
 
         while True:
+            if shutdown_event and shutdown_event.is_set():
+                LOGGER.info("Shutdown event set, exiting main loop")
+                break
             schedule.run_pending()
-            sleep(10)
+            sleep(1)

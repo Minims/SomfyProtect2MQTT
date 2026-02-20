@@ -35,9 +35,9 @@ def somfy_protect_loop(config, mqtt_client, api):
     try:
         somfy_protect_api = SomfyProtect2Mqtt(api=api, mqtt_client=mqtt_client, config=config)
         time.sleep(1)
-        somfy_protect_api.loop()
+        somfy_protect_api.loop(shutdown_event=shutdown_event)
     except SomfyProtectInitError as exc:
-        LOGGER.error(f"Force stopping Api {exc}")
+        LOGGER.exception(f"Force stopping Api {exc}")
         if somfy_protect_api:
             close_and_exit(somfy_protect_api, 0)
 
@@ -49,7 +49,7 @@ def somfy_protect_wss_loop(sso, debug, config, mqtt_client, api):
         wss = SomfyProtectWebsocket(sso=sso, debug=debug, config=config, mqtt_client=mqtt_client, api=api)
         wss.run_forever()
     except (OSError, RuntimeError) as e:
-        LOGGER.error(f"Force stopping WebSocket {e}")
+        LOGGER.exception(f"Force stopping WebSocket {e}")
         if wss:
             wss.close()
     finally:
@@ -146,4 +146,4 @@ if __name__ == "__main__":
             time.sleep(1)
 
     except (OSError, RuntimeError) as e:
-        LOGGER.error(f"Force stopping application {e}")
+        LOGGER.exception(f"Force stopping application {e}")
