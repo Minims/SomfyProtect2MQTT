@@ -6,7 +6,7 @@ logging-format-style=new
 logging-modules=logging
 
 [MESSAGES CONTROL]
-disable=logging-format-interpolation,consider-using-f-string
+disable=logging-format-interpolation,consider-using-f-string,logging-fstring-interpolation
 
 [DESIGN]
 max-args=12

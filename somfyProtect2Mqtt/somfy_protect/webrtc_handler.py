@@ -1144,8 +1144,7 @@ class WebRTCHandler:
         max_duration = self.hls_segment_duration
         for segment_filename in segments:
             dur = segment_durations.get(segment_filename, self.hls_segment_duration)
-            if dur > max_duration:
-                max_duration = dur
+            max_duration = max(max_duration, dur)
         target_duration = max(1, int(math.ceil(max_duration)))
 
         # Build playlist for live sliding-window streaming (no PLAYLIST-TYPE tag)

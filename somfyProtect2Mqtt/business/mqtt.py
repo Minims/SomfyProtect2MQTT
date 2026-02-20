@@ -4,7 +4,6 @@ import json
 import logging
 import threading
 from dataclasses import dataclass
-from time import sleep
 
 from homeassistant.ha_discovery import ALARM_STATUS
 from paho.mqtt import client
@@ -104,7 +103,9 @@ def _handle_alarm_status(text_payload, context: MqttContext) -> bool:
     LOGGER.info(f"Security Level update ! Setting to {text_payload}")
     LOGGER.debug(f"Site ID: {site_id}")
     context.api.update_security_level(site_id=site_id, security_level=text_payload)
-    threading.Timer(1.0, _schedule_site_refresh, args=(context.api, context.mqtt_client, context.mqtt_config, site_id)).start()
+    threading.Timer(
+        1.0, _schedule_site_refresh, args=(context.api, context.mqtt_client, context.mqtt_config, site_id)
+    ).start()
     return True
 
 
@@ -154,9 +155,7 @@ def _handle_access(text_payload, context: MqttContext) -> bool:
     site_id = context.topic_parts[1]
     device_id = context.topic_parts[2]
     if device_id:
-        LOGGER.info(
-            f"Message received for Site ID: {site_id}, Device ID: {device_id}, Access: {text_payload}"
-        )
+        LOGGER.info(f"Message received for Site ID: {site_id}, Device ID: {device_id}, Access: {text_payload}")
         trigger_access = context.api.trigger_access(
             site_id=site_id,
             device_id=device_id,
@@ -172,9 +171,7 @@ def _handle_action(text_payload, context: MqttContext) -> bool:
     site_id = context.topic_parts[1]
     device_id = context.topic_parts[2]
     if device_id:
-        LOGGER.info(
-            f"Message received for Site ID: {site_id}, Device ID: {device_id}, Action: {text_payload}"
-        )
+        LOGGER.info(f"Message received for Site ID: {site_id}, Device ID: {device_id}, Action: {text_payload}")
         action_device = context.api.action_device(
             site_id=site_id,
             device_id=device_id,
@@ -231,9 +228,7 @@ def _handle_setting(text_payload, context: MqttContext) -> None:
     if text_payload.lower() in ("true", "false", "1", "0", "yes", "no", "on", "off"):
         text_payload = parse_boolean(text_payload)
     device = context.api.get_device(site_id=site_id, device_id=device_id)
-    LOGGER.info(
-        f"Message received for Site ID: {site_id}, Device ID: {device_id}, Setting: {setting}"
-    )
+    LOGGER.info(f"Message received for Site ID: {site_id}, Device ID: {device_id}, Setting: {setting}")
     settings = device.settings
     settings["global"][setting] = text_payload
     settings = {k: v for k, v in settings.items() if v is not None}
