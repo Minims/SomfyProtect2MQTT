@@ -10,6 +10,7 @@ from homeassistant.ha_discovery import ALARM_STATUS
 from paho.mqtt import client
 from requests import RequestException
 from somfy_protect.api import ACCESS_LIST, ACTION_LIST, TEST_SIREN_ACTIONS, SomfyProtectApi
+from utils import parse_boolean
 
 # from business.streaming import rtmps_to_hls
 
@@ -201,7 +202,7 @@ def _handle_snapshot(lower_payload, context: MqttContext) -> bool:
         return False
     site_id = context.topic_parts[1]
     device_id = context.topic_parts[2]
-    if lower_payload not in ("true", "1", "yes", "on"):
+    if not parse_boolean(lower_payload):
         return True
     LOGGER.info("Manual Snapshot")
     context.api.camera_refresh_snapshot(site_id=site_id, device_id=device_id)
@@ -227,10 +228,8 @@ def _handle_setting(text_payload, context: MqttContext) -> None:
     setting = context.topic_parts[3]
     if setting == "stream":
         return
-    if text_payload == "True":
-        text_payload = bool(True)
-    elif text_payload == "False":
-        text_payload = bool(False)
+    if text_payload.lower() in ("true", "false", "1", "0", "yes", "no", "on", "off"):
+        text_payload = parse_boolean(text_payload)
     device = context.api.get_device(site_id=site_id, device_id=device_id)
     LOGGER.info(
         f"Message received for Site ID: {site_id}, Device ID: {device_id}, Setting: {setting}"
@@ -314,6 +313,16 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
     try:
         text_payload = msg.payload.decode("UTF-8")
         lower_payload = text_payload.lower()
+        LOGGER.info(f"Payload {text_payload}")
+        topic_parts = msg.topic.split("/")
+        context = MqttContext(api=api, mqtt_client=mqtt_client, mqtt_config=mqtt_config, topic_parts=topic_parts)
+
+        def require_parts(min_parts: int, context: str) -> bool:
+            if len(topic_parts) < min_parts:
+                LOGGER.warning(f"Invalid topic format for {context}: {msg.topic}")
+                return False
+            return True
+
         if not require_parts(2, "site"):
             return
         if _handle_alarm_status(text_payload, context):
