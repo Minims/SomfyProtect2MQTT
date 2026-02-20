@@ -62,15 +62,15 @@ class SomfyProtect2Mqtt:
             raise SomfyProtectInitError("MQTT config is missing")
 
         sites = self.api.get_sites()
-        LOGGER.info("Found {} Site(s)".format(len(sites)))
+        LOGGER.info(f"Found {len(sites)} Site(s)")
         for site in sites:
-            LOGGER.info("Found Site : {}".format(site.label))
+            LOGGER.info(f"Found Site : {site.label}")
             if site.label in self.my_sites:
-                LOGGER.info("Storing Site ID for {}".format(site.label))
+                LOGGER.info(f"Storing Site ID for {site.label}")
                 self.my_sites_id.append(site.id)
             else:
                 LOGGER.info(
-                    "Site '{}' is not set in configuration, Update it if you want to add this Site".format(site.label)
+                    f"Site '{site.label}' is not set in configuration, Update it if you want to add this Site"
                 )
 
     def close(self) -> None:

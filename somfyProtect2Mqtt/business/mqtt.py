@@ -77,14 +77,7 @@ def publish_snapshot_bytes(mqtt_client, mqtt_config, site_id, device_id, byte_ar
     )
 
 
-def _start_background(target, *args, **kwargs) -> None:
-    thread = threading.Thread(target=target, args=args, kwargs=kwargs)
-    thread.daemon = True
-    thread.start()
-
-
 def _schedule_site_refresh(api, mqtt_client, mqtt_config, site_id) -> None:
-    sleep(1)
     update_site(
         api=api,
         mqtt_client=mqtt_client,
@@ -94,7 +87,6 @@ def _schedule_site_refresh(api, mqtt_client, mqtt_config, site_id) -> None:
 
 
 def _schedule_device_refresh(api, mqtt_client, mqtt_config, site_id, device_id) -> None:
-    sleep(1)
     update_device(
         api=api,
         mqtt_client=mqtt_client,
@@ -108,22 +100,22 @@ def _handle_alarm_status(text_payload, context: MqttContext) -> bool:
     if text_payload not in ALARM_STATUS:
         return False
     site_id = context.topic_parts[1]
-    LOGGER.info("Security Level update ! Setting to {}".format(text_payload))
-    LOGGER.debug("Site ID: {}".format(site_id))
+    LOGGER.info(f"Security Level update ! Setting to {text_payload}")
+    LOGGER.debug(f"Site ID: {site_id}")
     context.api.update_security_level(site_id=site_id, security_level=text_payload)
-    _start_background(_schedule_site_refresh, context.api, context.mqtt_client, context.mqtt_config, site_id)
+    threading.Timer(1.0, _schedule_site_refresh, args=(context.api, context.mqtt_client, context.mqtt_config, site_id)).start()
     return True
 
 
 def _handle_siren(text_payload, context: MqttContext) -> bool:
     if text_payload.lower() in ("panic", "trigger"):
         site_id = context.topic_parts[1]
-        LOGGER.info("Start the Siren On Site ID {}".format(site_id))
+        LOGGER.info(f"Start the Siren On Site ID {site_id}")
         context.api.trigger_alarm(site_id=site_id, mode="alarm")
         return True
     if text_payload == "stop":
         site_id = context.topic_parts[1]
-        LOGGER.info("Stop the Siren On Site ID {}".format(site_id))
+        LOGGER.info(f"Stop the Siren On Site ID {site_id}")
         context.api.stop_alarm(site_id=site_id)
         return True
     return False
@@ -134,7 +126,7 @@ def _handle_video_backend(text_payload, context: MqttContext) -> bool:
         return False
     site_id = context.topic_parts[1]
     device_id = context.topic_parts[2]
-    LOGGER.info("Update Video Backend To ({})".format(text_payload))
+    LOGGER.info(f"Update Video Backend To ({text_payload})")
     context.api.action_device(
         site_id=site_id,
         device_id=device_id,
@@ -150,7 +142,7 @@ def _handle_test_siren(text_payload, context: MqttContext) -> bool:
     site_id = context.topic_parts[1]
     device_id = context.topic_parts[2]
     sound = text_payload.split("_")[1]
-    LOGGER.info("Test the Siren On Site ID {} ({})".format(site_id, sound))
+    LOGGER.info(f"Test the Siren On Site ID {site_id} ({sound})")
     context.api.test_siren(site_id=site_id, device_id=device_id, sound=sound)
     return True
 
@@ -162,11 +154,7 @@ def _handle_access(text_payload, context: MqttContext) -> bool:
     device_id = context.topic_parts[2]
     if device_id:
         LOGGER.info(
-            "Message received for Site ID: {}, Device ID: {}, Access: {}".format(
-                site_id,
-                device_id,
-                text_payload,
-            )
+            f"Message received for Site ID: {site_id}, Device ID: {device_id}, Access: {text_payload}"
         )
         trigger_access = context.api.trigger_access(
             site_id=site_id,
@@ -184,11 +172,7 @@ def _handle_action(text_payload, context: MqttContext) -> bool:
     device_id = context.topic_parts[2]
     if device_id:
         LOGGER.info(
-            "Message received for Site ID: {}, Device ID: {}, Action: {}".format(
-                site_id,
-                device_id,
-                text_payload,
-            )
+            f"Message received for Site ID: {site_id}, Device ID: {device_id}, Action: {text_payload}"
         )
         action_device = context.api.action_device(
             site_id=site_id,
@@ -196,16 +180,19 @@ def _handle_action(text_payload, context: MqttContext) -> bool:
             action=text_payload,
         )
         LOGGER.debug(action_device)
-        _start_background(
+        threading.Timer(
+            1.0,
             _schedule_device_refresh,
-            context.api,
-            context.mqtt_client,
-            context.mqtt_config,
-            site_id,
-            device_id,
-        )
+            args=(
+                context.api,
+                context.mqtt_client,
+                context.mqtt_config,
+                site_id,
+                device_id,
+            ),
+        ).start()
     else:
-        LOGGER.info("Message received for Site ID: {}, Action: {}".format(site_id, text_payload))
+        LOGGER.info(f"Message received for Site ID: {site_id}, Action: {text_payload}")
     return True
 
 
@@ -246,11 +233,7 @@ def _handle_setting(text_payload, context: MqttContext) -> None:
         text_payload = bool(False)
     device = context.api.get_device(site_id=site_id, device_id=device_id)
     LOGGER.info(
-        "Message received for Site ID: {}, Device ID: {}, Setting: {}".format(
-            site_id,
-            device_id,
-            setting,
-        )
+        f"Message received for Site ID: {site_id}, Device ID: {device_id}, Setting: {setting}"
     )
     settings = device.settings
     settings["global"][setting] = text_payload
@@ -263,14 +246,17 @@ def _handle_setting(text_payload, context: MqttContext) -> None:
         device_label=device.label,
         settings=settings,
     )
-    _start_background(
+    threading.Timer(
+        1.0,
         _schedule_device_refresh,
-        context.api,
-        context.mqtt_client,
-        context.mqtt_config,
-        site_id,
-        device_id,
-    )
+        args=(
+            context.api,
+            context.mqtt_client,
+            context.mqtt_config,
+            site_id,
+            device_id,
+        ),
+    ).start()
 
 
 def _requires_device_topic(text_payload, topic_parts) -> bool:
@@ -296,7 +282,7 @@ def mqtt_publish(mqtt_client, topic, payload, qos=0, retain=False, is_json=True)
 
 def update_device(api, mqtt_client, mqtt_config, site_id, device_id):
     """Update MQTT data for a device"""
-    LOGGER.info("Live Update device {}".format(device_id))
+    LOGGER.info(f"Live Update device {device_id}")
     device_label = device_id
     try:
         device = api.get_device(site_id=site_id, device_id=device_id)
@@ -310,17 +296,17 @@ def update_device(api, mqtt_client, mqtt_config, site_id, device_id):
             retain=True,
         )
     except (RequestException, AttributeError, KeyError, ValueError) as e:
-        LOGGER.warning("Error while refreshing {}: {}".format(device_label, e))
+        LOGGER.exception(f"Error while refreshing {device_label}: {e}")
 
 
 def update_site(api, mqtt_client, mqtt_config, site_id):
     """Update MQTT data for a site"""
-    LOGGER.info("Live Update site {}".format(site_id))
+    LOGGER.info(f"Live Update site {site_id}")
     try:
         site = api.get_site(site_id=site_id)
         publish_site_state(mqtt_client, mqtt_config, site_id, site.security_level)
     except (RequestException, AttributeError, KeyError, ValueError) as e:
-        LOGGER.warning("Error while refreshing site {}: {}".format(site_id, e))
+        LOGGER.exception(f"Error while refreshing site {site_id}: {e}")
 
 
 def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_client: client):
@@ -328,16 +314,6 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
     try:
         text_payload = msg.payload.decode("UTF-8")
         lower_payload = text_payload.lower()
-        LOGGER.info("Payload {}".format(text_payload))
-        topic_parts = msg.topic.split("/")
-        context = MqttContext(api=api, mqtt_client=mqtt_client, mqtt_config=mqtt_config, topic_parts=topic_parts)
-
-        def require_parts(min_parts: int, context: str) -> bool:
-            if len(topic_parts) < min_parts:
-                LOGGER.warning("Invalid topic format for {}: {}".format(context, msg.topic))
-                return False
-            return True
-
         if not require_parts(2, "site"):
             return
         if _handle_alarm_status(text_payload, context):
@@ -362,4 +338,4 @@ def consume_mqtt_message(msg, mqtt_config: dict, api: SomfyProtectApi, mqtt_clie
         _handle_setting(text_payload, context)
 
     except (RequestException, AttributeError, KeyError, ValueError) as e:
-        LOGGER.error("Error when processing message: {}: {} => {}".format(e, msg.topic, msg.payload))
+        LOGGER.exception(f"Error when processing message: {e}: {msg.topic} => {msg.payload}")
