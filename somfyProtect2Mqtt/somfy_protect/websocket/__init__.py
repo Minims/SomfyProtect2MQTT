@@ -3,7 +3,6 @@
 import asyncio
 import json
 import logging
-import os
 import queue
 import ssl
 import threading
@@ -11,9 +10,7 @@ import time
 import uuid
 
 import websocket
-from business import update_visiophone_snapshot, write_to_media_folder
-from business.mqtt import mqtt_publish, publish_snapshot_bytes, update_device, update_site
-from business.streaming.camera import VideoCamera
+from business.mqtt import mqtt_publish, publish_snapshot_bytes
 from constants import (
     SNAPSHOT_QUEUE_MAXSIZE,
     WEBSOCKET_IDLE_CLOSE_SECONDS,
@@ -22,12 +19,14 @@ from constants import (
     WEBSOCKET_RECONNECT,
     WEBSOCKET_TIMEOUT,
 )
-from homeassistant.ha_discovery import ALARM_STATUS
 from mqtt import MQTTClient
 from oauthlib.oauth2 import MissingTokenError
 from somfy_protect.api import SomfyProtectApi
 from somfy_protect.sso import SomfyProtectSso, read_token_from_file
 from somfy_protect.webrtc_handler import WebRTCHandler
+from somfy_protect.websocket.handlers import alarm as alarm_handlers
+from somfy_protect.websocket.handlers import device as device_handlers
+from somfy_protect.websocket.handlers import video as video_handlers
 from websocket import WebSocketApp
 
 WEBSOCKET = "wss://websocket.myfox.io/events/websocket?token="
@@ -211,7 +210,7 @@ class SomfyProtectWebsocket:
             except (RuntimeError, ValueError) as e:
                 LOGGER.error("Error closing event loop: {}".format(e))
 
-    def start_webrtc_stream(self, site_id: str, device_id: str, session_id: str = None):
+    def start_webrtc_stream(self, site_id: str, device_id: str, session_id: str | None = None):
         """Start a WebRTC video stream session"""
         if not session_id:
             session_id = str(uuid.uuid4()).replace("-", "").upper()
@@ -405,28 +404,7 @@ class SomfyProtectWebsocket:
 
     def _device_ring_door_bell(self, message):
         """Someone is ringing at the door."""
-        site_id = message.get("site_id")
-        device_id = message.get("device_id")
-        if not site_id or not device_id:
-            LOGGER.warning("Missing site_id or device_id for ring event")
-            return
-        mqtt_config = self.mqtt_config or {}
-        LOGGER.info("Someone is ringing on {}".format(device_id))
-        topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/ringing"
-        payload = {"ringing": "True"}
-        mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True)
-        self._run_io_task(self._publish_false_after_delay, topic, "ringing")
-        snapshot_url = message.get("snapshot_url")
-        if snapshot_url:
-            LOGGER.info("Found a snapshot !")
-            self._run_io_task(
-                update_visiophone_snapshot,
-                url=snapshot_url,
-                site_id=site_id,
-                device_id=device_id,
-                mqtt_client=self.mqtt_client,
-                mqtt_config=mqtt_config,
-            )
+        device_handlers.device_ring_door_bell(self, message)
 
     def _publish_false_after_delay(self, topic: str, key: str, delay_seconds: int = 3) -> None:
         """Publish a false payload after a delay without blocking websocket handling."""
@@ -440,39 +418,7 @@ class SomfyProtectWebsocket:
 
     def _device_missed_call(self, message):
         """Call missed."""
-        site_id = message.get("site_id")
-        device_id = message.get("device_id")
-        if not site_id or not device_id:
-            LOGGER.warning("Missing site_id or device_id for missed call")
-            return
-        mqtt_config = self.mqtt_config or {}
-        LOGGER.info("Someone has rang on {}".format(device_id))
-        snapshot_cloudfront_url = message.get("snapshot_cloudfront_url")
-        clip_cloudfront_url = message.get("clip_cloudfront_url")
-        if snapshot_cloudfront_url:
-            LOGGER.info("Found a snapshot !")
-            self._run_io_task(
-                update_visiophone_snapshot,
-                url=snapshot_cloudfront_url,
-                site_id=site_id,
-                device_id=device_id,
-                mqtt_client=self.mqtt_client,
-                mqtt_config=mqtt_config,
-            )
-        if clip_cloudfront_url:
-            LOGGER.info("Found Clip !")
-            self._run_io_task(
-                write_to_media_folder,
-                url=clip_cloudfront_url,
-                site_id=site_id,
-                device_id=device_id,
-                label=message.get("label") or device_id,
-                event_id=message.get("event_id") or "unknown",
-                occurred_at=message.get("occurred_at") or "unknown",
-                media_type="video",
-                mqtt_client=self.mqtt_client,
-                mqtt_config=mqtt_config,
-            )
+        device_handlers.device_missed_call(self, message)
 
     def _publish_snapshot_bytes(self, site_id: str, device_id: str, byte_arr: bytearray) -> None:
         payload = {
@@ -501,47 +447,11 @@ class SomfyProtectWebsocket:
         #    "type":"event",
         #    "message_id":"XXX"
         # }
-        LOGGER.info("Stream URL Found")
-        LOGGER.info(message)
-        site_id = message.get("site_id")
-        device_id = message.get("device_id")
-        stream_url = message.get("stream_url")
-        payload = stream_url
-        topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/stream"
-
-        mqtt_publish(
-            mqtt_client=self.mqtt_client,
-            topic=topic,
-            payload=payload,
-            retain=False,
-        )
-
-        if self.streaming_config == "go2rtc":
-            directory = "/config/somfyprotect2mqtt"
-            try:
-                os.makedirs(directory, exist_ok=True)
-                with open(f"{directory}/stream_url_{device_id}", "w", encoding="utf-8") as file:
-                    file.write(stream_url)
-            except OSError as exc:
-                LOGGER.warning("Unable to create directory {}: {}".format(directory, exc))
-
-        if self.streaming_config == "mqtt":
-            LOGGER.info("Start MQTT Image")
-            self._run_io_task(self._stream_video_to_mqtt, site_id, device_id, stream_url)
+        video_handlers.video_stream_ready(self, message)
 
     def _stream_video_to_mqtt(self, site_id: str, device_id: str, stream_url: str) -> None:
         """Stream camera frames and publish snapshots to MQTT."""
-        camera = VideoCamera(url=stream_url)
-        frame = None
-        try:
-            while camera.is_opened():
-                frame = camera.get_frame()
-                if frame is None:
-                    break
-                byte_arr = bytearray(frame)
-                self._publish_snapshot_bytes(site_id, device_id, byte_arr)
-        finally:
-            camera.release()
+        video_handlers.stream_video_to_mqtt(self, site_id, device_id, stream_url)
 
     def _device_doorlock_triggered(self, message):
         """Update Door Lock Triggered"""
@@ -558,21 +468,7 @@ class SomfyProtectWebsocket:
         # "door_lock_status":"unknown",
         # "message_id":"XXX"
         # }
-        LOGGER.info("Update Door Lock Triggered")
-        site_id = message.get("site_id")
-        device_id = message.get("device_id")
-        LOGGER.info(message)
-        door_lock_status = message.get("door_lock_status", "unknown")
-        if door_lock_status and door_lock_status != "unknown":
-            payload = {"open_door": door_lock_status}
-            topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/state"
-            mqtt_publish(
-                mqtt_client=self.mqtt_client,
-                topic=topic,
-                payload=payload,
-                retain=True,
-            )
-        update_device(self.api, self.mqtt_client, self.mqtt_config, site_id, device_id)
+        device_handlers.device_doorlock_triggered(self, message)
 
     def _update_keyfob_presence(self, message):
         """Update Key Fob Presence"""
@@ -602,23 +498,7 @@ class SomfyProtectWebsocket:
         # "device_type":"fob",
         # "message_id":"XXX"
         # }
-        LOGGER.info("Update Key Fob Presence")
-        site_id = message.get("site_id")
-        device_id = message.get("device_id")
-        LOGGER.info(message)
-        payload = {"presence": "unknown"}
-        if message.get("key") == "presence_out":
-            payload = {"presence": "not_home"}
-        if message.get("key") == "presence_in":
-            payload = {"presence": "home"}
-        topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/presence"
-
-        mqtt_publish(
-            mqtt_client=self.mqtt_client,
-            topic=topic,
-            payload=payload,
-            retain=True,
-        )
+        device_handlers.update_keyfob_presence(self, message)
 
     def _security_level_change(self, message):
         """Update Alarm Status"""
@@ -635,12 +515,7 @@ class SomfyProtectWebsocket:
         # "security_level":"armed",
         # "message_id":"XXX"
         # }
-        LOGGER.info("Update Alarm Status")
-        site_id = message.get("site_id")
-        security_level = message.get("security_level")
-        payload = {"security_level": ALARM_STATUS.get(security_level, "disarmed")}
-        topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/state"
-        mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True)
+        alarm_handlers.security_level_change(self, message)
 
     def _alarm_trespass(self, message):
         """Alarm Triggered !!"""
@@ -664,30 +539,7 @@ class SomfyProtectWebsocket:
         # "manual_alarm":false,
         # "message_id":"XXX"
         # }
-        LOGGER.info("Report Alarm Triggered")
-        site_id = message.get("site_id")
-        device_id = message.get("device_id")
-        device_type = message.get("device_type")
-        security_level = "triggered"
-        if message.get("type") != "alarm":
-            LOGGER.info("{} is not 'alarm'".format(message.get("type")))
-        payload = {"security_level": security_level}
-        topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/state"
-
-        mqtt_publish(
-            mqtt_client=self.mqtt_client,
-            topic=topic,
-            payload=payload,
-            retain=True,
-        )
-
-        if device_type == "pir":
-            LOGGER.info("Trigger PIR Sensor")
-            payload = {"motion_sensor": "True"}
-            topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/pir"
-
-            mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True)
-            self._run_io_task(self._publish_false_after_delay, topic, "motion_sensor")
+        alarm_handlers.alarm_trespass(self, message)
 
     def _alarm_panic(self, message):
         """Report Alarm Panic"""
@@ -711,18 +563,7 @@ class SomfyProtectWebsocket:
         # "manual_alarm":false,
         # "message_id":"XXX"
         # }
-        LOGGER.info("Report Alarm Panic")
-        site_id = message.get("site_id")
-        security_level = "triggered"
-        payload = {"security_level": security_level}
-        topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/state"
-
-        mqtt_publish(
-            mqtt_client=self.mqtt_client,
-            topic=topic,
-            payload=payload,
-            retain=True,
-        )
+        alarm_handlers.alarm_panic(self, message)
 
     def _alarm_domestic_fire(self, message):
         """Report Alarm Fire"""
@@ -747,33 +588,11 @@ class SomfyProtectWebsocket:
         # "message_id":"XXX"
         # }
 
-        LOGGER.info("Report Alarm Fire")
-        site_id = message.get("site_id")
-        payload = {"smoke": "True"}
-        for device_id in message.get("devices"):
-            topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/fire"
-
-            mqtt_publish(
-                mqtt_client=self.mqtt_client,
-                topic=topic,
-                payload=payload,
-                retain=True,
-            )
+        alarm_handlers.alarm_domestic_fire(self, message)
 
     def _alarm_domestic_fire_end(self, message):
         """Report Alarm Fire End"""
-        LOGGER.info("Report Alarm Fire")
-        site_id = message.get("site_id")
-        payload = {"smoke": "False"}
-        for device_id in message.get("devices"):
-            topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/fire"
-
-            mqtt_publish(
-                mqtt_client=self.mqtt_client,
-                topic=topic,
-                payload=payload,
-                retain=True,
-            )
+        alarm_handlers.alarm_domestic_fire_end(self, message)
 
     def _alarm_end(self, message):
         """Report Alarm Stop"""
@@ -795,9 +614,7 @@ class SomfyProtectWebsocket:
         # "stopped_by_user_id":"XXX",
         # "message_id":"XXX"
         # }
-        LOGGER.info("Report Alarm Stop")
-        site_id = message.get("site_id")
-        update_site(self.api, self.mqtt_client, self.mqtt_config, site_id)
+        alarm_handlers.alarm_end(self, message)
 
     def _device_status(self, message):
         """Update Device Status"""
@@ -825,13 +642,7 @@ class SomfyProtectWebsocket:
         # },
         # "message_id":"XXX"
         # }
-        site_id = message.get("site_id")
-        device_id = message.get("device_id")
-        LOGGER.info("It Seems the Door {} is moving".format(device_id))
-        topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/pir"
-        payload = {"motion_sensor": "True"}
-        mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True)
-        self._run_io_task(self._publish_false_after_delay, topic, "motion_sensor")
+        device_handlers.device_status(self, message)
 
     def site_device_testing_status(self, message):
         """Site Device Testing Status"""
@@ -861,15 +672,16 @@ class SomfyProtectWebsocket:
     def _default_message(self, message):
         """Default Message"""
         LOGGER.info("[default] Read Message {}".format(message))
+        mqtt_config = self.mqtt_config or {}
         topic_suffix = message.get("key")
         site_id = message.get("site_id")
         device_id = message.get("device_id")
         if not site_id:
-            topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{topic_suffix}"
+            topic = f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{topic_suffix}"
         elif not device_id:
-            topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{topic_suffix}"
+            topic = f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{topic_suffix}"
         else:
-            topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/{topic_suffix}"
+            topic = f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/{topic_suffix}"
         mqtt_publish(
             mqtt_client=self.mqtt_client,
             topic=topic,
