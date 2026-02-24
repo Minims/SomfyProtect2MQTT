@@ -14,7 +14,13 @@ from utils import parse_boolean
 # from business.streaming import rtmps_to_hls
 
 LOGGER = logging.getLogger(__name__)
-SUBSCRIBE_TOPICS = []
+SUBSCRIBE_TOPICS: set[str] = set()
+
+
+def register_subscribe_topic(topic: str) -> None:
+    """Register a topic for subscription without duplicates."""
+    if topic:
+        SUBSCRIBE_TOPICS.add(topic)
 
 
 @dataclass

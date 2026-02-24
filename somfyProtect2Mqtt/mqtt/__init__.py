@@ -8,7 +8,6 @@ from time import sleep
 import paho.mqtt.client as mqtt
 from business.mqtt import SUBSCRIBE_TOPICS, consume_mqtt_message
 from exceptions import SomfyProtectInitError
-from homeassistant.ha_discovery import ALARM_STATUS
 from somfy_protect.api import SomfyProtectApi
 
 LOGGER = logging.getLogger(__name__)
@@ -42,7 +41,7 @@ class MQTTClient:
         """MQTT on_connect"""
         if rc == 0:
             LOGGER.info("Connected: {}".format(rc))
-            for topic in SUBSCRIBE_TOPICS:
+            for topic in sorted(SUBSCRIBE_TOPICS):
                 LOGGER.info("Subscribing to: {}".format(topic))
                 self.client.subscribe(topic)
         else:

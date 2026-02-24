@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+from collections import OrderedDict
 from datetime import datetime, timedelta
 from http.client import RemoteDisconnected
 from time import sleep
@@ -12,7 +13,7 @@ from typing import TYPE_CHECKING, Optional
 import pytz
 import requests
 import schedule
-from business.mqtt import SUBSCRIBE_TOPICS, mqtt_publish, publish_device_state, publish_site_state
+from business.mqtt import mqtt_publish, publish_device_state, publish_site_state, register_subscribe_topic
 from business.watermark import insert_watermark
 from constants import REQUEST_TIMEOUT, RETRY_STATUS_CODES
 from exceptions import SomfyProtectInitError
@@ -35,7 +36,8 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 DEVICE_TAG = {}
-HISTORY = {}
+HISTORY_LIMIT = 250
+HISTORY: OrderedDict[str, str] = OrderedDict()
 
 
 def _create_http_session() -> requests.Session:
@@ -66,7 +68,7 @@ def _subscribe_command(mqtt_client: MQTTClient, config: Optional[dict]) -> None:
     command_topic = config.get("config", {}).get("command_topic")
     if command_topic:
         mqtt_client.client.subscribe(command_topic)
-        SUBSCRIBE_TOPICS.append(command_topic)
+        register_subscribe_topic(command_topic)
 
 
 def _publish_and_subscribe(mqtt_client: MQTTClient, config: Optional[dict], payload: Optional[dict] = None) -> None:
@@ -76,14 +78,14 @@ def _publish_and_subscribe(mqtt_client: MQTTClient, config: Optional[dict], payl
 
 def _publish_snapshot_command_topics(mqtt_config: dict, site_id: str, device_id: str) -> None:
     topic_prefix = mqtt_config.get("topic_prefix", "somfyProtect2mqtt")
-    SUBSCRIBE_TOPICS.append(f"{topic_prefix}/{site_id}/{device_id}/video_backend")
+    register_subscribe_topic(f"{topic_prefix}/{site_id}/{device_id}/video_backend")
 
 
 def _publish_stream_command_topics(mqtt_client: MQTTClient, mqtt_config: dict, site_id: str, device_id: str) -> None:
     topic_prefix = mqtt_config.get("topic_prefix", "somfyProtect2mqtt")
     stream_topic = f"{topic_prefix}/{site_id}/{device_id}/stream"
     mqtt_client.client.subscribe(stream_topic)
-    SUBSCRIBE_TOPICS.append(stream_topic)
+    register_subscribe_topic(stream_topic)
 
 
 def ha_sites_config(
@@ -476,6 +478,8 @@ def _publish_site_history(
         payload = payload.replace("None", "").strip().strip('"')
         payload = payload.replace(".", " ").title()
         HISTORY[occurred_at] = payload
+        while len(HISTORY) > HISTORY_LIMIT:
+            HISTORY.popitem(last=False)
         LOGGER.info("Publishing History: {}".format(HISTORY[occurred_at]))
         mqtt_publish(
             mqtt_client=mqtt_client,
