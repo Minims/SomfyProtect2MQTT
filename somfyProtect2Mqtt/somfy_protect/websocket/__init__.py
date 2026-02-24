@@ -148,9 +148,16 @@ class SomfyProtectWebsocket:
         try:
             # Schedule coroutine on the persistent event loop
             future = asyncio.run_coroutine_threadsafe(self.on_message(_ws_app, message), self.loop)
-            future.result()  # Wait for completion
+            future.add_done_callback(self._log_message_processing_error)
         except (RuntimeError, ValueError) as e:
             LOGGER.error("Error in message wrapper: {}".format(e))
+
+    @staticmethod
+    def _log_message_processing_error(future):
+        try:
+            future.result()
+        except (RuntimeError, ValueError) as e:
+            LOGGER.error("Error while processing websocket message: {}".format(e))
 
     def run_forever(self):
         """Run Forever Loop"""
@@ -182,11 +189,12 @@ class SomfyProtectWebsocket:
             try:
                 # Schedule cleanup on the event loop
                 if hasattr(self, "loop") and self.loop and self.loop.is_running():
-                    asyncio.run_coroutine_threadsafe(self.webrtc_handler.cleanup(), self.loop)
-                    # Give it a moment to clean up
-                    time.sleep(0.5)
+                    cleanup_future = asyncio.run_coroutine_threadsafe(self.webrtc_handler.cleanup(), self.loop)
+                    cleanup_future.result(timeout=2)
             except (RuntimeError, ValueError) as e:
                 LOGGER.error("Error cleaning up WebRTC handler: {}".format(e))
+            except TimeoutError:
+                LOGGER.warning("WebRTC cleanup timed out")
 
         # Stop the event loop
         if hasattr(self, "loop") and self.loop:
@@ -407,9 +415,7 @@ class SomfyProtectWebsocket:
         topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/ringing"
         payload = {"ringing": "True"}
         mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True)
-        time.sleep(3)
-        payload = {"ringing": "False"}
-        mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True)
+        self._run_io_task(self._publish_false_after_delay, topic, "ringing")
         snapshot_url = message.get("snapshot_url")
         if snapshot_url:
             LOGGER.info("Found a snapshot !")
@@ -421,6 +427,16 @@ class SomfyProtectWebsocket:
                 mqtt_client=self.mqtt_client,
                 mqtt_config=mqtt_config,
             )
+
+    def _publish_false_after_delay(self, topic: str, key: str, delay_seconds: int = 3) -> None:
+        """Publish a false payload after a delay without blocking websocket handling."""
+        time.sleep(delay_seconds)
+        mqtt_publish(
+            mqtt_client=self.mqtt_client,
+            topic=topic,
+            payload={key: "False"},
+            retain=True,
+        )
 
     def _device_missed_call(self, message):
         """Call missed."""
@@ -511,14 +527,20 @@ class SomfyProtectWebsocket:
 
         if self.streaming_config == "mqtt":
             LOGGER.info("Start MQTT Image")
-            camera = VideoCamera(url=stream_url)
-            frame = None
+            self._run_io_task(self._stream_video_to_mqtt, site_id, device_id, stream_url)
+
+    def _stream_video_to_mqtt(self, site_id: str, device_id: str, stream_url: str) -> None:
+        """Stream camera frames and publish snapshots to MQTT."""
+        camera = VideoCamera(url=stream_url)
+        frame = None
+        try:
             while camera.is_opened():
                 frame = camera.get_frame()
                 if frame is None:
                     break
                 byte_arr = bytearray(frame)
                 self._publish_snapshot_bytes(site_id, device_id, byte_arr)
+        finally:
             camera.release()
 
     def _device_doorlock_triggered(self, message):
@@ -665,9 +687,7 @@ class SomfyProtectWebsocket:
             topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/pir"
 
             mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True)
-            time.sleep(3)
-            payload = {"motion_sensor": "False"}
-            mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True)
+            self._run_io_task(self._publish_false_after_delay, topic, "motion_sensor")
 
     def _alarm_panic(self, message):
         """Report Alarm Panic"""
@@ -811,9 +831,7 @@ class SomfyProtectWebsocket:
         topic = f"{self.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/pir"
         payload = {"motion_sensor": "True"}
         mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True)
-        time.sleep(3)
-        payload = {"motion_sensor": "False"}
-        mqtt_publish(mqtt_client=self.mqtt_client, topic=topic, payload=payload, retain=True)
+        self._run_io_task(self._publish_false_after_delay, topic, "motion_sensor")
 
     def site_device_testing_status(self, message):
         """Site Device Testing Status"""
