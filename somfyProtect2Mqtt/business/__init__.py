@@ -49,7 +49,9 @@ def _create_http_session() -> requests.Session:
 HTTP_SESSION = _create_http_session()
 
 
-def _publish_config(mqtt_client: MQTTClient, config: dict, payload: Optional[dict] = None) -> None:
+def _publish_config(mqtt_client: MQTTClient, config: Optional[dict], payload: Optional[dict] = None) -> None:
+    if not config:
+        return
     mqtt_publish(
         mqtt_client=mqtt_client,
         topic=config.get("topic"),
@@ -58,14 +60,16 @@ def _publish_config(mqtt_client: MQTTClient, config: dict, payload: Optional[dic
     )
 
 
-def _subscribe_command(mqtt_client: MQTTClient, config: dict) -> None:
-    command_topic = config.get("config").get("command_topic")
+def _subscribe_command(mqtt_client: MQTTClient, config: Optional[dict]) -> None:
+    if not config:
+        return
+    command_topic = config.get("config", {}).get("command_topic")
     if command_topic:
         mqtt_client.client.subscribe(command_topic)
         SUBSCRIBE_TOPICS.append(command_topic)
 
 
-def _publish_and_subscribe(mqtt_client: MQTTClient, config: dict, payload: Optional[dict] = None) -> None:
+def _publish_and_subscribe(mqtt_client: MQTTClient, config: Optional[dict], payload: Optional[dict] = None) -> None:
     _publish_config(mqtt_client, config, payload=payload)
     _subscribe_command(mqtt_client, config)
 
@@ -206,7 +210,7 @@ def _configure_camera_device(
         sensor_name="video_backend",
     )
     _publish_and_subscribe(mqtt_client, video_backend)
-    if video_backend.get("config").get("command_topic"):
+    if video_backend and video_backend.get("config", {}).get("command_topic"):
         _publish_snapshot_command_topics(mqtt_config, site_id, device.id)
     stream = ha_discovery_devices(
         site_id=site_id,
@@ -215,7 +219,7 @@ def _configure_camera_device(
         sensor_name="stream",
     )
     _publish_and_subscribe(mqtt_client, stream)
-    if stream.get("config").get("command_topic"):
+    if stream and stream.get("config", {}).get("command_topic"):
         _publish_stream_command_topics(mqtt_client, mqtt_config, site_id, device.id)
 
 
@@ -276,12 +280,13 @@ def _configure_motion_device(
         sensor_name="motion_sensor",
     )
     _publish_config(mqtt_client, pir_config)
-    mqtt_publish(
-        mqtt_client=mqtt_client,
-        topic=pir_config.get("config").get("state_topic"),
-        payload={"motion_sensor": "False"},
-        retain=True,
-    )
+    if pir_config:
+        mqtt_publish(
+            mqtt_client=mqtt_client,
+            topic=pir_config.get("config", {}).get("state_topic"),
+            payload={"motion_sensor": "False"},
+            retain=True,
+        )
 
 
 def _configure_smoke_device(mqtt_client: MQTTClient, mqtt_config: dict, site_id: str, device, device_type: str) -> None:
@@ -295,12 +300,13 @@ def _configure_smoke_device(mqtt_client: MQTTClient, mqtt_config: dict, site_id:
         sensor_name="smoke",
     )
     _publish_config(mqtt_client, smoke_config)
-    mqtt_publish(
-        mqtt_client=mqtt_client,
-        topic=smoke_config.get("config").get("state_topic"),
-        payload={"smoke": "False"},
-        retain=True,
-    )
+    if smoke_config:
+        mqtt_publish(
+            mqtt_client=mqtt_client,
+            topic=smoke_config.get("config", {}).get("state_topic"),
+            payload={"smoke": "False"},
+            retain=True,
+        )
 
 
 def _configure_doorlock_device(
@@ -309,7 +315,7 @@ def _configure_doorlock_device(
     if device_type != "doorlock":
         return
     LOGGER.info("DoorLock {}".format(device.device_definition.get("label")))
-    for sensor_name in ["open_door", "door_force_Lock"]:
+    for sensor_name in ["open_door", "door_force_lock"]:
         config = ha_discovery_devices(
             site_id=site_id,
             device=device,
@@ -338,12 +344,13 @@ def _configure_videophone_device(
         sensor_name="ringing",
     )
     _publish_config(mqtt_client, ringing_config)
-    mqtt_publish(
-        mqtt_client=mqtt_client,
-        topic=ringing_config.get("config").get("state_topic"),
-        payload={"ringing": "False"},
-        retain=True,
-    )
+    if ringing_config:
+        mqtt_publish(
+            mqtt_client=mqtt_client,
+            topic=ringing_config.get("config", {}).get("state_topic"),
+            payload={"ringing": "False"},
+            retain=True,
+        )
     for action in ["reboot", "halt", "open_latch", "open_gate"]:
         config = ha_discovery_devices(
             site_id=site_id,
@@ -366,7 +373,7 @@ def _configure_videophone_device(
         sensor_name="stream",
     )
     _publish_and_subscribe(mqtt_client, stream)
-    if stream.get("config").get("command_topic"):
+    if stream and stream.get("config", {}).get("command_topic"):
         _publish_stream_command_topics(mqtt_client, mqtt_config, site_id, device.id)
     video_backend = ha_discovery_devices(
         site_id=site_id,
@@ -375,7 +382,7 @@ def _configure_videophone_device(
         sensor_name="video_backend",
     )
     _publish_and_subscribe(mqtt_client, video_backend)
-    if video_backend.get("config").get("command_topic"):
+    if video_backend and video_backend.get("config", {}).get("command_topic"):
         _publish_snapshot_command_topics(mqtt_config, site_id, device.id)
 
 

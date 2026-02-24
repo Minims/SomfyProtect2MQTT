@@ -809,7 +809,13 @@ def ha_discovery_devices(
 ):
     """Auto Discover Devices"""
     device_config = {}
-    device_type = DEVICE_CAPABILITIES.get(sensor_name).get("type")
+    capability = DEVICE_CAPABILITIES.get(sensor_name)
+    if capability is None:
+        LOGGER.warning(f"Unknown capability {sensor_name} for device {device.label} ({device.id}), skipping discovery")
+        return None
+
+    device_type = capability.get("type")
+    capability_config = capability.get("config", {})
 
     update_available = device.update_available
     if update_available is False:
@@ -840,15 +846,13 @@ def ha_discovery_devices(
         "device": device_info,
     }
 
-    for config_entry in DEVICE_CAPABILITIES.get(sensor_name).get("config"):
-        device_config["config"][config_entry] = DEVICE_CAPABILITIES.get(sensor_name).get("config").get(config_entry)
+    for config_entry, config_value in capability_config.items():
+        device_config["config"][config_entry] = config_value
         # Specifiy for Intellitag Sensivity
         if device.device_definition.get("label") == "IntelliTag" and sensor_name == "sensitivity":
-            device_config["config"][config_entry] = (
-                DEVICE_CAPABILITIES.get(f"{sensor_name}_{device.device_definition.get('label')}")
-                .get("config")
-                .get(config_entry)
-            )
+            intellitag_capability = DEVICE_CAPABILITIES.get(f"{sensor_name}_{device.device_definition.get('label')}")
+            if intellitag_capability:
+                device_config["config"][config_entry] = intellitag_capability.get("config", {}).get(config_entry)
     if device_type in ("switch", "number", "select", "button"):
         device_config["config"]["command_topic"] = command_topic
     if sensor_name == "snapshot":
