@@ -55,7 +55,13 @@ Then all devices will appear in MQTT integration
 
 ### Easy Mode (Running in Docker Container)
 
-Run docker container: `docker run -v <PATH-TO-CONFIG-FOLDER>:/config minims/somfyprotect2mqtt`
+Run docker container (recommended: pin a version tag):
+
+`docker run -v <PATH-TO-CONFIG-FOLDER>:/config minims/somfyprotect2mqtt:<VERSION>`
+
+Example:
+
+`docker run -v <PATH-TO-CONFIG-FOLDER>:/config minims/somfyprotect2mqtt:v2026.2.0`
 
 Add config to `<PATH-TO-CONFIG-FOLDER>`
 

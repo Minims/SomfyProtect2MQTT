@@ -38,6 +38,12 @@ jobs:
           echo "Tag name from GITHUB_REF_NAME: $GITHUB_REF_NAME"
           echo "Tag name from github.ref_name: ${{  github.ref_name }}"
 
+      - name: Build test image (amd64)
+        run: docker build --platform linux/amd64 -t somfyprotect2mqtt:ci somfyProtect2Mqtt/
+
+      - name: Validate runtime dependencies
+        run: docker run --rm somfyprotect2mqtt:ci python -c "import paho.mqtt.client"
+
       # Production versions
       - name: Build and push
         uses: docker/build-push-action@v3
