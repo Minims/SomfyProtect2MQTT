@@ -17,17 +17,16 @@ LOGGER = logging.getLogger(__name__)
 
 def parse_boolean(payload: str) -> bool:
     """Safely parse a string payload into a boolean.
-    
+
     Args:
         payload (str): The payload string to parse.
-        
+
     Returns:
         bool: True if the payload evaluates to a truthy value, False otherwise.
     """
     if not payload:
         return False
     return payload.lower() in ("true", "1", "yes", "on", "t", "y")
-
 
 
 def setup_logger(debug: bool = False, filename: str = "/var/log/somfyProtect.log") -> None:
