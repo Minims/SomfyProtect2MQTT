@@ -222,17 +222,32 @@ class SomfyProtectApi:
         response.raise_for_status()
         return response.json()
 
-    def update_security_level(self, site_id: str, security_level: AvailableStatus) -> Dict:
+    def update_security_level(self, site_id: str, security_level: Union[AvailableStatus, str]) -> Dict:
         """Set alarm security level.
 
         Args:
             site_id (str): Site ID.
-            security_level (AvailableStatus): Target security level.
+            security_level (Union[AvailableStatus, str]): Target security level.
 
         Returns:
             Dict[str, Any]: API response payload.
         """
-        payload = {"status": security_level.name.lower()}
+        if isinstance(security_level, AvailableStatus):
+            status = security_level.name.lower()
+        elif isinstance(security_level, str):
+            status = security_level.strip().lower()
+            status_aliases = {
+                "armed_away": "armed",
+                "armed_night": "partial",
+            }
+            status = status_aliases.get(status, status)
+            valid_statuses = {available_status.name.lower() for available_status in AvailableStatus}
+            if status not in valid_statuses:
+                raise ValueError(f"Unknown security level {security_level}")
+        else:
+            raise ValueError(f"Unknown security level type {type(security_level)}")
+
+        payload = {"status": status}
         response = self.put(f"/v3/site/{site_id}/security", payload=payload)
         response.raise_for_status()
         return response.json()
