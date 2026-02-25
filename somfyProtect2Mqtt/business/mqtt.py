@@ -9,6 +9,7 @@ from homeassistant.ha_discovery import ALARM_STATUS
 from paho.mqtt import client
 from requests import RequestException
 from somfy_protect.api import ACCESS_LIST, ACTION_LIST, TEST_SIREN_ACTIONS, SomfyProtectApi
+from somfy_protect.api.model import AvailableStatus
 from utils import parse_boolean
 
 # from business.streaming import rtmps_to_hls
@@ -108,7 +109,8 @@ def _handle_alarm_status(text_payload, context: MqttContext) -> bool:
     site_id = context.topic_parts[1]
     LOGGER.info(f"Security Level update ! Setting to {text_payload}")
     LOGGER.debug(f"Site ID: {site_id}")
-    context.api.update_security_level(site_id=site_id, security_level=text_payload)
+    security_level = AvailableStatus[text_payload.upper()]
+    context.api.update_security_level(site_id=site_id, security_level=security_level)
     threading.Timer(
         1.0, _schedule_site_refresh, args=(context.api, context.mqtt_client, context.mqtt_config, site_id)
     ).start()

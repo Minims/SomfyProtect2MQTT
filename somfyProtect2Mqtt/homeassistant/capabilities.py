@@ -349,6 +349,7 @@ DEVICE_CAPABILITIES = {
     "open_door": {
         "type": "switch",
         "config": {
+            "value_template": "{{ value_json.door_lock_state }}",
             "state_on": "locked",
             "state_off": "unlocked",
             "pl_on": "lock",
@@ -534,8 +535,8 @@ DEVICE_CAPABILITIES = {
     },
     "smoke": {
         "type": "binary_sensor",
-        "device_class": "smoke",
         "config": {
+            "device_class": "smoke",
             "pl_on": "True",
             "pl_off": "False",
         },
