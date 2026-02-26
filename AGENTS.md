@@ -115,6 +115,7 @@ Keep changes small, follow existing patterns, and update docs if behavior change
 - Use existing helper functions in `somfyProtect2Mqtt/business/` for status updates.
 - Keep API calls in the SomfyProtect API layer; avoid duplicating HTTP logic.
 - When publishing to MQTT, follow the existing topic and payload patterns.
+- Alarm commands can arrive as HA-style strings (`armed_away`, `armed_night`); keep conversions centralized in API/business helpers.
 
 ## Data Models
 
@@ -133,6 +134,8 @@ Keep changes small, follow existing patterns, and update docs if behavior change
 - Core runtime code lives under `somfyProtect2Mqtt/`.
 - Somfy API logic is under `somfyProtect2Mqtt/somfy_protect/`.
 - Home Assistant discovery code is under `somfyProtect2Mqtt/homeassistant/`.
+- Home Assistant capability mappings are centralized in `somfyProtect2Mqtt/homeassistant/capabilities.py`.
+- WebSocket event handlers are split under `somfyProtect2Mqtt/somfy_protect/websocket/handlers/`.
 - Streaming helpers live in `somfyProtect2Mqtt/business/streaming/`.
 
 ## Docs and Comments

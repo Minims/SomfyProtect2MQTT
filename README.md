@@ -15,7 +15,7 @@ Supported:
 ## What is Working
 
 - Retrieve some status of the alarm and its devices.
-- Set security level: armed, disarmed, partial.
+- Set security level: armed, disarmed, partial (HA aliases `armed_away` and `armed_night` are also supported on MQTT command payloads).
 - HA MQTT Discovery.
 - Stop the Alarm
 - Trigger the Alarm
