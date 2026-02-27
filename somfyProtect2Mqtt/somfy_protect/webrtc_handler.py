@@ -187,8 +187,10 @@ class WebRTCHandler:
         site_id = message.get("site_id")
         session_id = message.get("session_id")
         offer_data = message.get("offer")
-        offer_data_clean = str(offer_data).strip("^('").strip("',)$")
-        offer_data_json = json.loads(offer_data_clean)
+        if isinstance(offer_data, dict):
+            offer_data_json = offer_data
+        else:
+            offer_data_json = json.loads(offer_data)
         sdp = offer_data_json.get("sdp")
         offer_type = offer_data_json.get("type")
 
@@ -996,6 +998,10 @@ class WebRTCHandler:
                     LOGGER.debug("[VIDEO] Queue full when returning peeked frame, frame will be skipped")
             except (OSError, RuntimeError, ValueError) as e:
                 LOGGER.warning("Error adding video stream: {}".format(e))
+                try:
+                    container.close()
+                except (OSError, RuntimeError):
+                    pass
                 muxer["container"] = None
                 return
 

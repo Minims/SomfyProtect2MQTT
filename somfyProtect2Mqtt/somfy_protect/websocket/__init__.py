@@ -233,11 +233,13 @@ class SomfyProtectWebsocket:
     def _on_pong(self, _ws_app, message):
         """Handle Pong Message"""
         LOGGER.debug("Pong Message: {}".format(message))
+        self.time = time.time()
         if (time.time() - self.time) > WEBSOCKET_IDLE_CLOSE_SECONDS:
             self.close()
 
     async def on_message(self, _ws_app, message):
         """Handle New message received on WebSocket"""
+        self.time = time.time()
         if "websocket.connection.ready" in message:
             LOGGER.info("Websocket Connection is READY")
             return
@@ -674,6 +676,9 @@ class SomfyProtectWebsocket:
         LOGGER.info("[default] Read Message {}".format(message))
         mqtt_config = self.mqtt_config or {}
         topic_suffix = message.get("key")
+        if not topic_suffix:
+            LOGGER.debug("Skipping default publish: message has no key")
+            return
         site_id = message.get("site_id")
         device_id = message.get("device_id")
         if not site_id:

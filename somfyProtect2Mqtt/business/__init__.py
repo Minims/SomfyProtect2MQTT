@@ -265,7 +265,6 @@ def _configure_siren(mqtt_client: MQTTClient, mqtt_config: dict, site_id: str, d
             sensor_name=f"test_{sensor}",
         )
         _publish_config(mqtt_client, mss_siren)
-    if mss_siren:
         _subscribe_command(mqtt_client, mss_siren)
 
 

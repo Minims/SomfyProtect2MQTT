@@ -14,7 +14,7 @@ from requests import RequestException, Response
 from requests_oauthlib import OAuth2Session
 from somfy_protect.api.devices.category import Category
 from somfy_protect.api.model import AvailableStatus, Device, Site, User
-from somfy_protect.sso import SomfyProtectSso, read_token_from_file
+from somfy_protect.sso import SomfyProtectSso
 
 LOGGER = logging.getLogger(__name__)
 SIREN_TEST_SOUNDS = [
@@ -560,7 +560,7 @@ class SomfyProtectApi:
         Returns:
             Dict[str, Any]: API response payload.
         """
-        token = read_token_from_file().get("access_token")
+        token = (self.sso.oauth.token or {}).get("access_token")
         if not token:
             LOGGER.error("Missing access token for device events")
             return {}

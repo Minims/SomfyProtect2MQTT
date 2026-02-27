@@ -118,7 +118,7 @@ class SomfyProtectSso:
         return token
 
 
-def init_sso(config: dict) -> None:
+def init_sso(config: dict) -> Optional[SomfyProtectSso]:
     """Init SSO
 
     Args:
