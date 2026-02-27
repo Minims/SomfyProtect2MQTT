@@ -243,7 +243,7 @@ def _handle_setting(text_payload, context: MqttContext) -> None:
     device = context.api.get_device(site_id=site_id, device_id=device_id)
     LOGGER.info(f"Message received for Site ID: {site_id}, Device ID: {device_id}, Setting: {setting}")
     settings = device.settings
-    settings["global"][setting] = text_payload
+    settings.setdefault("global", {})[setting] = text_payload
     settings = {k: v for k, v in settings.items() if v is not None}
     if setting == "night_vision":
         settings["global"] = {"night_vision": text_payload}

@@ -123,7 +123,6 @@ def ha_sites_config(
             LOGGER.warning("v4 => {}".format(api.get_site_scenario(site_id=site_id)))
         except (requests.exceptions.RequestException, KeyError, ValueError) as e:
             LOGGER.warning("Error while getting scenarios: {}".format(e))
-            continue
 
 
 def convert_utc_to_paris(date: datetime) -> datetime:
@@ -241,7 +240,7 @@ def _configure_remote_device(
 
 
 def _configure_outdoor_siren(mqtt_client: MQTTClient, mqtt_config: dict, site_id: str, device) -> None:
-    if "mss_outdoor_siren" not in device.device_definition.get("device_definition_id"):
+    if "mss_outdoor_siren" not in (device.device_definition.get("device_definition_id") or ""):
         return
     config = ha_discovery_devices(
         site_id=site_id,
@@ -253,7 +252,7 @@ def _configure_outdoor_siren(mqtt_client: MQTTClient, mqtt_config: dict, site_id
 
 
 def _configure_siren(mqtt_client: MQTTClient, mqtt_config: dict, site_id: str, device) -> None:
-    if "mss_siren" not in device.device_definition.get("device_definition_id"):
+    if "mss_siren" not in (device.device_definition.get("device_definition_id") or ""):
         return
     mss_siren = None
     for sensor in SIREN_TEST_SOUNDS:
@@ -487,6 +486,7 @@ def _publish_site_history(
             topic=f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/history",
             payload=payload,
             retain=True,
+            is_json=False,
         )
 
 
@@ -518,7 +518,6 @@ def update_devices_status(
                 if "videophone" in device_type:
                     events = api.get_device_events(site_id=site_id, device_id=device.id)
                     if events:
-                        send_to_mqtt = True
                         for event in events:
                             if event.get("clip_cloudfront_url"):
                                 LOGGER.info("Found a video: {}".format(event.get("clip_cloudfront_url")))
@@ -545,7 +544,7 @@ def update_devices_status(
                                     media_type="snapshot",
                                     mqtt_client=mqtt_client,
                                     mqtt_config=mqtt_config,
-                                    send_to_mqtt=send_to_mqtt,
+                                    send_to_mqtt=True,
                                 )
 
                 settings = device.settings.get("global") or {}
@@ -735,10 +734,9 @@ def write_to_media_folder(
                 retain=True,
                 is_json=False,
             )
+        LOGGER.info("Write Successful")
 
     except requests.exceptions.RequestException as exc:
         LOGGER.warning("Error while Downloading clip: {}".format(exc))
     except OSError as exc:
         LOGGER.warning("Unable to create directory {}: {}".format(directory, exc))
-    finally:
-        LOGGER.info("Write Successful")

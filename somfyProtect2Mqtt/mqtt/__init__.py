@@ -72,7 +72,7 @@ class MQTTClient:
                     self.client.reconnect()
                     LOGGER.info("Reconnecting to MQTT: Success")
                     break
-                except ConnectionRefusedError:
+                except (ConnectionRefusedError, OSError):
                     LOGGER.warning("Reconnecting to MQTT fails")
                     sleep(backoff)
                     backoff = min(backoff * 2, 60)
