@@ -4,8 +4,7 @@ import codecs
 import logging
 import logging.handlers
 import os
-import sys
-from typing import Any, Dict, Iterable, Optional
+from typing import Any, Dict, Iterable
 
 import yaml
 from requests.adapters import HTTPAdapter
@@ -73,28 +72,6 @@ def read_config_file(config_file: str) -> Dict[str, Any]:
     if conf is None:
         conf = {}
     return conf
-
-
-def close_and_exit(
-    robot,
-    code: int = 0,
-    signal: Optional[int] = None,
-    _frame=None,
-) -> None:
-    """Close resources and exit.
-
-    Args:
-        robot: SomfyProtect2Mqtt instance.
-        code (int): Exit code.
-        signal (int): Signal received.
-        frame: Signal frame (unused).
-    """
-    if signal:
-        LOGGER.debug(f"Signal {signal} received")
-    LOGGER.info("Stopping Application")
-    if robot:
-        robot.close()
-    sys.exit(code)
 
 
 def build_retry_adapter(status_forcelist: Iterable[int]) -> HTTPAdapter:

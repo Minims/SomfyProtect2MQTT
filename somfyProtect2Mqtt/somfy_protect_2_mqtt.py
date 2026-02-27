@@ -113,6 +113,7 @@ class SomfyProtect2Mqtt:
         )
 
         # Schedule Refreshs
+        schedule.clear()
         schedule.every(self.delay_site).seconds.do(
             update_sites_status,
             api=self.api,

@@ -160,6 +160,7 @@ class SomfyProtectWebsocket:
 
     def run_forever(self):
         """Run Forever Loop"""
+        LOGGER.info("Running Forever")
         self._websocket.run_forever(
             # dispatcher=rel,
             ping_timeout=WEBSOCKET_PING_TIMEOUT,
@@ -167,7 +168,6 @@ class SomfyProtectWebsocket:
             reconnect=WEBSOCKET_RECONNECT,
             sslopt={"cert_reqs": ssl.CERT_NONE},
         )
-        LOGGER.info("Running Forever")
 
     def close(self):
         """Close Websocket Connection"""

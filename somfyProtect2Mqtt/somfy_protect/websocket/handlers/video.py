@@ -23,6 +23,7 @@ def video_stream_ready(websocket_client, message: dict) -> None:
         topic=topic,
         payload=stream_url,
         retain=False,
+        is_json=False,
     )
 
     if websocket_client.streaming_config == "go2rtc":

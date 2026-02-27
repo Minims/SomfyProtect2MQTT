@@ -95,6 +95,9 @@ def device_doorlock_triggered(websocket_client, message: dict) -> None:
     LOGGER.info("Update Door Lock Triggered")
     site_id = message.get("site_id")
     device_id = message.get("device_id")
+    if not site_id or not device_id:
+        LOGGER.warning("Missing site_id or device_id for door lock event")
+        return
     door_lock_status = message.get("door_lock_status", "unknown")
     if door_lock_status and door_lock_status != "unknown":
         topic = f"{websocket_client.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/state"
@@ -111,6 +114,9 @@ def update_keyfob_presence(websocket_client, message: dict) -> None:
     """Handle keyfob presence events."""
     site_id = message.get("site_id")
     device_id = message.get("device_id")
+    if not site_id or not device_id:
+        LOGGER.warning("Missing site_id or device_id for keyfob presence event")
+        return
     payload = {"presence": "unknown"}
     if message.get("key") == "presence_out":
         payload = {"presence": "not_home"}
@@ -130,4 +136,7 @@ def device_status(websocket_client, message: dict) -> None:
     """Handle device status movement events."""
     site_id = message.get("site_id")
     device_id = message.get("device_id")
+    if not site_id or not device_id:
+        LOGGER.warning("Missing site_id or device_id for device status event")
+        return
     pulse_motion_sensor(websocket_client, site_id, device_id)

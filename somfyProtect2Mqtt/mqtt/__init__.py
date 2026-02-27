@@ -66,7 +66,7 @@ class MQTTClient:
         if rc != 0:
             LOGGER.warning("Unexpected MQTT disconnection. Will auto-reconnect")
             backoff = 5
-            while True:
+            while self.running:
                 try:
                     LOGGER.info("Reconnecting to MQTT")
                     self.client.reconnect()

@@ -15,6 +15,9 @@ def security_level_change(websocket_client, message: dict) -> None:
     """Update alarm status."""
     LOGGER.info("Update Alarm Status")
     site_id = message.get("site_id")
+    if not site_id:
+        LOGGER.warning("Missing site_id for security level change")
+        return
     security_level = message.get("security_level")
     payload = {"security_level": ALARM_STATUS.get(str(security_level), "disarmed")}
     topic = f"{websocket_client.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/state"
@@ -25,6 +28,9 @@ def alarm_trespass(websocket_client, message: dict) -> None:
     """Handle trespass alarm events."""
     LOGGER.info("Report Alarm Triggered")
     site_id = message.get("site_id")
+    if not site_id:
+        LOGGER.warning("Missing site_id for alarm trespass event")
+        return
     device_id = message.get("device_id")
     device_type = message.get("device_type")
     if message.get("type") != "alarm":
@@ -38,7 +44,7 @@ def alarm_trespass(websocket_client, message: dict) -> None:
         retain=True,
     )
 
-    if device_type == "pir":
+    if device_type == "pir" and device_id:
         pulse_motion_sensor(websocket_client, site_id, device_id)
 
 
@@ -46,6 +52,9 @@ def alarm_panic(websocket_client, message: dict) -> None:
     """Handle panic alarm events."""
     LOGGER.info("Report Alarm Panic")
     site_id = message.get("site_id")
+    if not site_id:
+        LOGGER.warning("Missing site_id for alarm panic event")
+        return
     topic = f"{websocket_client.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/state"
     mqtt_publish(
         mqtt_client=websocket_client.mqtt_client,

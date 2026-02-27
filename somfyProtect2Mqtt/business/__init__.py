@@ -455,13 +455,16 @@ def _publish_site_history(
         if not event:
             continue
         occurred_at = event.get("occurred_at")
+        if not occurred_at:
+            LOGGER.debug("Skipping history event with missing occurred_at")
+            continue
         date_format = "%Y-%m-%dT%H:%M:%S.%fZ"
         occurred_at_date = datetime.strptime(occurred_at, date_format)
         occurred_at_date = convert_utc_to_paris(date=occurred_at_date)
         paris_tz = pytz.timezone("Europe/Paris")
         now = datetime.now(paris_tz)
+        message_vars = event.get("message_vars") or {}
         if now - occurred_at_date >= timedelta(seconds=3600):
-            message_vars = event.get("message_vars")
             LOGGER.debug(
                 "Event is too old {} {} {}".format(
                     event.get("message_key"),
@@ -473,7 +476,6 @@ def _publish_site_history(
         if occurred_at in HISTORY:
             LOGGER.debug("History still published: {}".format(HISTORY[occurred_at]))
             continue
-        message_vars = event.get("message_vars")
         payload = f"{event.get('message_key')}" f" {message_vars.get('userDsp')}" f" {message_vars.get('siteLabel')}"
         payload = payload.replace("None", "").strip().strip('"')
         payload = payload.replace(".", " ").title()

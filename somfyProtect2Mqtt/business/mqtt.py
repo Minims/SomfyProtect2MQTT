@@ -2,6 +2,7 @@
 
 import json
 import logging
+import os
 import threading
 from dataclasses import dataclass
 
@@ -103,8 +104,11 @@ def _schedule_device_refresh(api, mqtt_client, mqtt_config, site_id, device_id) 
     )
 
 
+ALARM_COMMANDS = {k for k in ALARM_STATUS if k != "triggered"}
+
+
 def _handle_alarm_status(text_payload, context: MqttContext) -> bool:
-    if text_payload not in ALARM_STATUS:
+    if text_payload not in ALARM_COMMANDS:
         return False
     site_id = context.topic_parts[1]
     LOGGER.info(f"Security Level update ! Setting to {text_payload}")
@@ -224,6 +228,7 @@ def _handle_snapshot(lower_payload, context: MqttContext) -> bool:
             image = snapshot_file.read()
         byte_array = bytearray(image)
         publish_snapshot_bytes(context.mqtt_client, context.mqtt_config, site_id, device_id, byte_array)
+        os.remove(path)
     return True
 
 
