@@ -50,7 +50,7 @@ class SomfyProtectWebsocket:
         self.streaming_config = config.get("streaming")
         self.api = api
         self.sso = sso
-        self.time = time.time()
+        self.last_message_at = time.time()
         self._io_queue = queue.Queue(maxsize=SNAPSHOT_QUEUE_MAXSIZE)
         self._io_worker_stop = threading.Event()
         self._io_worker = threading.Thread(target=self._io_worker_loop, daemon=True)
@@ -232,13 +232,14 @@ class SomfyProtectWebsocket:
     def _on_pong(self, _ws_app, message):
         """Handle Pong Message"""
         LOGGER.debug("Pong Message: {}".format(message))
-        self.time = time.time()
-        if (time.time() - self.time) > WEBSOCKET_IDLE_CLOSE_SECONDS:
+        idle_for = time.time() - self.last_message_at
+        if idle_for > WEBSOCKET_IDLE_CLOSE_SECONDS:
+            LOGGER.info("Closing websocket after {:.1f}s without messages".format(idle_for))
             self.close()
 
     async def on_message(self, _ws_app, message):
         """Handle New message received on WebSocket"""
-        self.time = time.time()
+        self.last_message_at = time.time()
         if "websocket.connection.ready" in message:
             LOGGER.info("Websocket Connection is READY")
             return
