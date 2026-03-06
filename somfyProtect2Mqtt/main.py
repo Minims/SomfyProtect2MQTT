@@ -109,7 +109,7 @@ if __name__ == "__main__":
     LOG_LEVEL = logging.DEBUG if DEBUG else logging.INFO
     LOGGER.setLevel(level=LOG_LEVEL)
 
-    SSO = init_sso(config=CONFIG)
+    SSO = init_sso(config=CONFIG, config_file=CONFIG_FILE)
     if SSO is None:
         raise SomfyProtectInitError("Unable to initialize SSO")
     API = SomfyProtectApi(sso=SSO)

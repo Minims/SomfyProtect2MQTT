@@ -4,12 +4,13 @@ import base64
 import json
 import logging
 import os
+import tempfile
 from json import JSONDecodeError
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, Optional
 
 from exceptions import SomfyProtectInitError
 from oauthlib.oauth2 import LegacyApplicationClient, TokenExpiredError
-from requests import RequestException, Response
+from requests import RequestException
 from requests_oauthlib import OAuth2Session
 from utils import build_retry_adapter
 
@@ -23,10 +24,26 @@ CLIENT_ID = (
 )
 CLIENT_SECRET = "NGRzcWZudGlldTB3Y2t3d280MGt3ODQ4Z3c0bzBjOGs0b3djODBrNGdvMGNzMGs4NDQ="
 
-CACHE_PATH = "token.json"
+DEFAULT_CACHE_FILENAME = "token.json"
 
 
-def read_token_from_file(cache_path: str = CACHE_PATH) -> Dict[str, Any]:
+def resolve_token_cache_path(config_file: str | None = None) -> str:
+    """Resolve the token cache path.
+
+    Args:
+        config_file (str | None): Config file path.
+
+    Returns:
+        str: Token cache path.
+    """
+    if config_file:
+        config_dir = os.path.dirname(os.path.abspath(config_file))
+        if config_dir:
+            return os.path.join(config_dir, DEFAULT_CACHE_FILENAME)
+    return DEFAULT_CACHE_FILENAME
+
+
+def read_token_from_file(cache_path: str = DEFAULT_CACHE_FILENAME) -> Dict[str, Any]:
     """Retrieve a token from a file."""
     try:
         with open(file=cache_path, mode="r", encoding="utf8") as cache:
@@ -35,10 +52,38 @@ def read_token_from_file(cache_path: str = CACHE_PATH) -> Dict[str, Any]:
         return {}
 
 
-def write_token_to_file(token: Dict[str, Any], cache_path: str = CACHE_PATH) -> None:
+def write_token_to_file(token: Dict[str, Any], cache_path: str = DEFAULT_CACHE_FILENAME) -> None:
     """Write a token into a file."""
-    with open(file=cache_path, mode="w", encoding="utf8") as cache:
-        cache.write(json.dumps(token))
+    cache_dir = os.path.dirname(os.path.abspath(cache_path))
+    if cache_dir:
+        os.makedirs(cache_dir, mode=0o700, exist_ok=True)
+
+    fd, tmp_path = tempfile.mkstemp(prefix=".token-", dir=cache_dir or None, text=True)
+    try:
+        os.fchmod(fd, 0o600)
+        with os.fdopen(fd, mode="w", encoding="utf8") as cache:
+            cache.write(json.dumps(token))
+        os.replace(tmp_path, cache_path)
+        os.chmod(cache_path, 0o600)
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+
+
+def build_token_updater(cache_path: str) -> Callable[[Dict[str, Any]], None]:
+    """Create a token updater bound to a cache path.
+
+    Args:
+        cache_path (str): Token cache path.
+
+    Returns:
+        Callable[[Dict[str, Any]], None]: Token updater callback.
+    """
+
+    def _token_updater(token: Dict[str, Any]) -> None:
+        write_token_to_file(token, cache_path)
+
+    return _token_updater
 
 
 class SomfyProtectSso:
@@ -49,12 +94,16 @@ class SomfyProtectSso:
         username: str,
         password: str,
         token: Optional[Dict[str, Any]] = None,
-        token_updater: Optional[Callable[[Dict[str, Any]], None]] = write_token_to_file,
+        token_cache_path: str = DEFAULT_CACHE_FILENAME,
+        token_updater: Optional[Callable[[Dict[str, Any]], None]] = None,
     ):
         self.username = username
         self.password = password
+        self.token_cache_path = token_cache_path
         self.client_id = base64.b64decode(CLIENT_ID).decode("utf-8")
         self.client_secret = base64.b64decode(CLIENT_SECRET).decode("utf-8")
+        if token_updater is None:
+            token_updater = build_token_updater(self.token_cache_path)
         self.token_updater = token_updater
 
         extra = {
@@ -63,7 +112,7 @@ class SomfyProtectSso:
         }
 
         if token is None:
-            token = read_token_from_file()
+            token = read_token_from_file(self.token_cache_path)
         self._oauth = OAuth2Session(
             client=LegacyApplicationClient(client_id=self.client_id),
             token=token,
@@ -82,11 +131,11 @@ class SomfyProtectSso:
 
     def request_token(
         self,
-    ) -> Dict[str, str]:
+    ) -> Dict[str, Any]:
         """Generic method for fetching a Somfy Protect access token.
 
         Returns:
-            Dict[str, str]: Token
+            Dict[str, Any]: Token
         """
         LOGGER.info("Requesting Token")
         return self._oauth.fetch_token(
@@ -98,11 +147,11 @@ class SomfyProtectSso:
             include_client_id=True,
         )
 
-    def refresh_tokens(self) -> Dict[str, Union[str, int]]:
+    def refresh_tokens(self) -> Dict[str, Any]:
         """Refresh and return new Somfy tokens.
 
         Returns:
-            Dict[str, Union[str, int]]: Token
+            Dict[str, Any]: Token
         """
         LOGGER.info("Refreshing Token")
         try:
@@ -118,7 +167,7 @@ class SomfyProtectSso:
         return token
 
 
-def init_sso(config: dict) -> Optional[SomfyProtectSso]:
+def init_sso(config: dict, config_file: str | None = None) -> Optional[SomfyProtectSso]:
     """Init SSO
 
     Args:
@@ -134,8 +183,9 @@ def init_sso(config: dict) -> Optional[SomfyProtectSso]:
     if username is None or password is None:
         raise SomfyProtectInitError("Username/Password is missing in config")
 
-    sso = SomfyProtectSso(username=username, password=password)
-    if not os.path.isfile(CACHE_PATH):
+    cache_path = resolve_token_cache_path(config_file)
+    sso = SomfyProtectSso(username=username, password=password, token_cache_path=cache_path)
+    if not os.path.isfile(cache_path):
         token = sso.request_token()
-        write_token_to_file(token)
+        write_token_to_file(token, cache_path)
     return sso

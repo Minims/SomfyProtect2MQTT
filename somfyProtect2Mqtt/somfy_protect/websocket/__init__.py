@@ -91,7 +91,7 @@ class SomfyProtectWebsocket:
         self.loop.run_forever()
 
     def _load_token(self) -> dict:
-        token = self.sso.oauth.token or read_token_from_file()
+        token = self.sso.oauth.token or read_token_from_file(self.sso.token_cache_path)
         if token and token.get("access_token"):
             if self._is_token_expired(token):
                 LOGGER.info("Websocket token expired, refreshing")

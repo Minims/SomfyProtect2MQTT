@@ -65,6 +65,8 @@ Example:
 
 Add config to `<PATH-TO-CONFIG-FOLDER>`
 
+OAuth tokens are cached in `<PATH-TO-CONFIG-FOLDER>/token.json` with restricted file permissions.
+
 ### Manual Mode
 
 Clone the repo
@@ -89,6 +91,8 @@ Copy config file and setup your own credentials for SomfyProtect & MQTT.
 cd /opt/SomfyProtect2MQTT/somfyProtect2Mqtt
 cp config/config.yaml.example config/config.yaml
 ```
+
+The OAuth token cache is stored next to the config file as `config/token.json` and contains local secret material.
 
 ## Running
 
