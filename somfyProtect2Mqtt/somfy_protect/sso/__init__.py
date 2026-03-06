@@ -5,12 +5,14 @@ import json
 import logging
 import os
 import tempfile
+import threading
 from json import JSONDecodeError
 from typing import Any, Callable, Dict, Optional
 
 from exceptions import SomfyProtectInitError
 from oauthlib.oauth2 import LegacyApplicationClient, TokenExpiredError
 from requests import RequestException
+from requests import Response
 from requests_oauthlib import OAuth2Session
 from utils import build_retry_adapter
 
@@ -100,6 +102,7 @@ class SomfyProtectSso:
         self.username = username
         self.password = password
         self.token_cache_path = token_cache_path
+        self._oauth_lock = threading.RLock()
         self.client_id = base64.b64decode(CLIENT_ID).decode("utf-8")
         self.client_secret = base64.b64decode(CLIENT_SECRET).decode("utf-8")
         if token_updater is None:
@@ -129,6 +132,83 @@ class SomfyProtectSso:
         """Expose the underlying OAuth2 session."""
         return self._oauth
 
+    def get_token(self) -> Dict[str, Any]:
+        """Return a shallow copy of the current token."""
+        with self._oauth_lock:
+            token = self._oauth.token or {}
+            return dict(token)
+
+    def set_token(self, token: Dict[str, Any]) -> Dict[str, Any]:
+        """Persist a new token in the shared OAuth session."""
+        with self._oauth_lock:
+            self._oauth.token = token
+        return token
+
+    def request(
+        self,
+        method: str,
+        url: str,
+        retry_on_auth_error: bool = True,
+        **kwargs: Any,
+    ) -> tuple[Response, bool]:
+        """Run a synchronized OAuth request.
+
+        Args:
+            method (str): HTTP method name.
+            url (str): Fully qualified URL.
+            retry_on_auth_error (bool): Retry once after token refresh on 401/403.
+            **kwargs: Extra request arguments.
+
+        Returns:
+            tuple[Response, bool]: Response and whether a refresh happened.
+        """
+        refreshed = False
+        with self._oauth_lock:
+            response, expired_refresh = self._request_locked(method, url, **kwargs)
+            refreshed = refreshed or expired_refresh
+            if retry_on_auth_error and response.status_code in (401, 403):
+                self._refresh_tokens_locked()
+                refreshed = True
+                response, expired_refresh = self._request_locked(method, url, **kwargs)
+                refreshed = refreshed or expired_refresh
+        return response, refreshed
+
+    def _request_locked(self, method: str, url: str, **kwargs: Any) -> tuple[Response, bool]:
+        try:
+            return getattr(self._oauth, method)(url, **kwargs), False
+        except TokenExpiredError:
+            self._refresh_tokens_locked()
+            return getattr(self._oauth, method)(url, **kwargs), True
+
+    def _request_token_locked(self) -> Dict[str, Any]:
+        LOGGER.info("Requesting Token")
+        token = self._oauth.fetch_token(
+            SOMFY_PROTECT_TOKEN,
+            username=self.username,
+            password=self.password,
+            client_id=self.client_id,
+            client_secret=self.client_secret,
+            include_client_id=True,
+        )
+        self._oauth.token = token
+        return token
+
+    def _refresh_tokens_locked(self) -> Dict[str, Any]:
+        LOGGER.info("Refreshing Token")
+        try:
+            token = self._oauth.refresh_token(SOMFY_PROTECT_TOKEN)
+        except (RequestException, TokenExpiredError, ValueError) as e:
+            LOGGER.warning("Refresh failed, requesting new token: {}".format(e))
+            token = self._request_token_locked()
+        else:
+            self._oauth.token = token
+
+        if self.token_updater is not None:
+            self.token_updater(token)
+
+        LOGGER.info("New Token: ****")
+        return token
+
     def request_token(
         self,
     ) -> Dict[str, Any]:
@@ -137,15 +217,8 @@ class SomfyProtectSso:
         Returns:
             Dict[str, Any]: Token
         """
-        LOGGER.info("Requesting Token")
-        return self._oauth.fetch_token(
-            SOMFY_PROTECT_TOKEN,
-            username=self.username,
-            password=self.password,
-            client_id=self.client_id,
-            client_secret=self.client_secret,
-            include_client_id=True,
-        )
+        with self._oauth_lock:
+            return self._request_token_locked()
 
     def refresh_tokens(self) -> Dict[str, Any]:
         """Refresh and return new Somfy tokens.
@@ -153,18 +226,8 @@ class SomfyProtectSso:
         Returns:
             Dict[str, Any]: Token
         """
-        LOGGER.info("Refreshing Token")
-        try:
-            token = self._oauth.refresh_token(SOMFY_PROTECT_TOKEN)
-        except (RequestException, TokenExpiredError, ValueError) as e:
-            LOGGER.warning("Refresh failed, requesting new token: {}".format(e))
-            token = self.request_token()
-
-        if self.token_updater is not None:
-            self.token_updater(token)
-
-        LOGGER.info("New Token: ****")
-        return token
+        with self._oauth_lock:
+            return self._refresh_tokens_locked()
 
 
 def init_sso(config: dict, config_file: str | None = None) -> Optional[SomfyProtectSso]:

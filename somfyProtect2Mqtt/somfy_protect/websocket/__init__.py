@@ -91,12 +91,11 @@ class SomfyProtectWebsocket:
         self.loop.run_forever()
 
     def _load_token(self) -> dict:
-        token = self.sso.oauth.token or read_token_from_file(self.sso.token_cache_path)
+        token = self.sso.get_token() or read_token_from_file(self.sso.token_cache_path)
         if token and token.get("access_token"):
             if self._is_token_expired(token):
                 LOGGER.info("Websocket token expired, refreshing")
                 token = self.sso.refresh_tokens()
-                self.sso.oauth.token = token
             return token
         try:
             token = self.sso.request_token()
@@ -105,7 +104,7 @@ class SomfyProtectWebsocket:
             raise
         if self.sso.token_updater is not None:
             self.sso.token_updater(token)
-        self.sso.oauth.token = token
+        self.sso.set_token(token)
         return token
 
     @staticmethod
@@ -248,7 +247,6 @@ class SomfyProtectWebsocket:
             LOGGER.warning("Websocket token error, refreshing and reconnecting")
             try:
                 self.token = self.sso.refresh_tokens()
-                self.sso.oauth.token = self.token
             except (MissingTokenError, OSError, RuntimeError, ValueError) as e:
                 LOGGER.error("Unable to refresh websocket token: {}".format(e))
             self._websocket.close()

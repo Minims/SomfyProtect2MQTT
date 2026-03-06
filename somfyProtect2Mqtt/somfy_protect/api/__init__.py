@@ -9,7 +9,6 @@ from typing import Any, Callable, Dict, List, Optional, Union
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 from constants import REQUEST_TIMEOUT
-from oauthlib.oauth2 import TokenExpiredError
 from requests import RequestException, Response
 from requests_oauthlib import OAuth2Session
 from somfy_protect.api.devices.category import Category
@@ -103,25 +102,12 @@ class SomfyProtectApi:
         url = f"{base_url}{path}"
         kwargs.setdefault("timeout", REQUEST_TIMEOUT)
 
-        def _execute_request() -> Response:
-            return getattr(self.sso.oauth, method)(url, **kwargs)
-
         start_time = time.monotonic()
-        refreshed = False
         try:
-            response = _execute_request()
-        except TokenExpiredError:
-            self.sso.oauth.token = self.sso.refresh_tokens()
-            refreshed = True
-            response = _execute_request()
+            response, refreshed = self.sso.request(method, url, **kwargs)
         except RequestException as exc:
             LOGGER.error("Request failed {} {}: {}".format(method.upper(), _redact_url(url), exc))
             raise
-
-        if response.status_code in (401, 403):
-            self.sso.oauth.token = self.sso.refresh_tokens()
-            refreshed = True
-            response = _execute_request()
 
         elapsed_ms = (time.monotonic() - start_time) * 1000
         self._record_metrics(method, path, response.status_code, elapsed_ms, refreshed)
@@ -560,7 +546,7 @@ class SomfyProtectApi:
         Returns:
             Dict[str, Any]: API response payload.
         """
-        token = (self.sso.oauth.token or {}).get("access_token")
+        token = self.sso.get_token().get("access_token")
         if not token:
             LOGGER.error("Missing access token for device events")
             return {}
