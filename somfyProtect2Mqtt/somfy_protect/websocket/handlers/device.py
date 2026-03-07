@@ -4,7 +4,7 @@
 
 import logging
 
-from business import update_visiophone_snapshot, write_to_media_folder
+from business import build_media_dedupe_key, update_visiophone_snapshot, write_to_media_folder
 from business.mqtt import mqtt_publish, update_device
 
 LOGGER = logging.getLogger(__name__)
@@ -43,6 +43,14 @@ def device_ring_door_bell(websocket_client, message: dict) -> None:
 
     snapshot_url = message.get("snapshot_url")
     if snapshot_url:
+        dedupe_key = build_media_dedupe_key(
+            media_type="snapshot",
+            site_id=site_id,
+            device_id=device_id,
+            url=snapshot_url,
+            event_id=message.get("event_id"),
+            occurred_at=message.get("occurred_at"),
+        )
         websocket_client._run_io_task(
             update_visiophone_snapshot,
             url=snapshot_url,
@@ -50,6 +58,7 @@ def device_ring_door_bell(websocket_client, message: dict) -> None:
             device_id=device_id,
             mqtt_client=websocket_client.mqtt_client,
             mqtt_config=mqtt_config,
+            dedupe_key=dedupe_key,
         )
 
 
@@ -64,8 +73,18 @@ def device_missed_call(websocket_client, message: dict) -> None:
     mqtt_config = websocket_client.mqtt_config or {}
     snapshot_url = message.get("snapshot_cloudfront_url")
     clip_url = message.get("clip_cloudfront_url")
+    event_id = message.get("event_id") or "unknown"
+    occurred_at = message.get("occurred_at") or "unknown"
 
     if snapshot_url:
+        dedupe_key = build_media_dedupe_key(
+            media_type="snapshot",
+            site_id=site_id,
+            device_id=device_id,
+            url=snapshot_url,
+            event_id=event_id,
+            occurred_at=occurred_at,
+        )
         websocket_client._run_io_task(
             update_visiophone_snapshot,
             url=snapshot_url,
@@ -73,20 +92,30 @@ def device_missed_call(websocket_client, message: dict) -> None:
             device_id=device_id,
             mqtt_client=websocket_client.mqtt_client,
             mqtt_config=mqtt_config,
+            dedupe_key=dedupe_key,
         )
 
     if clip_url:
+        dedupe_key = build_media_dedupe_key(
+            media_type="video",
+            site_id=site_id,
+            device_id=device_id,
+            url=clip_url,
+            event_id=event_id,
+            occurred_at=occurred_at,
+        )
         websocket_client._run_io_task(
             write_to_media_folder,
             url=clip_url,
             site_id=site_id,
             device_id=device_id,
             label=message.get("label") or device_id,
-            event_id=message.get("event_id") or "unknown",
-            occurred_at=message.get("occurred_at") or "unknown",
+            event_id=event_id,
+            occurred_at=occurred_at,
             media_type="video",
             mqtt_client=websocket_client.mqtt_client,
             mqtt_config=mqtt_config,
+            dedupe_key=dedupe_key,
         )
 
 

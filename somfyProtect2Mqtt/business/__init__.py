@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import os
+import threading
 from collections import OrderedDict
 from datetime import datetime, timedelta
 from http.client import RemoteDisconnected
@@ -38,6 +40,12 @@ LOGGER = logging.getLogger(__name__)
 DEVICE_TAG = {}
 HISTORY_LIMIT = 250
 HISTORY: OrderedDict[str, str] = OrderedDict()
+MEDIA_DIRECTORY = "/media/somfyprotect2mqtt"
+MEDIA_INDEX_PATH = f"{MEDIA_DIRECTORY}/.processed_media.json"
+MEDIA_INDEX_MAX_ENTRIES = 2000
+PROCESSED_MEDIA_LOCK = threading.RLock()
+PROCESSED_MEDIA: OrderedDict[str, str] = OrderedDict()
+PROCESSED_MEDIA_LOADED = False
 
 
 def _create_http_session() -> requests.Session:
@@ -49,6 +57,75 @@ def _create_http_session() -> requests.Session:
 
 
 HTTP_SESSION = _create_http_session()
+
+
+def _load_processed_media_index() -> None:
+    """Load the persisted media index once."""
+    global PROCESSED_MEDIA_LOADED
+    if PROCESSED_MEDIA_LOADED:
+        return
+
+    with PROCESSED_MEDIA_LOCK:
+        if PROCESSED_MEDIA_LOADED:
+            return
+        try:
+            with open(MEDIA_INDEX_PATH, "r", encoding="utf8") as index_file:
+                entries = json.load(index_file)
+        except (IOError, ValueError):
+            entries = {}
+
+        if isinstance(entries, dict):
+            for media_key, timestamp in entries.items():
+                if isinstance(media_key, str) and isinstance(timestamp, str):
+                    PROCESSED_MEDIA[media_key] = timestamp
+        _prune_processed_media_locked()
+        PROCESSED_MEDIA_LOADED = True
+
+
+def _prune_processed_media_locked() -> None:
+    while len(PROCESSED_MEDIA) > MEDIA_INDEX_MAX_ENTRIES:
+        PROCESSED_MEDIA.popitem(last=False)
+
+
+def _persist_processed_media_locked() -> None:
+    os.makedirs(MEDIA_DIRECTORY, exist_ok=True)
+    with open(MEDIA_INDEX_PATH, "w", encoding="utf8") as index_file:
+        json.dump(PROCESSED_MEDIA, index_file)
+
+
+def build_media_dedupe_key(
+    media_type: str,
+    site_id: str,
+    device_id: str,
+    url: str,
+    event_id: str | None = None,
+    occurred_at: str | None = None,
+) -> str:
+    """Build a stable dedupe key for visiophone media."""
+    stable_event_id = event_id or "unknown"
+    stable_occurred_at = occurred_at or "unknown"
+    return f"{media_type}:{site_id}:{device_id}:{stable_event_id}:{stable_occurred_at}:{url}"
+
+
+def has_processed_media(media_key: str) -> bool:
+    """Return True when a media item was already processed."""
+    _load_processed_media_index()
+    with PROCESSED_MEDIA_LOCK:
+        return media_key in PROCESSED_MEDIA
+
+
+def mark_media_processed(media_key: str) -> None:
+    """Persist a media item as processed."""
+    _load_processed_media_index()
+    with PROCESSED_MEDIA_LOCK:
+        if media_key in PROCESSED_MEDIA:
+            PROCESSED_MEDIA.move_to_end(media_key)
+        PROCESSED_MEDIA[media_key] = datetime.utcnow().isoformat()
+        _prune_processed_media_locked()
+        try:
+            _persist_processed_media_locked()
+        except OSError as e:
+            LOGGER.warning("Unable to persist processed media index: {}".format(e))
 
 
 def _publish_config(mqtt_client: MQTTClient, config: Optional[dict], payload: Optional[dict] = None) -> None:
@@ -519,32 +596,52 @@ def update_devices_status(
                     events = api.get_device_events(site_id=site_id, device_id=device.id)
                     if events:
                         for event in events:
-                            if event.get("clip_cloudfront_url"):
-                                LOGGER.info("Found a video: {}".format(event.get("clip_cloudfront_url")))
+                            event_id = event.get("event_id") or "unknown"
+                            occurred_at = event.get("occurred_at") or "unknown"
+                            clip_url = event.get("clip_cloudfront_url")
+                            if clip_url:
+                                LOGGER.info("Found a video: {}".format(clip_url))
                                 write_to_media_folder(
-                                    url=event.get("clip_cloudfront_url"),
+                                    url=clip_url,
                                     site_id=site_id,
                                     device_id=device.id,
-                                    label=device.device_definition.get("label"),
-                                    event_id=event.get("event_id"),
-                                    occurred_at=event.get("occurred_at"),
+                                    label=device.device_definition.get("label") or device.id,
+                                    event_id=event_id,
+                                    occurred_at=occurred_at,
                                     media_type="video",
                                     mqtt_client=mqtt_client,
                                     mqtt_config=mqtt_config,
+                                    dedupe_key=build_media_dedupe_key(
+                                        media_type="video",
+                                        site_id=site_id,
+                                        device_id=device.id,
+                                        url=clip_url,
+                                        event_id=event_id,
+                                        occurred_at=occurred_at,
+                                    ),
                                 )
-                            if event.get("snapshot_cloudfront_url"):
-                                LOGGER.info("Found a snapshot {}".format(event.get("snapshot_cloudfront_url")))
+                            snapshot_url = event.get("snapshot_cloudfront_url")
+                            if snapshot_url:
+                                LOGGER.info("Found a snapshot {}".format(snapshot_url))
                                 write_to_media_folder(
-                                    url=event.get("snapshot_cloudfront_url"),
+                                    url=snapshot_url,
                                     site_id=site_id,
                                     device_id=device.id,
-                                    label=device.device_definition.get("label"),
-                                    event_id=event.get("event_id"),
-                                    occurred_at=event.get("occurred_at"),
+                                    label=device.device_definition.get("label") or device.id,
+                                    event_id=event_id,
+                                    occurred_at=occurred_at,
                                     media_type="snapshot",
                                     mqtt_client=mqtt_client,
                                     mqtt_config=mqtt_config,
                                     send_to_mqtt=True,
+                                    dedupe_key=build_media_dedupe_key(
+                                        media_type="snapshot",
+                                        site_id=site_id,
+                                        device_id=device.id,
+                                        url=snapshot_url,
+                                        event_id=event_id,
+                                        occurred_at=occurred_at,
+                                    ),
                                 )
 
                 settings = device.settings.get("global") or {}
@@ -625,9 +722,13 @@ def update_visiophone_snapshot(
     device_id: str,
     mqtt_client: MQTTClient,
     mqtt_config: dict,
+    dedupe_key: str | None = None,
 ) -> None:
     """Download VisioPhone Snapshot"""
     LOGGER.info("Download VisioPhone Snapshot")
+    if dedupe_key and has_processed_media(dedupe_key):
+        LOGGER.info("Skipping already processed visiophone snapshot")
+        return
     now = datetime.now()
     timestamp = int(now.timestamp())
     path = None
@@ -666,6 +767,8 @@ def update_visiophone_snapshot(
         retain=True,
         is_json=False,
     )
+    if dedupe_key:
+        mark_media_processed(dedupe_key)
     # Clean file
     os.remove(path)
 
@@ -681,6 +784,7 @@ def write_to_media_folder(
     mqtt_client: MQTTClient,
     mqtt_config: dict,
     send_to_mqtt: bool = False,
+    dedupe_key: str | None = None,
 ) -> None:
     """Download media to the local folder.
 
@@ -706,6 +810,10 @@ def write_to_media_folder(
         extention = "jpeg"
     else:
         LOGGER.warning("Unsupported media type: {}".format(media_type))
+        return
+
+    if dedupe_key and has_processed_media(dedupe_key):
+        LOGGER.info("Skipping already processed visiophone {}".format(media_type))
         return
 
     try:
@@ -734,6 +842,8 @@ def write_to_media_folder(
                 retain=True,
                 is_json=False,
             )
+        if dedupe_key:
+            mark_media_processed(dedupe_key)
         LOGGER.info("Write Successful")
 
     except requests.exceptions.RequestException as exc:
