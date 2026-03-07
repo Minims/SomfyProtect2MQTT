@@ -61,15 +61,25 @@ class MQTTClient:
         """MQTT on_publish"""
         LOGGER.debug("Message published: {}".format(result))
 
-    def on_disconnect(self, _userdata, rc, _properties=None):
+    def on_disconnect(self, client, _userdata, *args):
         """MQTT on_disconnect"""
+        if len(args) == 1:
+            rc = args[0]
+        elif len(args) >= 2:
+            rc = args[1]
+        else:
+            rc = 0
+
+        if hasattr(rc, "value"):
+            rc = rc.value
+
         if rc != 0:
-            LOGGER.warning("Unexpected MQTT disconnection. Will auto-reconnect")
+            LOGGER.warning("Unexpected MQTT disconnection (rc={}). Will auto-reconnect".format(rc))
             backoff = 5
             while self.running:
                 try:
                     LOGGER.info("Reconnecting to MQTT")
-                    self.client.reconnect()
+                    client.reconnect()
                     LOGGER.info("Reconnecting to MQTT: Success")
                     break
                 except (ConnectionRefusedError, OSError):

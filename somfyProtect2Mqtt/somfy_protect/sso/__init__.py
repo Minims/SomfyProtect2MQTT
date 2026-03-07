@@ -11,8 +11,7 @@ from typing import Any, Callable, Dict, Optional
 
 from exceptions import SomfyProtectInitError
 from oauthlib.oauth2 import LegacyApplicationClient, TokenExpiredError
-from requests import RequestException
-from requests import Response
+from requests import RequestException, Response
 from requests_oauthlib import OAuth2Session
 from utils import build_retry_adapter
 
