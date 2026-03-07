@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import threading
 from collections import OrderedDict
 from datetime import datetime, timedelta
@@ -46,6 +47,7 @@ MEDIA_INDEX_MAX_ENTRIES = 2000
 PROCESSED_MEDIA_LOCK = threading.RLock()
 PROCESSED_MEDIA: OrderedDict[str, str] = OrderedDict()
 PROCESSED_MEDIA_LOADED = False
+MAX_MEDIA_FILENAME_COMPONENT_LENGTH = 80
 
 
 def _create_http_session() -> requests.Session:
@@ -126,6 +128,36 @@ def mark_media_processed(media_key: str) -> None:
             _persist_processed_media_locked()
         except OSError as e:
             LOGGER.warning("Unable to persist processed media index: {}".format(e))
+
+
+def sanitize_media_filename_component(value: str | None, fallback: str) -> str:
+    """Sanitize a media filename component while keeping it readable."""
+    normalized = (value or fallback).strip()
+    normalized = normalized.replace(os.sep, "_")
+    if os.altsep:
+        normalized = normalized.replace(os.altsep, "_")
+    normalized = normalized.replace("..", "_")
+    normalized = re.sub(r"[^A-Za-z0-9._-]+", "_", normalized)
+    normalized = re.sub(r"_+", "_", normalized).strip("._-")
+    if not normalized:
+        normalized = fallback
+    return normalized[:MAX_MEDIA_FILENAME_COMPONENT_LENGTH]
+
+
+def build_media_file_path(
+    directory: str,
+    label: str,
+    occurred_at: str,
+    event_id: str,
+    extension: str,
+    fallback_name: str,
+) -> str:
+    """Build a readable and sanitized media file path."""
+    safe_label = sanitize_media_filename_component(label, fallback_name)
+    safe_occurred_at = sanitize_media_filename_component(occurred_at, "unknown")
+    safe_event_id = sanitize_media_filename_component(event_id, "unknown")
+    filename = f"{safe_label}-{safe_occurred_at}-{safe_event_id}.{extension}"
+    return os.path.join(directory, filename)
 
 
 def _publish_config(mqtt_client: MQTTClient, config: Optional[dict], payload: Optional[dict] = None) -> None:
@@ -822,7 +854,14 @@ def write_to_media_folder(
         response = HTTP_SESSION.get(url, stream=True, timeout=REQUEST_TIMEOUT)
         response.raise_for_status()
 
-        path = f"{directory}/{label}-{occurred_at}-{event_id}.{extention}"
+        path = build_media_file_path(
+            directory=directory,
+            label=label,
+            occurred_at=occurred_at,
+            event_id=event_id,
+            extension=extention,
+            fallback_name=device_id,
+        )
 
         with open(path, "wb") as file:
             for chunk in response.iter_content(1024):  # Lire en morceaux de 1 KB
