@@ -2,10 +2,10 @@
 
 import json
 import logging
-import os
 import threading
 from dataclasses import dataclass
 
+from business.tempfiles import remove_temp_file, write_temp_bytes
 from homeassistant.ha_discovery import ALARM_STATUS
 from paho.mqtt import client
 from requests import RequestException
@@ -220,15 +220,16 @@ def _handle_snapshot(lower_payload, context: MqttContext) -> bool:
         LOGGER.warning("Snapshot response missing")
         return True
     if response.status_code == 200:
-        path = f"{device_id}.jpeg"
-        with open(path, "wb") as snapshot_file:
-            for chunk in response:
-                snapshot_file.write(chunk)
-        with open(path, "rb") as snapshot_file:
-            image = snapshot_file.read()
-        byte_array = bytearray(image)
-        publish_snapshot_bytes(context.mqtt_client, context.mqtt_config, site_id, device_id, byte_array)
-        os.remove(path)
+        path = None
+        try:
+            path = write_temp_bytes(response, suffix=".jpeg")
+            with open(path, "rb") as snapshot_file:
+                image = snapshot_file.read()
+            byte_array = bytearray(image)
+            publish_snapshot_bytes(context.mqtt_client, context.mqtt_config, site_id, device_id, byte_array)
+        finally:
+            remove_temp_file(path)
+            response.close()
     return True
 
 

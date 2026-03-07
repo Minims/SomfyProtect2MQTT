@@ -17,6 +17,7 @@ import pytz
 import requests
 import schedule
 from business.mqtt import mqtt_publish, publish_device_state, publish_site_state, register_subscribe_topic
+from business.tempfiles import remove_temp_file, write_temp_bytes
 from business.watermark import insert_watermark
 from constants import REQUEST_TIMEOUT, RETRY_STATUS_CODES
 from exceptions import SomfyProtectInitError
@@ -46,7 +47,7 @@ MEDIA_INDEX_PATH = f"{MEDIA_DIRECTORY}/.processed_media.json"
 MEDIA_INDEX_MAX_ENTRIES = 2000
 PROCESSED_MEDIA_LOCK = threading.RLock()
 PROCESSED_MEDIA: OrderedDict[str, str] = OrderedDict()
-PROCESSED_MEDIA_LOADED = False
+PROCESSED_MEDIA_LOADED = threading.Event()
 MAX_MEDIA_FILENAME_COMPONENT_LENGTH = 80
 
 
@@ -63,12 +64,11 @@ HTTP_SESSION = _create_http_session()
 
 def _load_processed_media_index() -> None:
     """Load the persisted media index once."""
-    global PROCESSED_MEDIA_LOADED
-    if PROCESSED_MEDIA_LOADED:
+    if PROCESSED_MEDIA_LOADED.is_set():
         return
 
     with PROCESSED_MEDIA_LOCK:
-        if PROCESSED_MEDIA_LOADED:
+        if PROCESSED_MEDIA_LOADED.is_set():
             return
         try:
             with open(MEDIA_INDEX_PATH, "r", encoding="utf8") as index_file:
@@ -81,7 +81,7 @@ def _load_processed_media_index() -> None:
                 if isinstance(media_key, str) and isinstance(timestamp, str):
                     PROCESSED_MEDIA[media_key] = timestamp
         _prune_processed_media_locked()
-        PROCESSED_MEDIA_LOADED = True
+        PROCESSED_MEDIA_LOADED.set()
 
 
 def _prune_processed_media_locked() -> None:
@@ -711,37 +711,30 @@ def update_camera_snapshot(
                         response = api.camera_snapshot(site_id=site_id, device_id=device.id)
                         if response and response.status_code == 200:
                             now = datetime.now()
-                            timestamp = int(now.timestamp())
-
-                            # Write image to temp file
-                            path = f"{device.id}-{timestamp}.jpeg"
-                            with open(path, "wb") as tmp_file:
-                                for chunk in response:
-                                    tmp_file.write(chunk)
-
-                            # Add Watermark
-                            insert_watermark(
-                                file=f"{os.getcwd()}/{path}",
-                                watermark=now.strftime("%Y-%m-%d %H:%M:%S"),
-                            )
-
-                            # Read and Push to MQTT
-                            with open(path, "rb") as tmp_file:
-                                image = tmp_file.read()
-                            byte_arr = bytearray(image)
-                            topic = (
-                                f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/snapshot"
-                            )
-                            mqtt_publish(
-                                mqtt_client=mqtt_client,
-                                topic=topic,
-                                payload=byte_arr,
-                                retain=True,
-                                is_json=False,
-                            )
-
-                            # Clean file
-                            os.remove(path)
+                            path = None
+                            try:
+                                path = write_temp_bytes(response, suffix=".jpeg")
+                                insert_watermark(
+                                    file=path,
+                                    watermark=now.strftime("%Y-%m-%d %H:%M:%S"),
+                                )
+                                with open(path, "rb") as tmp_file:
+                                    image = tmp_file.read()
+                                byte_arr = bytearray(image)
+                                topic = (
+                                    f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}"
+                                    f"/{site_id}/{device.id}/snapshot"
+                                )
+                                mqtt_publish(
+                                    mqtt_client=mqtt_client,
+                                    topic=topic,
+                                    payload=byte_arr,
+                                    retain=True,
+                                    is_json=False,
+                                )
+                            finally:
+                                remove_temp_file(path)
+                                response.close()
 
         except (requests.exceptions.RequestException, OSError, ValueError) as e:
             LOGGER.warning("Error while refreshing snapshot: {}".format(e))
@@ -762,17 +755,14 @@ def update_visiophone_snapshot(
         LOGGER.info("Skipping already processed visiophone snapshot")
         return
     now = datetime.now()
-    timestamp = int(now.timestamp())
     path = None
+    response = None
 
     try:
         response = HTTP_SESSION.get(url, stream=True, timeout=REQUEST_TIMEOUT)
         response.raise_for_status()
 
-        path = f"{device_id}-{timestamp}.jpeg"
-        with open(path, "wb") as tmp_file:
-            for chunk in response.iter_content(1024):  # Lire en morceaux de 1 KB
-                tmp_file.write(chunk)
+        path = write_temp_bytes(response.iter_content(1024), suffix=".jpeg")
     except requests.exceptions.RequestException as exc:
         LOGGER.warning("Error while Downloading snapshot: {}".format(exc))
         return
@@ -781,28 +771,29 @@ def update_visiophone_snapshot(
         LOGGER.warning("Snapshot file path not set")
         return
 
-    # Add Watermark
-    insert_watermark(
-        file=f"{os.getcwd()}/{path}",
-        watermark=now.strftime("%Y-%m-%d %H:%M:%S"),
-    )
+    try:
+        insert_watermark(
+            file=path,
+            watermark=now.strftime("%Y-%m-%d %H:%M:%S"),
+        )
 
-    # Read and Push to MQTT
-    with open(path, "rb") as tmp_file:
-        image = tmp_file.read()
-    byte_arr = bytearray(image)
-    topic = f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/snapshot"
-    mqtt_publish(
-        mqtt_client=mqtt_client,
-        topic=topic,
-        payload=byte_arr,
-        retain=True,
-        is_json=False,
-    )
-    if dedupe_key:
-        mark_media_processed(dedupe_key)
-    # Clean file
-    os.remove(path)
+        with open(path, "rb") as tmp_file:
+            image = tmp_file.read()
+        byte_arr = bytearray(image)
+        topic = f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device_id}/snapshot"
+        mqtt_publish(
+            mqtt_client=mqtt_client,
+            topic=topic,
+            payload=byte_arr,
+            retain=True,
+            is_json=False,
+        )
+        if dedupe_key:
+            mark_media_processed(dedupe_key)
+    finally:
+        remove_temp_file(path)
+        if response is not None:
+            response.close()
 
 
 def write_to_media_folder(
