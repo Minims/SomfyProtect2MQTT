@@ -30,6 +30,16 @@ from somfy_protect.websocket.handlers import video as video_handlers
 from websocket import WebSocketApp
 
 WEBSOCKET = "wss://websocket.myfox.io/events/websocket?token="
+WEBSOCKET_SENSITIVE_KEYS = {
+    "video.webrtc.offer",
+    "video.webrtc.answer",
+    "video.webrtc.candidate",
+    "video.webrtc.turn.config",
+    "video.webrtc.session",
+    "video.webrtc.keep_alive",
+    "video.webrtc.hang_up",
+    "video.webrtc.start",
+}
 
 LOGGER = logging.getLogger(__name__)
 
@@ -677,6 +687,9 @@ class SomfyProtectWebsocket:
         topic_suffix = message.get("key")
         if not topic_suffix:
             LOGGER.debug("Skipping default publish: message has no key")
+            return
+        if topic_suffix in WEBSOCKET_SENSITIVE_KEYS:
+            LOGGER.debug("Skipping default publish for sensitive websocket key {}".format(topic_suffix))
             return
         site_id = message.get("site_id")
         device_id = message.get("device_id")
