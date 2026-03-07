@@ -100,14 +100,13 @@ if __name__ == "__main__":
 
     # Setup Logger
     setup_logger(debug=DEBUG, filename="somfyProtect2Mqtt.log")
-    LOGGER.info(f"Starting SomfyProtect2Mqtt {VERSION}")
 
     CONFIG = read_config_file(CONFIG_FILE)
 
     # set Debug level from config or with -v
     DEBUG = CONFIG.get("debug", DEBUG)
-    LOG_LEVEL = logging.DEBUG if DEBUG else logging.INFO
-    LOGGER.setLevel(level=LOG_LEVEL)
+    setup_logger(debug=DEBUG, filename="somfyProtect2Mqtt.log")
+    LOGGER.info(f"Starting SomfyProtect2Mqtt {VERSION}")
 
     SSO = init_sso(config=CONFIG, config_file=CONFIG_FILE)
     if SSO is None:

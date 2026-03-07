@@ -43,6 +43,7 @@ def setup_logger(debug: bool = False, filename: str = "/var/log/somfyProtect.log
             logging.StreamHandler(),
             logging.FileHandler(filename=filename),
         ],
+        force=True,
     )
 
 
