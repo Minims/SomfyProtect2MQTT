@@ -88,6 +88,33 @@ def build_token_updater(cache_path: str) -> Callable[[Dict[str, Any]], None]:
     return _token_updater
 
 
+def migrate_legacy_token_cache(cache_path: str) -> None:
+    """Migrate a legacy token cache from the working directory.
+
+    Args:
+        cache_path (str): Target token cache path.
+    """
+    target_path = os.path.abspath(cache_path)
+    legacy_path = os.path.abspath(DEFAULT_CACHE_FILENAME)
+    if legacy_path == target_path:
+        return
+    if os.path.isfile(target_path) or not os.path.isfile(legacy_path):
+        return
+
+    token = read_token_from_file(legacy_path)
+    if not token:
+        LOGGER.warning("Skipping legacy token cache migration from {}".format(legacy_path))
+        return
+
+    write_token_to_file(token, target_path)
+    try:
+        os.remove(legacy_path)
+    except OSError as e:
+        LOGGER.warning("Unable to remove legacy token cache {}: {}".format(legacy_path, e))
+    else:
+        LOGGER.info("Migrated legacy token cache to {}".format(target_path))
+
+
 class SomfyProtectSso:
     """Somfy Protect Sso"""
 
@@ -247,6 +274,7 @@ def init_sso(config: dict, config_file: str | None = None) -> Optional[SomfyProt
         raise SomfyProtectInitError("Username/Password is missing in config")
 
     cache_path = resolve_token_cache_path(config_file)
+    migrate_legacy_token_cache(cache_path)
     sso = SomfyProtectSso(username=username, password=password, token_cache_path=cache_path)
     if not os.path.isfile(cache_path):
         token = sso.request_token()

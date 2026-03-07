@@ -66,6 +66,7 @@ Example:
 Add config to `<PATH-TO-CONFIG-FOLDER>`
 
 OAuth tokens are cached in `<PATH-TO-CONFIG-FOLDER>/token.json` with restricted file permissions.
+Legacy `token.json` files from older versions are migrated automatically on startup when possible.
 
 ### Manual Mode
 
