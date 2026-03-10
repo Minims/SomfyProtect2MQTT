@@ -5,7 +5,7 @@
 import logging
 
 from business import build_media_dedupe_key, update_visiophone_snapshot, write_to_media_folder
-from business.mqtt import mqtt_publish, update_device
+from business.mqtt import mqtt_publish
 
 LOGGER = logging.getLogger(__name__)
 
@@ -133,10 +133,9 @@ def device_doorlock_triggered(websocket_client, message: dict) -> None:
         mqtt_publish(
             mqtt_client=websocket_client.mqtt_client,
             topic=topic,
-            payload={"open_door": door_lock_status},
+            payload={"door_lock_state": door_lock_status},
             retain=True,
         )
-    update_device(websocket_client.api, websocket_client.mqtt_client, websocket_client.mqtt_config, site_id, device_id)
 
 
 def update_keyfob_presence(websocket_client, message: dict) -> None:

@@ -174,6 +174,17 @@ def _handle_access(text_payload, context: MqttContext) -> bool:
             access=text_payload,
         )
         LOGGER.debug(trigger_access)
+        threading.Timer(
+            1.0,
+            _schedule_device_refresh,
+            args=(
+                context.api,
+                context.mqtt_client,
+                context.mqtt_config,
+                site_id,
+                device_id,
+            ),
+        ).start()
     return True
 
 
