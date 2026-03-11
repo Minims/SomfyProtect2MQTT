@@ -3,61 +3,86 @@
 import argparse
 import logging
 import signal
-import sys
-
-# import os
-# import subprocess
 import threading
 import time
 
+from constants import WEBSOCKET_RECONNECT
 from exceptions import SomfyProtectInitError
-from somfy_protect_2_mqtt import SomfyProtect2Mqtt
-from utils import close_and_exit, setup_logger, read_config_file
 from mqtt import init_mqtt
-from somfy_protect.sso import init_sso
 from somfy_protect.api import SomfyProtectApi
+from somfy_protect.sso import init_sso
 from somfy_protect.websocket import SomfyProtectWebsocket
+from somfy_protect_2_mqtt import SomfyProtect2Mqtt
+from utils import read_config_file, setup_logger
 
-VERSION = "2026.1.1"
+VERSION = "2026.3.0"
 LOGGER = logging.getLogger(__name__)
 
 # Global flag for shutdown
-shutdown_flag = False
+shutdown_event = threading.Event()
 
 
-def signal_handler(sig, frame):
+def signal_handler(sig, _frame):
     """Handle shutdown signals"""
-    global shutdown_flag
     LOGGER.info(f"Received signal {sig}, shutting down gracefully...")
-    shutdown_flag = True
-    sys.exit(0)
+    shutdown_event.set()
 
 
 def somfy_protect_loop(config, mqtt_client, api):
     """SomfyProtect 2 MQTT Loop"""
+    somfy_protect_api = None
     try:
         somfy_protect_api = SomfyProtect2Mqtt(api=api, mqtt_client=mqtt_client, config=config)
         time.sleep(1)
-        somfy_protect_api.loop()
-    except SomfyProtectInitError as exc:
-        LOGGER.error(f"Force stopping Api {exc}")
-        if somfy_protect_api:
-            close_and_exit(somfy_protect_api, 0)
+        somfy_protect_api.loop(shutdown_event=shutdown_event)
+    except SomfyProtectInitError as e:
+        LOGGER.exception(f"Unable to initialize API loop: {e}")
+        shutdown_event.set()
+    except (OSError, RuntimeError, ValueError) as e:
+        LOGGER.exception(f"API loop stopped unexpectedly: {e}")
 
 
-def somfy_protect_wss_loop(sso, debug, config, mqtt_client, api):
+def _start_api_thread(config, mqtt_client, api):
+    return threading.Thread(
+        target=somfy_protect_loop,
+        args=(
+            config,
+            mqtt_client,
+            api,
+        ),
+        name="somfy-api-loop",
+    )
+
+
+def somfy_protect_wss_loop(sso, debug, config, mqtt_client, api, ws_state):
     """SomfyProtect WSS Loop"""
-    wss = None
+    websocket_client = None
     try:
-        wss = SomfyProtectWebsocket(sso=sso, debug=debug, config=config, mqtt_client=mqtt_client, api=api)
-        wss.run_forever()
-    except Exception as exc:
-        LOGGER.error(f"Force stopping WebSocket {exc}")
-        if wss:
-            wss.close()
+        websocket_client = SomfyProtectWebsocket(sso=sso, debug=debug, config=config, mqtt_client=mqtt_client, api=api)
+        ws_state["instance"] = websocket_client
+        websocket_client.run_forever()
+    except (OSError, RuntimeError) as e:
+        if not shutdown_event.is_set():
+            LOGGER.exception(f"WebSocket loop stopped unexpectedly: {e}")
     finally:
-        if wss:
-            wss.close()
+        if websocket_client:
+            websocket_client.close()
+        ws_state["instance"] = None
+
+
+def _start_wss_thread(sso, debug, config, mqtt_client, api, ws_state):
+    return threading.Thread(
+        target=somfy_protect_wss_loop,
+        args=(
+            sso,
+            debug,
+            config,
+            mqtt_client,
+            api,
+            ws_state,
+        ),
+        name="somfy-websocket-loop",
+    )
 
 
 if __name__ == "__main__":
@@ -75,75 +100,94 @@ if __name__ == "__main__":
 
     # Setup Logger
     setup_logger(debug=DEBUG, filename="somfyProtect2Mqtt.log")
-    LOGGER.info(f"Starting SomfyProtect2Mqtt {VERSION}")
 
     CONFIG = read_config_file(CONFIG_FILE)
 
     # set Debug level from config or with -v
     DEBUG = CONFIG.get("debug", DEBUG)
-    LOG_LEVEL = logging.DEBUG if DEBUG else logging.INFO
-    LOGGER.setLevel(level=LOG_LEVEL)
+    setup_logger(debug=DEBUG, filename="somfyProtect2Mqtt.log")
+    LOGGER.info(f"Starting SomfyProtect2Mqtt {VERSION}")
 
-    SSO = init_sso(config=CONFIG)
+    SSO = init_sso(config=CONFIG, config_file=CONFIG_FILE)
+    if SSO is None:
+        raise SomfyProtectInitError("Unable to initialize SSO")
     API = SomfyProtectApi(sso=SSO)
     MQTT_CLIENT = init_mqtt(config=CONFIG, api=API)
 
-    # with open(os.devnull, "w", encoding="utf-8") as t:
-    #     subprocess.Popen(["nohup", "python3", "-m", "http.server", "8080"], stdout=t, stderr=t)
+    p1 = None
+    p2 = None
+    websocket_state = {"instance": None}
+    API_RESTART_BACKOFF = 5.0
 
     try:
-        p1 = threading.Thread(
-            target=somfy_protect_loop,
-            args=(
-                CONFIG,
-                MQTT_CLIENT,
-                API,
-            ),
+        p1 = _start_api_thread(
+            CONFIG,
+            MQTT_CLIENT,
+            API,
         )
-        p2 = threading.Thread(
-            target=somfy_protect_wss_loop,
-            args=(
-                SSO,
-                DEBUG,
-                CONFIG,
-                MQTT_CLIENT,
-                API,
-            ),
+        p2 = _start_wss_thread(
+            SSO,
+            DEBUG,
+            CONFIG,
+            MQTT_CLIENT,
+            API,
+            websocket_state,
         )
         p1.start()
         p2.start()
-        while True:
-            if shutdown_flag:
-                LOGGER.info("Shutdown requested, stopping threads...")
-                break
-
+        last_wss_restart = time.monotonic()
+        last_api_restart = time.monotonic()
+        while not shutdown_event.wait(1):
             if not p2.is_alive():
+                now = time.monotonic()
+                elapsed = now - last_wss_restart
+                delay = max(0.0, WEBSOCKET_RECONNECT - elapsed)
+                if delay > 0:
+                    LOGGER.info(f"WebSocket restart delayed by {delay:.1f}s")
+                    if shutdown_event.wait(delay):
+                        break
                 LOGGER.warning("Websocket is DEAD, restarting")
-                p2 = threading.Thread(
-                    target=somfy_protect_wss_loop,
-                    args=(
-                        SSO,
-                        DEBUG,
-                        CONFIG,
-                        MQTT_CLIENT,
-                        API,
-                    ),
+                p2 = _start_wss_thread(
+                    SSO,
+                    DEBUG,
+                    CONFIG,
+                    MQTT_CLIENT,
+                    API,
+                    websocket_state,
                 )
                 p2.start()
+                last_wss_restart = time.monotonic()
 
             if not p1.is_alive():
+                now = time.monotonic()
+                elapsed = now - last_api_restart
+                delay = max(0.0, API_RESTART_BACKOFF - elapsed)
+                if delay > 0:
+                    LOGGER.info(f"API restart delayed by {delay:.1f}s")
+                    if shutdown_event.wait(delay):
+                        break
                 LOGGER.warning("API is DEAD, restarting")
-                p1 = threading.Thread(
-                    target=somfy_protect_loop,
-                    args=(
-                        CONFIG,
-                        MQTT_CLIENT,
-                        API,
-                    ),
+                p1 = _start_api_thread(
+                    CONFIG,
+                    MQTT_CLIENT,
+                    API,
                 )
                 p1.start()
+                last_api_restart = time.monotonic()
 
-            time.sleep(1)
+        LOGGER.info("Shutdown requested, stopping threads...")
+    except (OSError, RuntimeError, ValueError) as e:
+        LOGGER.exception(f"Force stopping application {e}")
+    finally:
+        shutdown_event.set()
+        active_websocket = websocket_state.get("instance")
+        if active_websocket:
+            active_websocket.close()
 
-    except Exception as exp:
-        LOGGER.error(f"Force stopping application {exp}")
+        if p1 and p1.is_alive():
+            p1.join(timeout=10)
+        if p2 and p2.is_alive():
+            p2.join(timeout=10)
+
+        MQTT_CLIENT.shutdown()
+        LOGGER.info("Application stopped")

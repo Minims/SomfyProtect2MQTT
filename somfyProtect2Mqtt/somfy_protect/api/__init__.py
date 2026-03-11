@@ -1,21 +1,30 @@
 """Somfy Protect Api"""
 
 import base64
-import logging
 import json
+import logging
+import time
 from json import JSONDecodeError
 from typing import Any, Callable, Dict, List, Optional, Union
+from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
-from oauthlib.oauth2 import TokenExpiredError
-from requests import Response
+from constants import REQUEST_TIMEOUT
+from requests import RequestException, Response
 from requests_oauthlib import OAuth2Session
-
 from somfy_protect.api.devices.category import Category
 from somfy_protect.api.model import AvailableStatus, Device, Site, User
-
-from somfy_protect.sso import SomfyProtectSso, read_token_from_file
+from somfy_protect.sso import SomfyProtectSso
 
 LOGGER = logging.getLogger(__name__)
+SIREN_TEST_SOUNDS = [
+    "smokeExtended",
+    "siren1s",
+    "armed",
+    "disarmed",
+    "intrusion",
+    "ok",
+]
+TEST_SIREN_ACTIONS = [f"test_{sound}" for sound in SIREN_TEST_SOUNDS]
 
 
 BASE_URL = "https://api.myfox.io"
@@ -69,143 +78,193 @@ class SomfyProtectApi:
 
     def __init__(self, sso: SomfyProtectSso):
         self.sso = sso
+        self._metrics = {}
 
     def _request(self, method: str, path: str, base_url: str = BASE_URL, **kwargs: Any) -> Response:
-        """Make a request.
+        """Make an HTTP request.
 
         We don't use the built-in token refresh mechanism of OAuth2 session because
         we want to allow overriding the token refresh logic.
 
         Args:
-            method (str): HTTP Methid
-            path (str): Path to request
+            method (str): HTTP method.
+            path (str): Request path.
+            base_url (str): Base URL for the request.
+            **kwargs: Extra arguments passed to the HTTP client.
 
         Returns:
-            Response: requests Response object
+            Response: Requests response object.
+
+        Raises:
+            RequestException: When the HTTP request fails.
         """
 
         url = f"{base_url}{path}"
-        try:
-            return getattr(self.sso._oauth, method)(url, **kwargs)  # pylint: disable=protected-access
-        except TokenExpiredError:
-            self.sso._oauth.token = self.sso.refresh_tokens()  # pylint: disable=protected-access
+        kwargs.setdefault("timeout", REQUEST_TIMEOUT)
 
-            return getattr(self.sso._oauth, method)(url, **kwargs)  # pylint: disable=protected-access
+        start_time = time.monotonic()
+        try:
+            response, refreshed = self.sso.request(method, url, **kwargs)
+        except RequestException as exc:
+            LOGGER.error("Request failed {} {}: {}".format(method.upper(), _redact_url(url), exc))
+            raise
+
+        elapsed_ms = (time.monotonic() - start_time) * 1000
+        self._record_metrics(method, path, response.status_code, elapsed_ms, refreshed)
+        LOGGER.debug(
+            "API {} {} -> {} in {:.1f}ms".format(
+                method.upper(),
+                _redact_url(url),
+                response.status_code,
+                elapsed_ms,
+            )
+        )
+
+        return response
+
+    def _record_metrics(self, method: str, path: str, status: int, elapsed_ms: float, refreshed: bool) -> None:
+        key = f"{method.upper()} {path}"
+        stats = self._metrics.get(key, {"count": 0, "total_ms": 0.0, "errors": 0, "refresh": 0})
+        stats["count"] += 1
+        stats["total_ms"] += elapsed_ms
+        if status >= 400:
+            stats["errors"] += 1
+        if refreshed:
+            stats["refresh"] += 1
+        self._metrics[key] = stats
 
     def get(self, path: str, base_url: str = BASE_URL) -> Response:
-        """Fetch an URL from the Somfy Protect API.
+        """Fetch a URL from the Somfy Protect API.
 
         Args:
-            path (str): Path to request
+            path (str): Request path.
+            base_url (str): Base URL for the request.
 
         Returns:
-            Response: requests Response object
+            Response: Requests response object.
         """
-        LOGGER.debug(f"{base_url}{path}")
+        LOGGER.debug("{}".format(_redact_url(f"{base_url}{path}")))
         return self._request("get", path, base_url)
 
-    def post(self, path: str, *, json: Dict[str, Any]) -> Response:
+    def post(self, path: str, *, payload: Dict[str, Any]) -> Response:
         """Post data to the Somfy Protect API.
 
         Args:
-            path (str): Path to request
-            json (Dict[str, Any]): Data in json format
+            path (str): Request path.
+            payload (Dict[str, Any]): JSON payload.
 
         Returns:
-            Response: requests Response object
+            Response: Requests response object.
         """
-        return self._request("post", path, json=json)
+        return self._request("post", path, json=payload)
 
-    def put(self, path: str, *, json: Dict[str, Any]) -> Response:
+    def put(self, path: str, *, payload: Dict[str, Any]) -> Response:
         """Put data to the Somfy Protect API.
 
         Args:
-            path (str): Path to request
-            json (Dict[str, Any]): Data in json format
+            path (str): Request path.
+            payload (Dict[str, Any]): JSON payload.
 
         Returns:
-            Response: requests Response object
+            Response: Requests response object.
         """
-        print(json)
-        return self._request("put", path, json=json)
+        return self._request("put", path, json=payload)
 
     def get_sites(self) -> List[Site]:
-        """Get All Sites
+        """Get all sites.
 
         Returns:
-            List[Site]: List of Site object
+            List[Site]: Sites returned by the API.
         """
         response = self.get("/v3/site")
         response.raise_for_status()
         return [Site(**s) for s in response.json().get("items")]
 
     def get_site(self, site_id: str) -> Site:
-        """Get Site
+        """Get a site.
 
         Args:
-            site_id (str): Site ID
+            site_id (str): Site ID.
 
 
         Returns:
-            Site: Site object
+            Site: Site returned by the API.
         """
         response = self.get(f"/v3/site/{site_id}")
         response.raise_for_status()
         return Site(**response.json())
 
-    def get_site_scenario(self, site_id: str) -> Site:
-        """Get Site
+    def get_site_scenario(self, site_id: str) -> Dict[str, Any]:
+        """Get site scenarios.
 
         Args:
-            site_id (str): Site ID
+            site_id (str): Site ID.
 
 
         Returns:
-            Site: Site object
+            Dict[str, Any]: Scenario payload.
         """
         response = self.get(f"/v4/api/site/{site_id}/device/all/scenario")
         response.raise_for_status()
         return response.json()
 
-    def update_security_level(self, site_id: str, security_level: AvailableStatus) -> Dict:
-        """Set Alarm Security Level
+    def update_security_level(self, site_id: str, security_level: Union[AvailableStatus, str]) -> Dict:
+        """Set alarm security level.
 
         Args:
-            site_id (str): Site ID
-            security_level (AvailableStatus): Security Level
+            site_id (str): Site ID.
+            security_level (Union[AvailableStatus, str]): Target security level.
+
         Returns:
-            Dict: requests Response object
+            Dict[str, Any]: API response payload.
         """
-        security_level = {"status": security_level.lower()}
-        response = self.put(f"/v3/site/{site_id}/security", json=security_level)
+        if isinstance(security_level, AvailableStatus):
+            status = security_level.name.lower()
+        elif isinstance(security_level, str):
+            status = security_level.strip().lower()
+            status_aliases = {
+                "armed_away": "armed",
+                "armed_night": "partial",
+            }
+            status = status_aliases.get(status, status)
+            valid_statuses = {available_status.name.lower() for available_status in AvailableStatus}
+            if status not in valid_statuses:
+                raise ValueError(f"Unknown security level {security_level}")
+        else:
+            raise ValueError(f"Unknown security level type {type(security_level)}")
+
+        payload = {"status": status}
+        response = self.put(f"/v3/site/{site_id}/security", payload=payload)
         response.raise_for_status()
         return response.json()
 
     def stop_alarm(self, site_id: str) -> Dict:
-        """Stop Current Alarm
+        """Stop the current alarm.
 
         Args:
-            site_id (str): Site ID
+            site_id (str): Site ID.
+
         Returns:
-            Dict: requests Response object
+            Dict[str, Any]: API response payload.
         """
-        response = self.put(f"/v3/site/{site_id}/alarm/stop", json={})
+        response = self.put(f"/v3/site/{site_id}/alarm/stop", payload={})
         response.raise_for_status()
         return response.json()
 
     def trigger_alarm(self, site_id: str, mode: str) -> Dict:
-        """Trigger Alarm
+        """Trigger an alarm.
 
         Args:
-            site_id (str): Site ID
-            mode (str): Mode (silent, alarm)
+            site_id (str): Site ID.
+            mode (str): Mode (silent, alarm).
+
         Returns:
-            Dict: requests Response object
+            Dict[str, Any]: API response payload.
         """
         if mode not in ["silent", "alarm"]:
             raise ValueError("Mode must be 'silent' or 'alarm'")
         payload = {"type": mode}
-        response = self.post(f"/v3/site/{site_id}/panic", json=payload)
+        response = self.post(f"/v3/site/{site_id}/panic", payload=payload)
         response.raise_for_status()
         return response.json()
 
@@ -216,15 +275,16 @@ class SomfyProtectApi:
         action: str,
         video_backend: Optional[str] = None,
     ) -> Dict:
-        """Make an action on a Device
+        """Trigger a device action.
 
         Args:
-            site_id (str): Site ID
-            device_id (str): Device ID
-            action (str): Action
+            site_id (str): Site ID.
+            device_id (str): Device ID.
+            action (str): Action name.
+            video_backend (Optional[str]): Video backend to apply.
 
         Returns:
-            str: Task ID
+            Dict[str, Any]: API response payload.
         """
         if action not in ACTION_LIST:
             raise ValueError(f"Unknown action {action}")
@@ -232,12 +292,12 @@ class SomfyProtectApi:
         if video_backend:
             response = self.post(
                 f"/v3/site/{site_id}/device/{device_id}/action",
-                json={"action": action, "video_backend": video_backend},
+                payload={"action": action, "video_backend": video_backend},
             )
         else:
             response = self.post(
                 f"/v3/site/{site_id}/device/{device_id}/action",
-                json={"action": action},
+                payload={"action": action},
             )
         response.raise_for_status()
         return response.json()
@@ -249,128 +309,134 @@ class SomfyProtectApi:
         device_label: str,
         settings: Dict,
     ) -> Dict:
-        """Update Device Settings
+        """Update device settings.
 
         Args:
-            site_id (str): Site ID
-            device_id (str): Device ID
-            device_label (str): Device Label
-            settings (Dict): Settings (as return by get_device)
+            site_id (str): Site ID.
+            device_id (str): Device ID.
+            device_label (str): Device label.
+            settings (Dict[str, Any]): Settings payload from get_device.
 
         Returns:
-            str: Task ID
+            Dict[str, Any]: API response payload.
         """
         if settings is None or device_label is None:
             raise ValueError("Missing settings and/or device_label")
 
         # Clean Settings Dict
-        settings.pop("object")
+        settings.pop("object", None)
 
         payload = {"settings": settings, "label": device_label}
-        response = self.put(f"/v3/site/{site_id}/device/{device_id}", json=payload)
+        response = self.put(f"/v3/site/{site_id}/device/{device_id}", payload=payload)
         response.raise_for_status()
         return response.json()
 
-    def camera_snapshot(self, site_id: str, device_id: str) -> Device:
-        """Get Camera Snapshot
+    def camera_snapshot(self, site_id: str, device_id: str) -> Optional[Response]:
+        """Get a camera snapshot.
 
         Args:
-            site_id (str): Site ID
-            device_id (str): Site ID
+            site_id (str): Site ID.
+            device_id (str): Device ID.
 
         Returns:
-            Response: Response Image
+            Optional[Response]: Snapshot response when available.
         """
         response = self.post(
             f"/video/site/{site_id}/device/{device_id}/snapshot",
-            json={"refresh": 10},
+            payload={"refresh": 10},
         )
         response.raise_for_status()
         if response.status_code == 200:
             return response
+        return None
 
-    def camera_refresh_snapshot(self, site_id: str, device_id: str) -> Device:
-        """Get Camera Snapshot
+    def camera_refresh_snapshot(self, site_id: str, device_id: str) -> Dict[str, Any]:
+        """Request a camera snapshot refresh.
 
         Args:
-            site_id (str): Site ID
-            device_id (str): Site ID
+            site_id (str): Site ID.
+            device_id (str): Device ID.
 
         Returns:
-            Task: Somfy Task
+            Dict[str, Any]: API response payload.
         """
         response = self.post(
             f"/video/site/{site_id}/device/{device_id}/refresh-snapshot",
-            json={},
+            payload={},
         )
         response.raise_for_status()
         return response.json()
 
     def get_devices(self, site_id: str, category: Optional[Category] = None) -> List[Device]:
-        """List Devices from a Site ID
+        """List devices for a site.
 
         Args:
-            site_id (Optional[str], optional): Site ID. Defaults to None.
-            category (Optional[Category], optional): [description]. Defaults to None.
+            site_id (str): Site ID.
+            category (Optional[Category]): Filter by category.
 
         Returns:
-            List[Device]: List of Device object
+            List[Device]: Devices returned by the API.
         """
         devices = []  # type: List[Device]
         response = self.get(f"/v3/site/{site_id}/device")
         try:
             content = response.json()
-        except JSONDecodeError:
+        except JSONDecodeError as exc:
             response.raise_for_status()
-        LOGGER.debug(f"Devices Capabilities: {response.json()}")
-        devices += [
-            Device(**d)
-            for d in content.get("items")
-            if category is None or category.value.lower() in Device(**d).device_definition.get("label").lower()
-        ]
+            LOGGER.error("Unable to decode devices response: {}".format(response.text))
+            raise exc
+        LOGGER.debug("Devices Capabilities: {}".format(content))
+        for device_data in content.get("items"):
+            device = Device(**device_data)
+            if category is None:
+                devices.append(device)
+                continue
+            label = device.device_definition.get("label") or ""
+            if category.value.lower() in label.lower():
+                devices.append(device)
 
         return devices
 
     def get_device(self, site_id: str, device_id: str) -> Device:
-        """Get Device details
+        """Get device details.
 
         Args:
-            site_id (str): Site ID
-            device_id (str): Site ID
+            site_id (str): Site ID.
+            device_id (str): Device ID.
 
         Returns:
-            Device: Device object
+            Device: Device returned by the API.
         """
         response = self.get(f"/v3/site/{site_id}/device/{device_id}")
         response.raise_for_status()
         return Device(**response.json())
 
     def get_users(self, site_id: str) -> List[User]:
-        """List Users from a Site ID
+        """List users for a site.
 
         Args:
-            site_id[str]: Site ID. Defaults to None.
+            site_id (str): Site ID.
 
         Returns:
-            List[User]: List of User object
+            List[User]: Users returned by the API.
         """
         response = self.get(f"/v3/site/{site_id}/user")
-        print(response)
+        LOGGER.debug("Users response status: {}".format(response.status_code))
         response.raise_for_status()
         return [User(**s) for s in response.json().get("items")]
 
-    def get_user(self, site_id: str, user_id: str) -> User:
-        """Get User details
+    def get_user(self, site_id: str, user_id: str) -> Dict[str, Any]:
+        """Get user details.
 
         Args:
-            site_id (str): Site ID
-            user_id (str): Site ID
+            site_id (str): Site ID.
+            user_id (str): User ID.
 
         Returns:
-            User: User object
+            Dict[str, Any]: API response payload.
         """
         response = self.get(f"/v3/site/{site_id}/user/{user_id}")
-        print(response)
+        LOGGER.debug("User response status: {}".format(response.status_code))
         response.raise_for_status()
         return response.json()
 
@@ -380,22 +446,22 @@ class SomfyProtectApi:
         user_id: str,
         action: str,
     ) -> Dict:
-        """Make an action on a User
+        """Trigger a user action.
 
         Args:
-            site_id (str): Site ID
-            user_id (str): User ID
-            action (str): Action
+            site_id (str): Site ID.
+            user_id (str): User ID.
+            action (str): Action name.
 
         Returns:
-            str: Task ID
+            Dict[str, Any]: API response payload.
         """
         if action not in ACTION_LIST:
             raise ValueError(f"Unknown action {action}")
 
         response = self.post(
             f"/v3/site/{site_id}/user/{user_id}/action",
-            json={"action": action},
+            payload={"action": action},
         )
         response.raise_for_status()
         return response.json()
@@ -404,13 +470,13 @@ class SomfyProtectApi:
         self,
         site_id: str,
     ):
-        """Get Scenarios Core
+        """Get scenario core details.
 
         Args:
-            site_id (str): Site ID
+            site_id (str): Site ID.
 
         Returns:
-            ??
+            Dict[str, Any]: API response payload.
         """
         response = self.get(f"/v3/site/{site_id}/scenario-core")
         response.raise_for_status()
@@ -420,38 +486,32 @@ class SomfyProtectApi:
         self,
         site_id: str,
     ):
-        """Get Scenarios
+        """Get scenarios.
 
         Args:
-            site_id (str): Site ID
+            site_id (str): Site ID.
 
         Returns:
-            ??
+            Dict[str, Any]: API response payload.
         """
         response = self.get(f"/v3/site/{site_id}/scenario")
         response.raise_for_status()
         return response.json()
 
     def test_siren(self, site_id: str, device_id: str, sound: str) -> Dict:
-        """Test Siren
+        """Test a siren.
 
         Args:
-            site_id (str): Site ID
-            device_id (str) Device ID
-            sound (str): Sound (smokeExtended, siren1s, armed, disarmed, intrusion, ok)
+            site_id (str): Site ID.
+            device_id (str): Device ID.
+            sound (str): Sound (smokeExtended, siren1s, armed, disarmed, intrusion, ok).
+
         Returns:
-            Dict: requests Response object
+            Dict[str, Any]: API response payload.
         """
-        if sound not in [
-            "smokeExtended",
-            "siren1s",
-            "armed",
-            "disarmed",
-            "intrusion",
-            "ok",
-        ]:
+        if sound not in SIREN_TEST_SOUNDS:
             raise ValueError("Sound value is not valid")
-        response = self.post(f"/v3/site/{site_id}/device/{device_id}/sound/{sound}", json={})
+        response = self.post(f"/v3/site/{site_id}/device/{device_id}/sound/{sound}", payload={})
         response.raise_for_status()
         return response.json()
 
@@ -459,13 +519,13 @@ class SomfyProtectApi:
         self,
         site_id: str,
     ):
-        """Get Scenarios
+        """Get site history.
 
         Args:
-            site_id (str): Site ID
+            site_id (str): Site ID.
 
         Returns:
-            ??
+            List[Dict[str, Any]]: History items.
         """
         # response = self.get(f"/v3/site/{site_id}/history?order=-1&limit=100")
         response = self.get(f"/v3/site/{site_id}/history")
@@ -477,18 +537,24 @@ class SomfyProtectApi:
         site_id: str,
         device_id: str,
     ):
-        """Get Device Events
+        """Get device events.
 
         Args:
-            site_id (str): Site ID
-            device_id (str): Device ID
+            site_id (str): Site ID.
+            device_id (str): Device ID.
 
         Returns:
-            ??
+            Dict[str, Any]: API response payload.
         """
-        token = read_token_from_file().get("access_token")
-        response = self.get(f"/event/site/{site_id}/device/{device_id}/events?access_token={token}", base_url=VIDEO_URL)
-        LOGGER.info(response.json())
+        token = self.sso.get_token().get("access_token")
+        if not token:
+            LOGGER.error("Missing access token for device events")
+            return {}
+        response = self.get(
+            f"/event/site/{site_id}/device/{device_id}/events?access_token={token}",
+            base_url=VIDEO_URL,
+        )
+        LOGGER.debug("Device events response status: {}".format(response.status_code))
         response.raise_for_status()
         return response.json()
 
@@ -498,22 +564,40 @@ class SomfyProtectApi:
         device_id: str,
         access: str,
     ) -> Dict:
-        """Make an action on a Device
+        """Trigger a device access action.
 
         Args:
-            site_id (str): Site ID
-            device_id (str): Device ID
-            access (str): Access
+            site_id (str): Site ID.
+            device_id (str): Device ID.
+            access (str): Access action.
 
         Returns:
-            str: Task ID
+            Dict[str, Any]: API response payload.
         """
         if access not in ACCESS_LIST:
             raise ValueError(f"Unknown action {access}")
 
         response = self.post(
             f"/v3/site/{site_id}/device/{device_id}/access/trigger",
-            json={"type": access},
+            payload={"type": access},
         )
         response.raise_for_status()
         return response.json()
+
+
+def _redact_url(url: str) -> str:
+    parsed = urlparse(url)
+    query = parse_qs(parsed.query)
+    if "access_token" in query:
+        query["access_token"] = ["****"]
+    redacted_query = urlencode(query, doseq=True)
+    return urlunparse(
+        (
+            parsed.scheme,
+            parsed.netloc,
+            parsed.path,
+            parsed.params,
+            redacted_query,
+            parsed.fragment,
+        )
+    )

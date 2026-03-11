@@ -1,7 +1,7 @@
 """Models Definition"""
 
 from enum import Enum
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 
 class Site:
@@ -26,7 +26,7 @@ class Site:
         services: Dict,
         **_: Any,
     ):
-        self.id = site_id  # pylint: disable=invalid-name
+        self.id = site_id
         self.label = label
         self.security_level = security_level
         self.diagnosis_status = diagnosis_status
@@ -60,11 +60,11 @@ class Device:
         status: Dict,
         diagnosis: Dict,
         settings: Dict,
-        update_available: str = "False",
-        video_backend: str = None,
+        update_available: bool = False,
+        video_backend: Optional[str] = None,
         **_: Any,
     ):
-        self.id = device_id  # pylint: disable=invalid-name
+        self.id = device_id
         self.site_id = site_id
         self.label = label
         self.version = version
@@ -77,10 +77,7 @@ class Device:
 
 
 class AvailableStatus(Enum):
-    """List of Allowed Security Level
-    Args:
-        Enum (str): Security Level
-    """
+    """Allowed security levels."""
 
     DISARMED = 1
     ARMED = 2
@@ -116,7 +113,7 @@ class User:
         geo_fence: Dict,
         **_: Any,
     ):
-        self.id = user_id  # pylint: disable=invalid-name
+        self.id = user_id
         self.display_name = display_name
         self.display_my_presence = display_my_presence
         self.present = present

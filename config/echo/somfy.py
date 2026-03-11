@@ -22,6 +22,6 @@ LOGGER.info("Start")
 try:
     with open(f"{FOLDER}/stream_url_{sys.argv[1]}", "r", encoding="utf-8") as url:
         print(f"ffmpeg:{url.read()}#video=copy")
-        LOGGER.info(f"ffmpeg:{url.read()}#video=copy")
+        LOGGER.info("ffmpeg:{}#video=copy".format(url.read()))
 except FileNotFoundError as exc:
     LOGGER.warning(exc)

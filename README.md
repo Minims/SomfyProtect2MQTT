@@ -15,7 +15,7 @@ Supported:
 ## What is Working
 
 - Retrieve some status of the alarm and its devices.
-- Set security level: armed, disarmed, partial.
+- Set security level: armed, disarmed, partial (HA aliases `armed_away` and `armed_night` are also supported on MQTT command payloads).
 - HA MQTT Discovery.
 - Stop the Alarm
 - Trigger the Alarm
@@ -55,9 +55,18 @@ Then all devices will appear in MQTT integration
 
 ### Easy Mode (Running in Docker Container)
 
-Run docker container: `docker run -v <PATH-TO-CONFIG-FOLDER>:/config minims/somfyprotect2mqtt`
+Run docker container (recommended: pin a version tag):
+
+`docker run -v <PATH-TO-CONFIG-FOLDER>:/config minims/somfyprotect2mqtt:<VERSION>`
+
+Example:
+
+`docker run -v <PATH-TO-CONFIG-FOLDER>:/config minims/somfyprotect2mqtt:v2026.2.0`
 
 Add config to `<PATH-TO-CONFIG-FOLDER>`
+
+OAuth tokens are cached in `<PATH-TO-CONFIG-FOLDER>/token.json` with restricted file permissions.
+Legacy `token.json` files from older versions are migrated automatically on startup when possible.
 
 ### Manual Mode
 
@@ -83,6 +92,8 @@ Copy config file and setup your own credentials for SomfyProtect & MQTT.
 cd /opt/SomfyProtect2MQTT/somfyProtect2Mqtt
 cp config/config.yaml.example config/config.yaml
 ```
+
+The OAuth token cache is stored next to the config file as `config/token.json` and contains local secret material.
 
 ## Running
 

@@ -10,6 +10,7 @@
 # Tokens et credentials
 # ============================================
 token.json
+**/token.json
 
 # ============================================
 # Configuration utilisateur

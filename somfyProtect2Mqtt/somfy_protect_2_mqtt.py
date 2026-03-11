@@ -3,17 +3,17 @@
 import logging
 from time import sleep
 
-from exceptions import SomfyProtectInitError
 import schedule
-from somfy_protect.api import SomfyProtectApi
 from business import (
+    ha_devices_config,
+    ha_sites_config,
     update_camera_snapshot,
     update_devices_status,
     update_sites_status,
-    ha_devices_config,
-    ha_sites_config,
 )
+from exceptions import SomfyProtectInitError
 from mqtt import MQTTClient
+from somfy_protect.api import SomfyProtectApi
 
 LOGGER = logging.getLogger(__name__)
 
@@ -38,7 +38,10 @@ class SomfyProtect2Mqtt:
         """
         logging.info("Init SomfyProtect2Mqtt")
 
-        self.my_sites = config.get("somfy_protect").get("sites")
+        somfy_config = config.get("somfy_protect") or {}
+        self.my_sites = somfy_config.get("sites")
+        if not self.my_sites:
+            raise SomfyProtectInitError("Missing somfy_protect.sites in config")
         self.my_sites_id = []
 
         self.delay_site = config.get("delay_site", 60)
@@ -56,7 +59,7 @@ class SomfyProtect2Mqtt:
 
         self.mqtt_config = config.get("mqtt")
         if self.mqtt_config is None:
-            raise SomfyProtectInitError
+            raise SomfyProtectInitError("MQTT config is missing")
 
         sites = self.api.get_sites()
         LOGGER.info(f"Found {len(sites)} Site(s)")
@@ -68,10 +71,10 @@ class SomfyProtect2Mqtt:
             else:
                 LOGGER.info(f"Site '{site.label}' is not set in configuration, Update it if you want to add this Site")
 
-    def close(self) -> None:  # pylint: disable=no-self-use
+    def close(self) -> None:
         """Close"""
 
-    def loop(self) -> None:
+    def loop(self, shutdown_event=None) -> None:
         """Main Loop"""
         # Config
         ha_sites_config(
@@ -110,6 +113,7 @@ class SomfyProtect2Mqtt:
         )
 
         # Schedule Refreshs
+        schedule.clear()
         schedule.every(self.delay_site).seconds.do(
             update_sites_status,
             api=self.api,
@@ -134,5 +138,8 @@ class SomfyProtect2Mqtt:
             )
 
         while True:
+            if shutdown_event and shutdown_event.is_set():
+                LOGGER.info("Shutdown event set, exiting main loop")
+                break
             schedule.run_pending()
-            sleep(10)
+            sleep(1)

@@ -1,9 +1,8 @@
 """Devices Categories"""
 
-from aenum import Enum, unique
+from aenum import Enum
 
 
-@unique
 class Category(Enum):
     """List of Known Devices"""
 
@@ -12,7 +11,8 @@ class Category(Enum):
     VIDEOPHONE = "Connected Videophone"
     MYFOX_CAMERA = "Myfox security camera"
     INDOOR_SIREN = "Myfox Security Siren"
-    OUTDDOR_CAMERA = "Somfy Outdoor Camera"
+    OUTDOOR_CAMERA = "Somfy Outdoor Camera"
+    OUTDDOR_CAMERA = OUTDOOR_CAMERA
     OUTDOOR_SIREN = "Myfox Security Outdoor Siren"
     INTELLITAG = "IntelliTag"
     KEY_FOB = "Key Fob"
@@ -27,3 +27,4 @@ class Category(Enum):
         for member in cls:
             if member.name.lower() == name.lower():
                 return member
+        return None

@@ -1,15 +1,15 @@
 [tool.poetry]
 name = "somfyProtect2Mqtt"
-version = "2026.1.1"
+version = "2026.3.0"
 description = "Somfy Home Alarm Addon"
 authors = ["Minims <github@minims.fr>"]
 readme = "README.md"
 package-mode = false
 
 [tool.poetry.dependencies]
-python = ">=3.11"
+python = ">=3.12"
 aenum = ">=3.1.15"
-aiortc = ">=1.9.0"
+aiortc = "==1.14.0"
 oauthlib = ">=3.2.2"
 paho-mqtt = ">=2.1.0"
 pillow = ">=11.1.0"
@@ -37,5 +37,3 @@ line-length = 120
 [tool.isort]
 profile = "black"
 line_length = 120
-
-

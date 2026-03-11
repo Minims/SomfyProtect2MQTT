@@ -6,9 +6,8 @@ import ssl
 from time import sleep
 
 import paho.mqtt.client as mqtt
-from business.mqtt import consume_mqtt_message, SUBSCRIBE_TOPICS
+from business.mqtt import SUBSCRIBE_TOPICS, consume_mqtt_message
 from exceptions import SomfyProtectInitError
-from homeassistant.ha_discovery import ALARM_STATUS
 from somfy_protect.api import SomfyProtectApi
 
 LOGGER = logging.getLogger(__name__)
@@ -26,10 +25,10 @@ class MQTTClient:
         self.client.on_publish = self.on_publish
         self.client.on_disconnect = self.on_disconnect
         self.client.username_pw_set(config.get("username"), config.get("password"))
-        self.client.connect(config.get("host", "127.0.0.1"), config.get("port", 1883), 60)
         if config.get("ssl", False) is True:
             self.client.tls_set(cert_reqs=ssl.CERT_NONE)
             self.client.tls_insecure_set(True)
+        self.client.connect(config.get("host", "127.0.0.1"), config.get("port", 1883), 60)
         self.client.loop_start()
 
         self.config = config
@@ -38,19 +37,19 @@ class MQTTClient:
 
         LOGGER.debug("MQTT client initialized")
 
-    def on_connect(self, mqttc, obj, flags, rc):  # pylint: disable=unused-argument,invalid-name
+    def on_connect(self, _mqttc, _obj, _flags, rc):
         """MQTT on_connect"""
         if rc == 0:
-            LOGGER.info(f"Connected: {rc}")
-            for topic in SUBSCRIBE_TOPICS:
-                LOGGER.info(f"Subscribing to: {topic}")
+            LOGGER.info("Connected: {}".format(rc))
+            for topic in sorted(SUBSCRIBE_TOPICS):
+                LOGGER.info("Subscribing to: {}".format(topic))
                 self.client.subscribe(topic)
         else:
-            LOGGER.info(f"Not Connected: {rc}")
+            LOGGER.info("Not Connected: {}".format(rc))
 
-    def on_message(self, mqttc, obj, msg):  # pylint: disable=unused-argument
+    def on_message(self, _mqttc, _obj, msg):
         """MQTT on_message"""
-        LOGGER.debug(f"Message received on {msg.topic}: {msg.payload}")
+        LOGGER.debug("Message received on {}: {}".format(msg.topic, msg.payload))
         consume_mqtt_message(
             msg=msg,
             mqtt_config=self.config,
@@ -58,22 +57,35 @@ class MQTTClient:
             mqtt_client=self,
         )
 
-    def on_publish(self, mqttc, obj, result):  # pylint: disable=unused-argument
+    def on_publish(self, _mqttc, _obj, result):
         """MQTT on_publish"""
-        LOGGER.debug(f"Message published: {result}")
+        LOGGER.debug("Message published: {}".format(result))
 
-    def on_disconnect(self, userdata, rc, properties=None):  # pylint: disable=unused-argument,invalid-name
+    def on_disconnect(self, client, _userdata, *args):
         """MQTT on_disconnect"""
+        if len(args) == 1:
+            rc = args[0]
+        elif len(args) >= 2:
+            rc = args[1]
+        else:
+            rc = 0
+
+        if hasattr(rc, "value"):
+            rc = rc.value
+
         if rc != 0:
-            LOGGER.warning("Unexpected MQTT disconnection. Will auto-reconnect")
-            try:
-                LOGGER.info("Reconnecting to MQTT")
-                self.client.reconnect()
-            except ConnectionRefusedError:
-                LOGGER.warning("Reconnecting to MQTT fails")
-                sleep(10)
-                self.on_disconnect  #  pylint: disable=pointless-statement
-            LOGGER.info("Reconnecting to MQTT: Success")
+            LOGGER.warning("Unexpected MQTT disconnection (rc={}). Will auto-reconnect".format(rc))
+            backoff = 5
+            while self.running:
+                try:
+                    LOGGER.info("Reconnecting to MQTT")
+                    client.reconnect()
+                    LOGGER.info("Reconnecting to MQTT: Success")
+                    break
+                except (ConnectionRefusedError, OSError):
+                    LOGGER.warning("Reconnecting to MQTT fails")
+                    sleep(backoff)
+                    backoff = min(backoff * 2, 60)
 
     def run(self):
         """MQTT run"""
