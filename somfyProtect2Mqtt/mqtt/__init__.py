@@ -28,7 +28,14 @@ class MQTTClient:
         if config.get("ssl", False) is True:
             self.client.tls_set(cert_reqs=ssl.CERT_NONE)
             self.client.tls_insecure_set(True)
-        self.client.connect(config.get("host", "127.0.0.1"), config.get("port", 1883), 60)
+        host = config.get("host", "127.0.0.1")
+        port = config.get("port", 1883)
+        ssl_enabled = config.get("ssl", False) is True
+        try:
+            self.client.connect(host, port, 60)
+        except (ConnectionRefusedError, OSError) as e:
+            LOGGER.error("Unable to connect to MQTT broker {}:{} (ssl={}): {}".format(host, port, ssl_enabled, e))
+            raise SomfyProtectInitError("Unable to initialize MQTT client") from e
         self.client.loop_start()
 
         self.config = config
