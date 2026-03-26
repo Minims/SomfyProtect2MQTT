@@ -6,11 +6,12 @@ import logging
 import os
 import tempfile
 import threading
+import time
 from json import JSONDecodeError
 from typing import Any, Callable, Dict, Optional
 
 from exceptions import SomfyProtectInitError
-from oauthlib.oauth2 import LegacyApplicationClient, TokenExpiredError
+from oauthlib.oauth2 import LegacyApplicationClient, MissingTokenError, TokenExpiredError
 from requests import RequestException, Response
 from requests_oauthlib import OAuth2Session
 from utils import build_retry_adapter
@@ -131,6 +132,8 @@ class SomfyProtectSso:
         self._oauth_lock = threading.RLock()
         self.client_id = base64.b64decode(CLIENT_ID).decode("utf-8")
         self.client_secret = base64.b64decode(CLIENT_SECRET).decode("utf-8")
+        self._token_retry_after_seconds = 0
+        self._token_rate_limit_deadline = 0.0
         if token_updater is None:
             token_updater = build_token_updater(self.token_cache_path)
         self.token_updater = token_updater
@@ -149,9 +152,53 @@ class SomfyProtectSso:
             token_updater=token_updater,
         )
         self._oauth.headers["User-Agent"] = "Somfy Protect"
+        self._oauth.register_compliance_hook("access_token_response", self._capture_token_response)
         adapter = build_retry_adapter([429, 500, 502, 503, 504])
         self._oauth.mount("https://", adapter)
         self._oauth.mount("http://", adapter)
+
+    def _capture_token_response(self, response: Response) -> Response:
+        if response.status_code != 429:
+            return response
+
+        retry_after_header = response.headers.get("X-RateLimit-Retry-After")
+        remaining = response.headers.get("X-RateLimit-Remaining", "?")
+        limit = response.headers.get("X-RateLimit-Limit", "?")
+
+        retry_after_seconds = 0
+        if retry_after_header is not None:
+            try:
+                retry_after_seconds = max(int(retry_after_header), 0)
+            except (TypeError, ValueError):
+                retry_after_seconds = 0
+
+        self._token_retry_after_seconds = retry_after_seconds
+        if retry_after_seconds > 0:
+            self._token_rate_limit_deadline = time.monotonic() + retry_after_seconds
+
+        LOGGER.warning(
+            "Somfy token rate-limited (429): remaining={} limit={} retry_after={}s".format(
+                remaining,
+                limit,
+                retry_after_seconds,
+            )
+        )
+        return response
+
+    def _has_active_rate_limit_locked(self) -> bool:
+        return self._token_rate_limit_deadline > time.monotonic()
+
+    def _wait_for_rate_limit_reset_locked(self) -> None:
+        wait_seconds = self._token_rate_limit_deadline - time.monotonic()
+        if wait_seconds <= 0:
+            return
+        LOGGER.warning(
+            "Somfy token requests paused for {:.1f}s due to rate limit (retry_after={}s)".format(
+                wait_seconds,
+                self._token_retry_after_seconds,
+            )
+        )
+        time.sleep(wait_seconds)
 
     @property
     def oauth(self) -> OAuth2Session:
@@ -208,22 +255,44 @@ class SomfyProtectSso:
 
     def _request_token_locked(self) -> Dict[str, Any]:
         LOGGER.info("Requesting Token")
-        token = self._oauth.fetch_token(
-            SOMFY_PROTECT_TOKEN,
-            username=self.username,
-            password=self.password,
-            client_id=self.client_id,
-            client_secret=self.client_secret,
-            include_client_id=True,
-        )
-        self._oauth.token = token
-        return token
+        for attempt in range(2):
+            self._wait_for_rate_limit_reset_locked()
+            try:
+                token = self._oauth.fetch_token(
+                    SOMFY_PROTECT_TOKEN,
+                    username=self.username,
+                    password=self.password,
+                    client_id=self.client_id,
+                    client_secret=self.client_secret,
+                    include_client_id=True,
+                )
+            except MissingTokenError:
+                if attempt == 0 and self._has_active_rate_limit_locked():
+                    LOGGER.warning("Token request failed due to rate limit. Retrying after backoff")
+                    continue
+                raise
+            self._oauth.token = token
+            return token
+
+        raise MissingTokenError(description="Missing access token parameter.")
 
     def _refresh_tokens_locked(self) -> Dict[str, Any]:
         LOGGER.info("Refreshing Token")
         try:
-            token = self._oauth.refresh_token(SOMFY_PROTECT_TOKEN)
-        except (RequestException, TokenExpiredError, ValueError) as e:
+            token = None
+            for attempt in range(2):
+                self._wait_for_rate_limit_reset_locked()
+                try:
+                    token = self._oauth.refresh_token(SOMFY_PROTECT_TOKEN)
+                    break
+                except MissingTokenError:
+                    if attempt == 0 and self._has_active_rate_limit_locked():
+                        LOGGER.warning("Token refresh failed due to rate limit. Retrying after backoff")
+                        continue
+                    raise
+            if token is None:
+                raise MissingTokenError(description="Missing access token parameter.")
+        except (RequestException, TokenExpiredError, ValueError, MissingTokenError) as e:
             LOGGER.warning("Refresh failed, requesting new token: {}".format(e))
             token = self._request_token_locked()
         else:
