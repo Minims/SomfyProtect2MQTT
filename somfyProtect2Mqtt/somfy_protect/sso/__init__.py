@@ -12,6 +12,7 @@ from typing import Any, Callable, Dict, Optional
 
 from exceptions import SomfyProtectInitError
 from oauthlib.oauth2 import LegacyApplicationClient, MissingTokenError, TokenExpiredError
+from oauthlib.oauth2.rfc6749.errors import OAuth2Error
 from requests import RequestException, Response
 from requests_oauthlib import OAuth2Session
 from utils import build_retry_adapter
@@ -292,7 +293,7 @@ class SomfyProtectSso:
                     raise
             if token is None:
                 raise MissingTokenError(description="Missing access token parameter.")
-        except (RequestException, TokenExpiredError, ValueError, MissingTokenError) as e:
+        except (RequestException, TokenExpiredError, ValueError, MissingTokenError, OAuth2Error) as e:
             LOGGER.warning("Refresh failed, requesting new token: {}".format(e))
             token = self._request_token_locked()
         else:
