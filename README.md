@@ -66,6 +66,8 @@ Example:
 Add config to `<PATH-TO-CONFIG-FOLDER>`
 
 OAuth tokens are cached in `<PATH-TO-CONFIG-FOLDER>/token.json` with restricted file permissions.
+The config folder must be writable and persistent; read-only mounts such as Kubernetes Secrets will prevent token
+caching and trigger Somfy token rate limits after repeated starts.
 Legacy `token.json` files from older versions are migrated automatically on startup when possible.
 
 ### Manual Mode
@@ -94,6 +96,7 @@ cp config/config.yaml.example config/config.yaml
 ```
 
 The OAuth token cache is stored next to the config file as `config/token.json` and contains local secret material.
+The config directory must be writable and persistent so the token can be reused across restarts.
 
 ## Running
 

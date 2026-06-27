@@ -73,6 +73,29 @@ def write_token_to_file(token: Dict[str, Any], cache_path: str = DEFAULT_CACHE_F
             os.remove(tmp_path)
 
 
+def ensure_token_cache_writable(cache_path: str) -> None:
+    """Ensure the token cache path can be written before requesting tokens."""
+    cache_path = os.path.abspath(cache_path)
+    cache_dir = os.path.dirname(cache_path)
+    if os.path.isdir(cache_path):
+        raise SomfyProtectInitError("Token cache path {} is a directory".format(cache_path))
+
+    tmp_path = None
+    try:
+        if cache_dir:
+            os.makedirs(cache_dir, mode=0o700, exist_ok=True)
+        fd, tmp_path = tempfile.mkstemp(prefix=".token-write-test-", dir=cache_dir or None, text=True)
+        os.close(fd)
+    except OSError as e:
+        raise SomfyProtectInitError(
+            "Token cache directory {} is not writable. Mount the config directory as a writable persistent volume "
+            "so {} can be saved.".format(cache_dir or os.getcwd(), DEFAULT_CACHE_FILENAME)
+        ) from e
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            os.remove(tmp_path)
+
+
 def build_token_updater(cache_path: str) -> Callable[[Dict[str, Any]], None]:
     """Create a token updater bound to a cache path.
 
@@ -343,6 +366,7 @@ def init_sso(config: dict, config_file: str | None = None) -> Optional[SomfyProt
         raise SomfyProtectInitError("Username/Password is missing in config")
 
     cache_path = resolve_token_cache_path(config_file)
+    ensure_token_cache_writable(cache_path)
     migrate_legacy_token_cache(cache_path)
     sso = SomfyProtectSso(username=username, password=password, token_cache_path=cache_path)
     if not os.path.isfile(cache_path):
