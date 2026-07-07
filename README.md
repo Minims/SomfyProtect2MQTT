@@ -107,18 +107,20 @@ python3 main.py -c config/config.yaml
 
 ## Video Streaming
 
-1. MQTT Camera
-Currently, Somfy does not provide a permanent streaming URL.
-This is a On-Demand stream, and the stream is live for about 120s.
+Somfy does not provide a permanent streaming URL. Streams are started on demand
+and usually stay live for about 120 seconds.
 
-To start the stream you need:
+To start a stream:
 
-- To open the cover via the entity `switch.***_shutter_state` in the Camera Device.
-- To switch the stream ON via the entity `switch.***_stream` in the Camera Device.
+- Open the camera shutter with `switch.***_shutter_state`.
+- Start the stream with `switch.***_stream`.
+- Select the video backend exposed by Home Assistant/MQTT: `evostream` or `webrtc`.
 
-Here is a basic lovelace card to see your camera with both shutter & stream buttons
+### MQTT Camera
 
-```
+Basic Lovelace card with shutter and stream controls:
+
+```yaml
 camera_view: auto
 type: picture-glance
 entities:
@@ -130,24 +132,56 @@ camera_image: camera.indoor_camera_snapshot
 title: Indoor Camera
 ```
 
-2. go2rtc / WebRTC Camera
+### go2rtc / WebRTC Camera
 
-Copy file `config/echo/somfy.sh` to HA in `/config/echo/somfy.sh`
+Install:
 
-- Install HA Addon go2rtc: https://github.com/AlexxIT/go2rtc
-- Install HACS WebRTC Camera: https://github.com/AlexxIT/WebRTC
+- HA Add-on go2rtc: https://github.com/AlexxIT/go2rtc
+- HACS WebRTC Camera: https://github.com/AlexxIT/WebRTC
 
-Configure go2rtc:
-```
+The go2rtc source depends on the selected Somfy video backend.
+
+#### Backend `evostream`
+
+Use the echo script. It reads the RTMPS URL written by SomfyProtect2MQTT when
+the stream starts.
+
+Copy `config/echo/somfy.sh` to Home Assistant as `/config/echo/somfy.sh`, then
+configure go2rtc:
+
+```yaml
 streams:
-  somfy_indoor_camera_echo:
+  somfy_indoor_camera:
     - echo:/config/echo/somfy.sh <camera device_id>
 ```
 
-Add WebRTC Camera Card
+#### Backend `webrtc`
+
+Do not use the echo script. SomfyProtect2MQTT exposes the WebRTC stream as an
+HLS playlist on port `8090`.
+
+Configure go2rtc with the HLS URL:
+
+```yaml
+streams:
+  somfy_indoor_camera:
+    - http://<somfyprotect2mqtt_host>:8090/<camera device_id>/playlist.m3u8
 ```
+
+If go2rtc runs in the same network namespace as SomfyProtect2MQTT, the URL can
+be:
+
+```yaml
+streams:
+  somfy_indoor_camera:
+    - http://0.0.0.0:8090/<camera device_id>/playlist.m3u8
+```
+
+Add WebRTC Camera card:
+
+```yaml
 type: custom:webrtc-camera
-url: somfy_indoor_camera_echo
+url: somfy_indoor_camera
 shortcuts:
   services:
     - name: Cover
