@@ -84,6 +84,12 @@ class HLSHandler(BaseHTTPRequestHandler):
         self.send_error(404)
 
 
+class ReusableHTTPServer(HTTPServer):
+    """HTTP server that can rebind quickly after shutdown."""
+
+    allow_reuse_address = True
+
+
 def _format_timestamp(timestamp: datetime) -> str:
     return timestamp.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
 
@@ -622,6 +628,8 @@ class WebRTCHandler:
         if hasattr(self, "hls_server") and self.hls_server:
             try:
                 self.hls_server.shutdown()
+                self.hls_server.server_close()
+                self.hls_server = None
                 LOGGER.info("HLS server stopped")
             except (OSError, RuntimeError) as e:
                 LOGGER.error("Error stopping HLS server: {}".format(e))
@@ -631,7 +639,26 @@ class WebRTCHandler:
     def _start_hls_server(self, device_id=None):
         """Start HTTP server for HLS streaming"""
         HLSHandler.handler = self
-        server = HTTPServer(("0.0.0.0", self.hls_port), HLSHandler)
+        if self.hls_server:
+            if device_id:
+                LOGGER.info(
+                    "HLS HTTP server already running on http://0.0.0.0:{}/{}/playlist.m3u8".format(
+                        self.hls_port,
+                        device_id,
+                    )
+                )
+            else:
+                LOGGER.info(
+                    "HLS HTTP server already running on http://0.0.0.0:{}/<device_id>/playlist.m3u8".format(
+                        self.hls_port
+                    )
+                )
+            return
+        try:
+            server = ReusableHTTPServer(("0.0.0.0", self.hls_port), HLSHandler)
+        except OSError as e:
+            LOGGER.error("Unable to start HLS HTTP server on 0.0.0.0:{}: {}".format(self.hls_port, e))
+            raise
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
         self.hls_server = server
