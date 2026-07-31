@@ -37,6 +37,12 @@ logging.getLogger("aiortc.codecs.h264").setLevel(logging.ERROR)
 # has to outlast that negotiation rather than the frame interval.
 HLS_TRACK_WAIT_SECONDS = 30
 
+# Where the HLS server listens. The defaults keep it reachable from another container,
+# as the Home Assistant add-on needs; an installation whose reader is on the same host
+# can narrow the address, and one whose port is already taken can move it.
+DEFAULT_HLS_HOST = "0.0.0.0"
+DEFAULT_HLS_PORT = 8090
+
 
 class HLSHandler(BaseHTTPRequestHandler):
     """Serve HLS playlists and segments from memory."""
@@ -149,7 +155,15 @@ class SilenceAudioTrack(AudioStreamTrack):
 class WebRTCHandler:
     """Handles WebRTC connections for Somfy Protect cameras"""
 
-    def __init__(self, mqtt_client, mqtt_config, send_websocket_callback, streaming_config=None):
+    def __init__(
+        self,
+        mqtt_client,
+        mqtt_config,
+        send_websocket_callback,
+        streaming_config=None,
+        hls_host=DEFAULT_HLS_HOST,
+        hls_port=DEFAULT_HLS_PORT,
+    ):
         """
         Initialize WebRTC handler
 
@@ -158,6 +172,8 @@ class WebRTCHandler:
             mqtt_config: MQTT configuration dict
             send_websocket_callback: Callback function to send WebSocket messages
             streaming_config: Streaming configuration ("mqtt", "go2rtc", etc.)
+            hls_host: Address the HLS server binds to
+            hls_port: Port the HLS server binds to
         """
         self.mqtt_client = mqtt_client
         self.mqtt_config = mqtt_config
@@ -171,7 +187,8 @@ class WebRTCHandler:
         self.hls_muxers = {}  # Store HLS muxers per device_id
         self.hls_segments = {}  # Store HLS segments and playlists per device_id
         self.hls_server = None
-        self.hls_port = 8090
+        self.hls_host = hls_host
+        self.hls_port = hls_port
         self.hls_segment_duration = 1  # seconds per segment (shorter to reduce boundary stalls)
 
     def store_turn_config(self, session_id, turn_data):
@@ -647,35 +664,40 @@ class WebRTCHandler:
         if self.hls_server:
             if device_id:
                 LOGGER.info(
-                    "HLS HTTP server already running on http://0.0.0.0:{}/{}/playlist.m3u8".format(
+                    "HLS HTTP server already running on http://{}:{}/{}/playlist.m3u8".format(
+                        self.hls_host,
                         self.hls_port,
                         device_id,
                     )
                 )
             else:
                 LOGGER.info(
-                    "HLS HTTP server already running on http://0.0.0.0:{}/<device_id>/playlist.m3u8".format(
-                        self.hls_port
+                    "HLS HTTP server already running on http://{}:{}/<device_id>/playlist.m3u8".format(
+                        self.hls_host,
+                        self.hls_port,
                     )
                 )
             return
         try:
-            server = ReusableHTTPServer(("0.0.0.0", self.hls_port), HLSHandler)
+            server = ReusableHTTPServer((self.hls_host, self.hls_port), HLSHandler)
         except OSError as e:
-            LOGGER.error("Unable to start HLS HTTP server on 0.0.0.0:{}: {}".format(self.hls_port, e))
+            LOGGER.error("Unable to start HLS HTTP server on {}:{}: {}".format(self.hls_host, self.hls_port, e))
             raise
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
         self.hls_server = server
         if device_id:
             LOGGER.info(
-                "HLS HTTP server started on http://0.0.0.0:{}/{}/playlist.m3u8".format(
+                "HLS HTTP server started on http://{}:{}/{}/playlist.m3u8".format(
+                    self.hls_host,
                     self.hls_port,
                     device_id,
                 )
             )
         else:
-            LOGGER.info("HLS HTTP server started on http://0.0.0.0:{}/<device_id>/playlist.m3u8".format(self.hls_port))
+            LOGGER.info(
+                "HLS HTTP server started on http://{}:{}/<device_id>/playlist.m3u8".format(self.hls_host, self.hls_port)
+            )
 
     def _init_hls_muxer(self, device_id):
         """Initialize HLS muxer for a device"""
@@ -718,7 +740,8 @@ class WebRTCHandler:
 
         LOGGER.info(
             "Initialized HLS muxer for device {device_id} in {temp_dir}. "
-            "Playlist: http://0.0.0.0:{port}/{device_id}/playlist.m3u8".format(
+            "Playlist: http://{host}:{port}/{device_id}/playlist.m3u8".format(
+                host=self.hls_host,
                 device_id=device_id,
                 temp_dir=temp_dir,
                 port=self.hls_port,
