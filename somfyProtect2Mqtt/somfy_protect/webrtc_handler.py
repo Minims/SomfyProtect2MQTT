@@ -32,6 +32,11 @@ logging.getLogger("libav.h264").setLevel(logging.CRITICAL)
 logging.getLogger("libav.swscaler").setLevel(logging.CRITICAL)
 logging.getLogger("aiortc.codecs.h264").setLevel(logging.ERROR)
 
+# How long the HLS muxer waits for its first video frame. The tracks are handed over
+# before the ICE negotiation completes, and no frame can arrive until it does, so this
+# has to outlast that negotiation rather than the frame interval.
+HLS_TRACK_WAIT_SECONDS = 30
+
 
 class HLSHandler(BaseHTTPRequestHandler):
     """Serve HLS playlists and segments from memory."""
@@ -805,7 +810,7 @@ class WebRTCHandler:
             wait_start = time.time()
             while not muxer["video_ready"]:
                 elapsed = time.time() - wait_start
-                if elapsed > 5:
+                if elapsed > HLS_TRACK_WAIT_SECONDS:
                     LOGGER.error("[TRACKS] Timeout waiting for video track (>{:.1f}s), aborting muxer".format(elapsed))
                     return
                 await asyncio.sleep(0.1)
@@ -960,7 +965,7 @@ class WebRTCHandler:
                 height = video_frame.height
 
                 # Force a stable framerate to avoid mis-detected 120fps and segment glitches
-                fps = 30.0
+                fps = 30
                 gop = int(self.hls_segment_duration * fps)
                 LOGGER.debug(
                     "[VIDEO] Creating video stream {}x{} @ {:.2f}fps (gop={})".format(
@@ -1030,14 +1035,14 @@ class WebRTCHandler:
 
                     try:
                         audio_stream = container.add_stream("aac", rate=sample_rate)
-                        audio_stream.channels = num_channels
+                        audio_stream.layout = "mono" if num_channels == 1 else "stereo"
                         audio_stream.time_base = Fraction(1, sample_rate)
                         muxer["audio_stream"] = audio_stream
                     except (OSError, RuntimeError, ValueError):
                         # Fallback to MP3 if AAC fails
                         try:
                             audio_stream = container.add_stream("libmp3lame", rate=sample_rate)
-                            audio_stream.channels = num_channels
+                            audio_stream.layout = "mono" if num_channels == 1 else "stereo"
                             audio_stream.time_base = Fraction(1, sample_rate)
                             muxer["audio_stream"] = audio_stream
                             LOGGER.info("[AUDIO] Using MP3 codec (AAC unavailable)")
