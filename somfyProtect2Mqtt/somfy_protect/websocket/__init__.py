@@ -23,7 +23,7 @@ from mqtt import MQTTClient
 from oauthlib.oauth2 import MissingTokenError
 from somfy_protect.api import SomfyProtectApi
 from somfy_protect.sso import SomfyProtectSso, read_token_from_file
-from somfy_protect.webrtc_handler import WebRTCHandler
+from somfy_protect.webrtc_handler import DEFAULT_HLS_HOST, DEFAULT_HLS_PORT, WebRTCHandler
 from somfy_protect.websocket.handlers import alarm as alarm_handlers
 from somfy_protect.websocket.handlers import device as device_handlers
 from somfy_protect.websocket.handlers import video as video_handlers
@@ -58,6 +58,8 @@ class SomfyProtectWebsocket:
         self.mqtt_client = mqtt_client
         self.mqtt_config = config.get("mqtt")
         self.streaming_config = config.get("streaming")
+        self.hls_host = config.get("hls_host", DEFAULT_HLS_HOST)
+        self.hls_port = config.get("hls_port", DEFAULT_HLS_PORT)
         self.api = api
         self.sso = sso
         self.last_message_at = time.time()
@@ -72,6 +74,8 @@ class SomfyProtectWebsocket:
             mqtt_config=self.mqtt_config,
             send_websocket_callback=self.send_websocket_message,
             streaming_config=self.streaming_config,
+            hls_host=self.hls_host,
+            hls_port=self.hls_port,
         )
 
         # Create a dedicated event loop for async operations in a separate thread

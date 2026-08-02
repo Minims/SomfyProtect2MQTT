@@ -31,6 +31,11 @@ delay_site: 10  # seconds
 delay_device: 60  # seconds
 manual_snapshot: false
 streaming: mqtt # mqtt or go2rtc (go2rtc only work for the HA Addon)
+# Where the go2rtc HLS server listens. Leave as is for the HA Addon, whose reader runs
+# in another container. Narrow it to 127.0.0.1 when the reader is on the same host, and
+# move the port if something else already holds 8090.
+hls_host: 0.0.0.0
+hls_port: 8090
 
 # Logging
 debug: false
