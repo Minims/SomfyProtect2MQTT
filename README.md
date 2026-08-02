@@ -160,6 +160,21 @@ streams:
 Do not use the echo script. SomfyProtect2MQTT exposes the WebRTC stream as an
 HLS playlist on port `8090`.
 
+Use `stream_start` to start the camera stream. `stream_stop` is only supported
+by the Somfy `evostream` backend and is ignored when the camera uses `webrtc`.
+
+Where that server listens is configurable, and defaults to every interface:
+
+```yaml
+hls_host: 0.0.0.0
+hls_port: 8090
+```
+
+The playlist is unauthenticated, so an installation whose reader runs on the
+same host as SomfyProtect2MQTT can set `hls_host` to `127.0.0.1` and keep the
+camera off the local network. `hls_port` is there because `8090` is not this
+project's alone — `motion`, for one, hands it to its first camera.
+
 Configure go2rtc with the HLS URL:
 
 ```yaml

@@ -195,6 +195,11 @@ def _handle_action(text_payload, context: MqttContext) -> bool:
     device_id = context.topic_parts[2]
     if device_id:
         LOGGER.info(f"Message received for Site ID: {site_id}, Device ID: {device_id}, Action: {text_payload}")
+        if text_payload == "stream_stop":
+            device = context.api.get_device(site_id=site_id, device_id=device_id)
+            if device.video_backend == "webrtc":
+                LOGGER.info("Ignoring stream_stop for WebRTC backend on device {}".format(device_id))
+                return True
         action_device = context.api.action_device(
             site_id=site_id,
             device_id=device_id,

@@ -32,6 +32,17 @@ logging.getLogger("libav.h264").setLevel(logging.CRITICAL)
 logging.getLogger("libav.swscaler").setLevel(logging.CRITICAL)
 logging.getLogger("aiortc.codecs.h264").setLevel(logging.ERROR)
 
+# How long the HLS muxer waits for its first video frame. The tracks are handed over
+# before the ICE negotiation completes, and no frame can arrive until it does, so this
+# has to outlast that negotiation rather than the frame interval.
+HLS_TRACK_WAIT_SECONDS = 30
+
+# Where the HLS server listens. The defaults keep it reachable from another container,
+# as the Home Assistant add-on needs; an installation whose reader is on the same host
+# can narrow the address, and one whose port is already taken can move it.
+DEFAULT_HLS_HOST = "0.0.0.0"
+DEFAULT_HLS_PORT = 8090
+
 
 class HLSHandler(BaseHTTPRequestHandler):
     """Serve HLS playlists and segments from memory."""
@@ -82,6 +93,12 @@ class HLSHandler(BaseHTTPRequestHandler):
                 self.send_error(404)
             return
         self.send_error(404)
+
+
+class ReusableHTTPServer(HTTPServer):
+    """HTTP server that can rebind quickly after shutdown."""
+
+    allow_reuse_address = True
 
 
 def _format_timestamp(timestamp: datetime) -> str:
@@ -138,7 +155,15 @@ class SilenceAudioTrack(AudioStreamTrack):
 class WebRTCHandler:
     """Handles WebRTC connections for Somfy Protect cameras"""
 
-    def __init__(self, mqtt_client, mqtt_config, send_websocket_callback, streaming_config=None):
+    def __init__(
+        self,
+        mqtt_client,
+        mqtt_config,
+        send_websocket_callback,
+        streaming_config=None,
+        hls_host=DEFAULT_HLS_HOST,
+        hls_port=DEFAULT_HLS_PORT,
+    ):
         """
         Initialize WebRTC handler
 
@@ -147,6 +172,8 @@ class WebRTCHandler:
             mqtt_config: MQTT configuration dict
             send_websocket_callback: Callback function to send WebSocket messages
             streaming_config: Streaming configuration ("mqtt", "go2rtc", etc.)
+            hls_host: Address the HLS server binds to
+            hls_port: Port the HLS server binds to
         """
         self.mqtt_client = mqtt_client
         self.mqtt_config = mqtt_config
@@ -160,7 +187,8 @@ class WebRTCHandler:
         self.hls_muxers = {}  # Store HLS muxers per device_id
         self.hls_segments = {}  # Store HLS segments and playlists per device_id
         self.hls_server = None
-        self.hls_port = 8090
+        self.hls_host = hls_host
+        self.hls_port = hls_port
         self.hls_segment_duration = 1  # seconds per segment (shorter to reduce boundary stalls)
 
     def store_turn_config(self, session_id, turn_data):
@@ -622,6 +650,8 @@ class WebRTCHandler:
         if hasattr(self, "hls_server") and self.hls_server:
             try:
                 self.hls_server.shutdown()
+                self.hls_server.server_close()
+                self.hls_server = None
                 LOGGER.info("HLS server stopped")
             except (OSError, RuntimeError) as e:
                 LOGGER.error("Error stopping HLS server: {}".format(e))
@@ -631,19 +661,43 @@ class WebRTCHandler:
     def _start_hls_server(self, device_id=None):
         """Start HTTP server for HLS streaming"""
         HLSHandler.handler = self
-        server = HTTPServer(("0.0.0.0", self.hls_port), HLSHandler)
+        if self.hls_server:
+            if device_id:
+                LOGGER.info(
+                    "HLS HTTP server already running on http://{}:{}/{}/playlist.m3u8".format(
+                        self.hls_host,
+                        self.hls_port,
+                        device_id,
+                    )
+                )
+            else:
+                LOGGER.info(
+                    "HLS HTTP server already running on http://{}:{}/<device_id>/playlist.m3u8".format(
+                        self.hls_host,
+                        self.hls_port,
+                    )
+                )
+            return
+        try:
+            server = ReusableHTTPServer((self.hls_host, self.hls_port), HLSHandler)
+        except OSError as e:
+            LOGGER.error("Unable to start HLS HTTP server on {}:{}: {}".format(self.hls_host, self.hls_port, e))
+            raise
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
         self.hls_server = server
         if device_id:
             LOGGER.info(
-                "HLS HTTP server started on http://0.0.0.0:{}/{}/playlist.m3u8".format(
+                "HLS HTTP server started on http://{}:{}/{}/playlist.m3u8".format(
+                    self.hls_host,
                     self.hls_port,
                     device_id,
                 )
             )
         else:
-            LOGGER.info("HLS HTTP server started on http://0.0.0.0:{}/<device_id>/playlist.m3u8".format(self.hls_port))
+            LOGGER.info(
+                "HLS HTTP server started on http://{}:{}/<device_id>/playlist.m3u8".format(self.hls_host, self.hls_port)
+            )
 
     def _init_hls_muxer(self, device_id):
         """Initialize HLS muxer for a device"""
@@ -686,7 +740,8 @@ class WebRTCHandler:
 
         LOGGER.info(
             "Initialized HLS muxer for device {device_id} in {temp_dir}. "
-            "Playlist: http://0.0.0.0:{port}/{device_id}/playlist.m3u8".format(
+            "Playlist: http://{host}:{port}/{device_id}/playlist.m3u8".format(
+                host=self.hls_host,
                 device_id=device_id,
                 temp_dir=temp_dir,
                 port=self.hls_port,
@@ -805,7 +860,7 @@ class WebRTCHandler:
             wait_start = time.time()
             while not muxer["video_ready"]:
                 elapsed = time.time() - wait_start
-                if elapsed > 5:
+                if elapsed > HLS_TRACK_WAIT_SECONDS:
                     LOGGER.error("[TRACKS] Timeout waiting for video track (>{:.1f}s), aborting muxer".format(elapsed))
                     return
                 await asyncio.sleep(0.1)
@@ -960,7 +1015,7 @@ class WebRTCHandler:
                 height = video_frame.height
 
                 # Force a stable framerate to avoid mis-detected 120fps and segment glitches
-                fps = 30.0
+                fps = 30
                 gop = int(self.hls_segment_duration * fps)
                 LOGGER.debug(
                     "[VIDEO] Creating video stream {}x{} @ {:.2f}fps (gop={})".format(
@@ -1030,14 +1085,14 @@ class WebRTCHandler:
 
                     try:
                         audio_stream = container.add_stream("aac", rate=sample_rate)
-                        audio_stream.channels = num_channels
+                        audio_stream.layout = "mono" if num_channels == 1 else "stereo"
                         audio_stream.time_base = Fraction(1, sample_rate)
                         muxer["audio_stream"] = audio_stream
                     except (OSError, RuntimeError, ValueError):
                         # Fallback to MP3 if AAC fails
                         try:
                             audio_stream = container.add_stream("libmp3lame", rate=sample_rate)
-                            audio_stream.channels = num_channels
+                            audio_stream.layout = "mono" if num_channels == 1 else "stereo"
                             audio_stream.time_base = Fraction(1, sample_rate)
                             muxer["audio_stream"] = audio_stream
                             LOGGER.info("[AUDIO] Using MP3 codec (AAC unavailable)")
