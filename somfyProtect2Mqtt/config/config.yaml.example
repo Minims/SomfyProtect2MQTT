@@ -11,7 +11,7 @@ somfy_protect:
 # Home Assistant Configuration
 homeassistant_config:
   # Code to arm/disarm, Remove code to disable.
-  code: 1234
+  code: "1234"
   # Use Code on arm/disarm
   code_arm_required: false
   code_disarm_required: true
