@@ -23,6 +23,7 @@ urllib3 = ">=2.3.0"
 websocket-client = ">=1.8.0"
 
 [tool.poetry.group.dev.dependencies]
+pytest = ">=9.1.1"
 black = ">=24.10.0"
 pylint = ">=3.3.3"
 isort = ">=5.13.2"
@@ -37,3 +38,7 @@ line-length = 120
 [tool.isort]
 profile = "black"
 line_length = 120
+
+[tool.pytest.ini_options]
+testpaths = ["somfyProtect2Mqtt/tests"]
+pythonpath = ["somfyProtect2Mqtt"]
