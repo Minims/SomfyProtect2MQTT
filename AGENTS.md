@@ -40,13 +40,13 @@ Keep changes small, follow existing patterns, and update docs if behavior change
 
 ### Tests
 
-- No automated tests are configured or present in this repo.
-- If you add tests, prefer pytest and document it here.
+- Test framework: pytest.
+- Run all tests from the repository root: `python -m pytest`.
 
-### Single Test (if pytest is added)
+### Single Test
 
-- Run a file: `python -m pytest tests/test_name.py`.
-- Run a single test: `python -m pytest tests/test_name.py::test_case_name`.
+- Run a file: `python -m pytest somfyProtect2Mqtt/tests/test_name.py`.
+- Run a single test: `python -m pytest somfyProtect2Mqtt/tests/test_name.py::test_case_name`.
 
 ## Code Style Overview
 

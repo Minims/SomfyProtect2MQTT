@@ -47,8 +47,10 @@ def ha_discovery_alarm(site: Site, mqtt_config: dict, homeassistant_config: dict
         "supported_features": ["arm_night", "arm_away", "trigger"],
         "device": site_info,
     }
-    if code and (isinstance(code, int)):
-        site_config["config"]["code"] = code
+    if isinstance(code, (int, str)) and not isinstance(code, bool):
+        code = str(code)
+        if code not in ("", "0"):
+            site_config["config"]["code"] = code
     if not code_arm_required:
         site_config["config"]["code_arm_required"] = False
     if not code_disarm_required:
