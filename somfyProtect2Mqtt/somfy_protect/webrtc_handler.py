@@ -43,6 +43,9 @@ HLS_TRACK_WAIT_SECONDS = 30
 DEFAULT_HLS_HOST = "0.0.0.0"
 DEFAULT_HLS_PORT = 8090
 
+# The shape of `expires_at` in a video.webrtc.turn.config message.
+TURN_EXPIRY_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
+
 
 class HLSHandler(BaseHTTPRequestHandler):
     """Serve HLS playlists and segments from memory."""
@@ -181,6 +184,12 @@ class WebRTCHandler:
         self.streaming_config = streaming_config
         self.peer_connections = {}
         self.turn_configs = {}
+        # A TURN credential is issued for the site and carries its own expiry, not for a
+        # single session: the server sends one only occasionally, under whichever session
+        # id was current at the time, while every session started from here mints an id of
+        # its own. Keeping the last valid one aside is what lets those sessions reach a
+        # relay at all.
+        self.turn_fallback = None
         self.active_tasks = set()  # Track all active asyncio tasks
 
         # HLS HTTP server for go2rtc
@@ -191,10 +200,42 @@ class WebRTCHandler:
         self.hls_port = hls_port
         self.hls_segment_duration = 1  # seconds per segment (shorter to reduce boundary stalls)
 
+    @staticmethod
+    def turn_credential_is_valid(turn_data):
+        """Whether a TURN credential can still be presented to the relay.
+
+        A credential with no readable expiry is treated as expired rather than as
+        eternal: falling back to the direct paths beats offering stale credentials.
+        """
+        if not turn_data or not turn_data.get("url"):
+            return False
+        expires_at = turn_data.get("expires_at")
+        if not expires_at:
+            return False
+        try:
+            return datetime.strptime(expires_at, TURN_EXPIRY_FORMAT) > datetime.utcnow()
+        except (TypeError, ValueError):
+            return False
+
+    def turn_config_for(self, session_id):
+        """The credential sent for this session, else the last valid one for the site.
+
+        Returns:
+            tuple: (credential or None, "session" | "site" | None)
+        """
+        per_session = self.turn_configs.get(session_id)
+        if per_session:
+            return per_session, "session"
+        if self.turn_credential_is_valid(self.turn_fallback):
+            return self.turn_fallback, "site"
+        return None, None
+
     def store_turn_config(self, session_id, turn_data):
         """Store TURN server configuration for a session"""
         if session_id and turn_data:
             self.turn_configs[session_id] = turn_data
+            if self.turn_credential_is_valid(turn_data):
+                self.turn_fallback = turn_data
             LOGGER.info(
                 "Stored TURN config for session {}: {}".format(
                     session_id,
@@ -241,14 +282,14 @@ class WebRTCHandler:
         ice_servers = [RTCIceServer(urls=["stun:stun.l.google.com:19302"])]
 
         # Add TURN server if available
-        turn_config = self.turn_configs.get(session_id)
+        turn_config, turn_origin = self.turn_config_for(session_id)
         if turn_config:
             turn_url = turn_config.get("url")
             turn_username = turn_config.get("username")
             turn_password = turn_config.get("password")
             if turn_url and turn_username and turn_password:
                 ice_servers.append(RTCIceServer(urls=[turn_url], username=turn_username, credential=turn_password))
-                LOGGER.info("Added TURN server: {}".format(turn_url))
+                LOGGER.info("Added TURN server ({}): {}".format(turn_origin, turn_url))
         else:
             LOGGER.warning("No TURN config available for session {}".format(session_id))
 
