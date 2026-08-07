@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Somfy Protect 2 MQTT"""
+
 import argparse
 import logging
+import os
 import signal
 import threading
 import time
@@ -98,14 +100,22 @@ if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
+    # Build log path alongside the config file directory (avoids CWD permission issues).
+    # If no config file is given, fall back to a relative path in CWD.
+    if CONFIG_FILE:
+        _log_dir = os.path.dirname(os.path.abspath(CONFIG_FILE))
+        _log_path = os.path.join(_log_dir, "somfyProtect2Mqtt.log")
+    else:
+        _log_path = "somfyProtect2Mqtt.log"
+
     # Setup Logger
-    setup_logger(debug=DEBUG, filename="somfyProtect2Mqtt.log")
+    setup_logger(debug=DEBUG, filename=_log_path)
 
     CONFIG = read_config_file(CONFIG_FILE)
 
     # set Debug level from config or with -v
     DEBUG = CONFIG.get("debug", DEBUG)
-    setup_logger(debug=DEBUG, filename="somfyProtect2Mqtt.log")
+    setup_logger(debug=DEBUG, filename=_log_path)
     LOGGER.info(f"Starting SomfyProtect2Mqtt {VERSION}")
 
     SSO = init_sso(config=CONFIG, config_file=CONFIG_FILE)

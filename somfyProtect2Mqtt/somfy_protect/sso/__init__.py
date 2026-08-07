@@ -222,7 +222,13 @@ class SomfyProtectSso:
                 self._token_retry_after_seconds,
             )
         )
-        time.sleep(wait_seconds)
+        # Release the lock while sleeping so that other threads (WebSocket,
+        # API loop) are not blocked for the full backoff duration.
+        self._oauth_lock.release()
+        try:
+            time.sleep(wait_seconds)
+        finally:
+            self._oauth_lock.acquire()
 
     @property
     def oauth(self) -> OAuth2Session:
