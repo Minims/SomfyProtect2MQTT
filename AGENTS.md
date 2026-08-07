@@ -37,6 +37,9 @@ Keep changes small, follow existing patterns, and update docs if behavior change
 
 - Packaging is Poetry-based; build artifacts are uncommon for this repo.
 - If needed: `poetry build`.
+- To regenerate requirements files:
+  `poetry lock --no-cache && poetry export -f requirements.txt --output somfyProtect2Mqtt/requirements/common.txt --without-hashes`
+  `poetry export --only dev -f requirements.txt --output somfyProtect2Mqtt/requirements/dev.txt --without-hashes`
 
 ### Tests
 
