@@ -31,20 +31,29 @@ def parse_boolean(payload: str) -> bool:
 def setup_logger(debug: bool = False, filename: str = "/var/log/somfyProtect.log") -> None:
     """Configure logging.
 
+    Tries to add a FileHandler for *filename*. If the path is not writable
+    (e.g. read-only volume in a Docker/HA add-on container), falls back to
+    stdout-only logging and emits a warning so the problem is visible.
+
     Args:
         debug (bool): Enable debug logging when True.
-        filename (str): Log filename.
+        filename (str): Log filename. Ignored when the path is not writable.
     """
     log_level = logging.DEBUG if debug else logging.INFO
+    handlers: list[logging.Handler] = [logging.StreamHandler()]
+    file_error = None
+    try:
+        handlers.append(logging.FileHandler(filename=filename))
+    except OSError as e:
+        file_error = e
     logging.basicConfig(
         level=log_level,
         format="%(asctime)s [%(levelname)s] [%(name)s:%(lineno)d] %(message)s",
-        handlers=[
-            logging.StreamHandler(),
-            logging.FileHandler(filename=filename),
-        ],
+        handlers=handlers,
         force=True,
     )
+    if file_error is not None:
+        logging.warning("Cannot open log file %s (%s) — logging to stdout only.", filename, file_error)
 
 
 def read_config_file(config_file: str) -> Dict[str, Any]:
