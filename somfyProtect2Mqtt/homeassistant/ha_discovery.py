@@ -139,6 +139,8 @@ def ha_discovery_devices(
         "name": device.label,
         "sw_version": f"{device.version} {update_available}",
     }
+    if device.mac:
+        device_info["connections"] = [["mac", device.mac]]
 
     command_topic = (
         f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/{sensor_name}/command"
@@ -210,6 +212,8 @@ def ha_discovery_cameras(
         "name": device.label,
         "sw_version": device.version,
     }
+    if device.mac:
+        device_info["connections"] = [["mac", device.mac]]
 
     camera_config["topic"] = (
         f"{mqtt_config.get('ha_discover_prefix', 'homeassistant')}/camera/{site_id}_{device.id}/snapshot/config"
