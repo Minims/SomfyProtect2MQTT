@@ -348,6 +348,18 @@ def _configure_remote_device(
     _publish_config(mqtt_client, key_fob_config)
 
 
+def _apply_device_mac_override(device, homeassistant_config: dict | None) -> None:
+    if not homeassistant_config:
+        return
+    device_macs = homeassistant_config.get("device_macs") or {}
+    if not isinstance(device_macs, dict):
+        LOGGER.warning("Ignoring homeassistant_config.device_macs because it is not a mapping")
+        return
+    configured_mac = device_macs.get(device.id, device_macs.get(device.label))
+    if isinstance(configured_mac, str) and configured_mac.strip():
+        device.mac = configured_mac.strip()
+
+
 def _configure_outdoor_siren(mqtt_client: MQTTClient, mqtt_config: dict, site_id: str, device) -> None:
     if "mss_outdoor_siren" not in (device.device_definition.get("device_definition_id") or ""):
         return
@@ -500,6 +512,7 @@ def ha_devices_config(
     mqtt_client: MQTTClient,
     mqtt_config: dict,
     my_sites_id: list,
+    homeassistant_config: dict | None = None,
 ) -> None:
     """HA Devices Config"""
     LOGGER.info("Looking for Devices")
@@ -507,6 +520,7 @@ def ha_devices_config(
         my_devices = api.get_devices(site_id=site_id)
         for device in my_devices:
             LOGGER.info("Configuring Device: {}".format(device.label))
+            _apply_device_mac_override(device, homeassistant_config)
             device_type = device.device_definition.get("type") or ""
             _configure_device_state_sensors(mqtt_client, mqtt_config, site_id, device)
             _configure_box_device(mqtt_client, mqtt_config, site_id, device, device_type)

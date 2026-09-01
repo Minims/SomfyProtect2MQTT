@@ -97,6 +97,21 @@ def test_device_discovery_exposes_connection_by_transport(
 
 
 @pytest.mark.parametrize("discovery", [ha_discovery_devices, ha_discovery_cameras])
+@pytest.mark.parametrize("mac", ["aabbccddeeff", "aa-bb-cc-dd-ee-ff", "aabb.ccdd.eeff"])
+def test_device_discovery_formats_bluetooth_mac(discovery, mac):
+    """Format Bluetooth addresses so Home Assistant can link matching devices."""
+    device = make_device(mac=mac, device_type="remote")
+    mqtt_config = {"topic_prefix": "somfyProtect2mqtt", "ha_discover_prefix": "homeassistant"}
+
+    if discovery is ha_discovery_devices:
+        result = discovery("site-id", device, mqtt_config, "battery_level")
+    else:
+        result = discovery("site-id", device, mqtt_config)
+
+    assert result["config"]["device"]["connections"] == [["bluetooth", "AA:BB:CC:DD:EE:FF"]]
+
+
+@pytest.mark.parametrize("discovery", [ha_discovery_devices, ha_discovery_cameras])
 def test_device_discovery_omits_missing_mac_connection(discovery):
     """Do not publish an empty Home Assistant device connection."""
     device = make_device()

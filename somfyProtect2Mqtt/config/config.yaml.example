@@ -15,6 +15,9 @@ homeassistant_config:
   # Use Code on arm/disarm
   code_arm_required: false
   code_disarm_required: true
+  # Optional MAC addresses missing from the Somfy API, keyed by device ID or unique label.
+  # device_macs:
+  #   "Badge Alex": "AA:BB:CC:DD:EE:FF"
 
 # MQTT Configuration
 mqtt:

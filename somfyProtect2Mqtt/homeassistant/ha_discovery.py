@@ -53,10 +53,17 @@ def _device_connection_type(device: Device) -> str:
     return "bluetooth"
 
 
+def _format_mac_address(mac: str) -> str:
+    compact_mac = mac.replace(":", "").replace("-", "").replace(".", "")
+    if len(compact_mac) != 12 or any(character not in "0123456789abcdefABCDEF" for character in compact_mac):
+        return mac
+    return ":".join(compact_mac[index : index + 2] for index in range(0, 12, 2)).upper()
+
+
 def _device_connections(device: Device) -> list[list[str]]:
     if not device.mac:
         return []
-    return [[_device_connection_type(device), device.mac]]
+    return [[_device_connection_type(device), _format_mac_address(device.mac)]]
 
 
 def ha_discovery_alarm(site: Site, mqtt_config: dict, homeassistant_config: dict):

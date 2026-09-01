@@ -98,6 +98,21 @@ cp config/config.yaml.example config/config.yaml
 The OAuth token cache is stored next to the config file as `config/token.json` and contains local secret material.
 The config directory must be writable and persistent so the token can be reused across restarts.
 
+### Link Somfy badges to Bluetooth devices
+
+The Somfy API does not expose the Bluetooth address of key fobs. To let Home Assistant associate a badge discovered
+as `Myfox R` with its MQTT device, add the address shown as `Address` in Home Assistant to `homeassistant_config`.
+Use the Somfy device ID when possible; a unique device label is also accepted:
+
+```yaml
+homeassistant_config:
+  device_macs:
+    "<Somfy badge device ID or unique label>": "AA:BB:CC:DD:EE:FF"
+```
+
+The `Source` shown in the Bluetooth advertisement is the scanner or Bluetooth proxy, not the badge. Restart
+SomfyProtect2MQTT after updating the configuration so it republishes MQTT discovery.
+
 ## Running
 
 ```

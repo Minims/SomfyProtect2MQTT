@@ -89,6 +89,7 @@ class SomfyProtect2Mqtt:
             mqtt_client=self.mqtt_client,
             mqtt_config=self.mqtt_config,
             my_sites_id=self.my_sites_id,
+            homeassistant_config=self.homeassistant_config,
         )
 
         # Device Update (First Run Only)
