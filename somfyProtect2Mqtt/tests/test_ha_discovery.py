@@ -26,17 +26,17 @@ def alarm_config(site, code):
     )["config"]
 
 
-def make_device(mac=None):
+def make_device(mac=None, device_type="camera", status=None, settings=None):
     """Build a device for discovery tests."""
     return Device(
         device_id="device-id",
         site_id="site-id",
         label="Camera",
         version="1.0.0",
-        device_definition={"label": "Somfy Camera"},
-        status={},
+        device_definition={"label": "Somfy Device", "type": device_type},
+        status=status or {},
         diagnosis={},
-        settings={},
+        settings=settings or {},
         mac=mac,
     )
 
@@ -62,9 +62,30 @@ def test_alarm_discovery_ignores_disabled_or_invalid_codes(site, code):
 
 
 @pytest.mark.parametrize("discovery", [ha_discovery_devices, ha_discovery_cameras])
-def test_device_discovery_exposes_mac_connection(discovery):
-    """Expose a Wi-Fi or BLE MAC address on the Home Assistant device."""
-    device = make_device(mac="AA:BB:CC:DD:EE:FF")
+@pytest.mark.parametrize(
+    ("device_type", "status", "settings", "expected_connection_type"),
+    [
+        ("box", {}, {}, "mac"),
+        ("camera", {}, {}, "mac"),
+        ("allinone", {}, {}, "mac"),
+        ("videophone", {}, {}, "mac"),
+        ("remote", {"wifi_level_percent": 100}, {}, "bluetooth"),
+        ("unknown", {"ip_address": "192.0.2.1"}, {}, "mac"),
+        ("unknown", {"address": "2001:db8::1"}, {}, "mac"),
+        ("unknown", {}, {"global": {"wifi_ssid": "Home"}}, "mac"),
+        ("tag", {}, {}, "bluetooth"),
+    ],
+)
+def test_device_discovery_exposes_connection_by_transport(
+    discovery, device_type, status, settings, expected_connection_type
+):
+    """Expose Wi-Fi and Bluetooth addresses with their Home Assistant connection type."""
+    device = make_device(
+        mac="AA:BB:CC:DD:EE:FF",
+        device_type=device_type,
+        status=status,
+        settings=settings,
+    )
     mqtt_config = {"topic_prefix": "somfyProtect2mqtt", "ha_discover_prefix": "homeassistant"}
 
     if discovery is ha_discovery_devices:
@@ -72,7 +93,7 @@ def test_device_discovery_exposes_mac_connection(discovery):
     else:
         result = discovery("site-id", device, mqtt_config)
 
-    assert result["config"]["device"]["connections"] == [["mac", "AA:BB:CC:DD:EE:FF"]]
+    assert result["config"]["device"]["connections"] == [[expected_connection_type, "AA:BB:CC:DD:EE:FF"]]
 
 
 @pytest.mark.parametrize("discovery", [ha_discovery_devices, ha_discovery_cameras])
