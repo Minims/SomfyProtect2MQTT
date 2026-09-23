@@ -587,7 +587,9 @@ def _publish_site_history(
     mqtt_config: dict,
     site_id: str,
 ) -> None:
-    events = api.get_history(site_id=site_id)
+    events = api.get_history(site_id=site_id) or []
+    # The API lists the newest event first: publish oldest first so the retained state is the latest event.
+    events = sorted((event for event in events if event), key=lambda event: event.get("occurred_at") or "")
     for event in events:
         if not event:
             continue

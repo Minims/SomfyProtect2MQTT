@@ -1,7 +1,10 @@
 """Tests for the site history published over MQTT."""
 
+from collections import OrderedDict
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
+import business
 from business import _history_attributes
 from homeassistant.ha_discovery import ha_discovery_history
 
@@ -59,3 +62,28 @@ def test_history_attributes_identify_the_mobile_user():
 def test_history_attributes_tolerate_missing_fields():
     """Do not fail on events without message variables or origin."""
     assert _history_attributes({"occurred_at": "2026-01-01T10:00:00.000000Z"})["user"] is None
+
+
+def test_history_is_published_oldest_first(monkeypatch):
+    """Leave the latest event as the retained history state."""
+    published = []
+    monkeypatch.setattr(business, "HISTORY", OrderedDict())
+    monkeypatch.setattr(business, "mqtt_publish", lambda **kwargs: published.append(kwargs))
+    now = datetime.now(timezone.utc)
+    api = SimpleNamespace(
+        get_history=lambda site_id: [
+            {
+                "occurred_at": (now - timedelta(seconds=10)).strftime("%Y-%m-%dT%H:%M:%S.000000Z"),
+                "message_key": "site.securityLevel.disarmed.userRemote",
+            },
+            {
+                "occurred_at": (now - timedelta(seconds=20)).strftime("%Y-%m-%dT%H:%M:%S.000000Z"),
+                "message_key": "site.securityLevel.armed.userRemote",
+            },
+        ]
+    )
+
+    business._publish_site_history(api, None, {"topic_prefix": "somfyProtect2mqtt"}, "site-id")
+
+    states = [call["payload"] for call in published if call["topic"] == "somfyProtect2mqtt/site-id/history"]
+    assert states == ["Site Securitylevel Armed Userremote", "Site Securitylevel Disarmed Userremote"]
