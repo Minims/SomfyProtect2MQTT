@@ -131,6 +131,7 @@ def ha_discovery_history(site: Site, mqtt_config: dict):
         "name": f"{site.label}_history",
         "unique_id": f"{site.id}_{site.label}_history",
         "state_topic": f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site.id}/history",
+        "json_attributes_topic": f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site.id}/history/attributes",
         "device": site_info,
         "mode": "text",
         "command_topic": f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site.id}/history",
