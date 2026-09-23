@@ -113,6 +113,22 @@ homeassistant_config:
 The `Source` shown in the Bluetooth advertisement is the scanner or Bluetooth proxy, not the badge. Restart
 SomfyProtect2MQTT after updating the configuration so it republishes MQTT discovery.
 
+### Know who armed or disarmed the alarm
+
+The site history entity (`text.***_history`) carries the details of the latest event as attributes: `user` and
+`user_id` for the Somfy account, `device` and `device_id` for the key fob, `message_key`, `message_type`,
+`origin_type` and `occurred_at`. History is polled with the site status, so an automation triggered by the alarm
+state should wait for the attributes to match the new event, for example:
+
+```yaml
+- wait_template: >-
+    {{ 'disarmed' in (state_attr('text.home_history', 'message_key') or '')
+       and (now() - as_datetime(state_attr('text.home_history', 'occurred_at'))).total_seconds() < 180 }}
+  timeout: "00:02:00"
+- condition: template
+  value_template: "{{ state_attr('text.home_history', 'device') != 'Badge Alex' }}"
+```
+
 ## Running
 
 ```
