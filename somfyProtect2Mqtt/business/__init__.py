@@ -565,13 +565,31 @@ def update_sites_status(
             continue
 
 
+def _history_attributes(event: dict) -> dict:
+    """Extract who or what triggered a history event."""
+    message_vars = event.get("message_vars") or {}
+    origin = event.get("origin") or {}
+    return {
+        "occurred_at": event.get("occurred_at"),
+        "message_type": event.get("message_type"),
+        "message_key": event.get("message_key"),
+        "origin_type": origin.get("type"),
+        "user": message_vars.get("userDsp"),
+        "user_id": origin.get("user_id"),
+        "device": message_vars.get("deviceLabel"),
+        "device_id": origin.get("device_id"),
+    }
+
+
 def _publish_site_history(
     api: SomfyProtectApi,
     mqtt_client: MQTTClient,
     mqtt_config: dict,
     site_id: str,
 ) -> None:
-    events = api.get_history(site_id=site_id)
+    events = api.get_history(site_id=site_id) or []
+    # The API lists the newest event first: publish oldest first so the retained state is the latest event.
+    events = sorted((event for event in events if event), key=lambda event: event.get("occurred_at") or "")
     for event in events:
         if not event:
             continue
@@ -604,6 +622,13 @@ def _publish_site_history(
         while len(HISTORY) > HISTORY_LIMIT:
             HISTORY.popitem(last=False)
         LOGGER.info("Publishing History: {}".format(HISTORY[occurred_at]))
+        # Attributes go first so they are already set when the state change fires automations.
+        mqtt_publish(
+            mqtt_client=mqtt_client,
+            topic=f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/history/attributes",
+            payload=_history_attributes(event),
+            retain=True,
+        )
         mqtt_publish(
             mqtt_client=mqtt_client,
             topic=f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/history",
