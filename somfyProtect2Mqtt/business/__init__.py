@@ -348,6 +348,18 @@ def _configure_remote_device(
     _publish_config(mqtt_client, key_fob_config)
 
 
+def _apply_device_mac_override(device, homeassistant_config: dict | None) -> None:
+    if not homeassistant_config:
+        return
+    device_macs = homeassistant_config.get("device_macs") or {}
+    if not isinstance(device_macs, dict):
+        LOGGER.warning("Ignoring homeassistant_config.device_macs because it is not a mapping")
+        return
+    configured_mac = device_macs.get(device.id, device_macs.get(device.label))
+    if isinstance(configured_mac, str) and configured_mac.strip():
+        device.mac = configured_mac.strip()
+
+
 def _configure_outdoor_siren(mqtt_client: MQTTClient, mqtt_config: dict, site_id: str, device) -> None:
     if "mss_outdoor_siren" not in (device.device_definition.get("device_definition_id") or ""):
         return
@@ -500,6 +512,7 @@ def ha_devices_config(
     mqtt_client: MQTTClient,
     mqtt_config: dict,
     my_sites_id: list,
+    homeassistant_config: dict | None = None,
 ) -> None:
     """HA Devices Config"""
     LOGGER.info("Looking for Devices")
@@ -507,6 +520,7 @@ def ha_devices_config(
         my_devices = api.get_devices(site_id=site_id)
         for device in my_devices:
             LOGGER.info("Configuring Device: {}".format(device.label))
+            _apply_device_mac_override(device, homeassistant_config)
             device_type = device.device_definition.get("type") or ""
             _configure_device_state_sensors(mqtt_client, mqtt_config, site_id, device)
             _configure_box_device(mqtt_client, mqtt_config, site_id, device, device_type)
@@ -551,13 +565,31 @@ def update_sites_status(
             continue
 
 
+def _history_attributes(event: dict) -> dict:
+    """Extract who or what triggered a history event."""
+    message_vars = event.get("message_vars") or {}
+    origin = event.get("origin") or {}
+    return {
+        "occurred_at": event.get("occurred_at"),
+        "message_type": event.get("message_type"),
+        "message_key": event.get("message_key"),
+        "origin_type": origin.get("type"),
+        "user": message_vars.get("userDsp"),
+        "user_id": origin.get("user_id"),
+        "device": message_vars.get("deviceLabel"),
+        "device_id": origin.get("device_id"),
+    }
+
+
 def _publish_site_history(
     api: SomfyProtectApi,
     mqtt_client: MQTTClient,
     mqtt_config: dict,
     site_id: str,
 ) -> None:
-    events = api.get_history(site_id=site_id)
+    events = api.get_history(site_id=site_id) or []
+    # The API lists the newest event first: publish oldest first so the retained state is the latest event.
+    events = sorted((event for event in events if event), key=lambda event: event.get("occurred_at") or "")
     for event in events:
         if not event:
             continue
@@ -590,6 +622,13 @@ def _publish_site_history(
         while len(HISTORY) > HISTORY_LIMIT:
             HISTORY.popitem(last=False)
         LOGGER.info("Publishing History: {}".format(HISTORY[occurred_at]))
+        # Attributes go first so they are already set when the state change fires automations.
+        mqtt_publish(
+            mqtt_client=mqtt_client,
+            topic=f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/history/attributes",
+            payload=_history_attributes(event),
+            retain=True,
+        )
         mqtt_publish(
             mqtt_client=mqtt_client,
             topic=f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/history",

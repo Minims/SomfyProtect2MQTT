@@ -1,6 +1,7 @@
 """HomeAssistant MQTT Auto Discover"""
 
 import logging
+from ipaddress import ip_address
 
 from homeassistant.capabilities import ALARM_STATUS as CAPABILITIES_ALARM_STATUS
 from homeassistant.capabilities import DEVICE_CAPABILITIES
@@ -8,6 +9,61 @@ from somfy_protect.api.model import Device, Site
 
 LOGGER = logging.getLogger(__name__)
 ALARM_STATUS = CAPABILITIES_ALARM_STATUS
+WIFI_DEVICE_TYPES = ("allinone", "box", "camera", "videophone")
+BLUETOOTH_DEVICE_TYPES = ("remote",)
+
+
+def _is_wifi_or_ip_field(field_name: object) -> bool:
+    normalized_name = str(field_name).lower()
+    return (
+        any(marker in normalized_name for marker in ("wifi", "wi-fi", "wlan"))
+        or normalized_name in {"ip", "ip_address", "ipv4", "ipv4_address", "ipv6", "ipv6_address", "ssid"}
+        or normalized_name.startswith("ip_")
+        or normalized_name.endswith(("_ip", "_ssid"))
+    )
+
+
+def _contains_wifi_or_ip(value: object) -> bool:
+    if isinstance(value, dict):
+        for field_name, field_value in value.items():
+            if _is_wifi_or_ip_field(field_name) and field_value is not None and field_value != "":
+                return True
+            if _contains_wifi_or_ip(field_value):
+                return True
+        return False
+    if isinstance(value, (list, tuple, set)):
+        return any(_contains_wifi_or_ip(item) for item in value)
+    if isinstance(value, str):
+        try:
+            ip_address(value)
+        except ValueError:
+            return False
+        return True
+    return False
+
+
+def _device_connection_type(device: Device) -> str:
+    device_type = str(device.device_definition.get("type") or "").lower()
+    if any(wifi_type in device_type for wifi_type in WIFI_DEVICE_TYPES):
+        return "mac"
+    if any(bluetooth_type in device_type for bluetooth_type in BLUETOOTH_DEVICE_TYPES):
+        return "bluetooth"
+    if any(_contains_wifi_or_ip(data) for data in (device.status, device.settings, device.device_definition)):
+        return "mac"
+    return "bluetooth"
+
+
+def _format_mac_address(mac: str) -> str:
+    compact_mac = mac.replace(":", "").replace("-", "").replace(".", "")
+    if len(compact_mac) != 12 or any(character not in "0123456789abcdefABCDEF" for character in compact_mac):
+        return mac
+    return ":".join(compact_mac[index : index + 2] for index in range(0, 12, 2)).upper()
+
+
+def _device_connections(device: Device) -> list[list[str]]:
+    if not device.mac:
+        return []
+    return [[_device_connection_type(device), _format_mac_address(device.mac)]]
 
 
 def ha_discovery_alarm(site: Site, mqtt_config: dict, homeassistant_config: dict):
@@ -75,6 +131,7 @@ def ha_discovery_history(site: Site, mqtt_config: dict):
         "name": f"{site.label}_history",
         "unique_id": f"{site.id}_{site.label}_history",
         "state_topic": f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site.id}/history",
+        "json_attributes_topic": f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site.id}/history/attributes",
         "device": site_info,
         "mode": "text",
         "command_topic": f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site.id}/history",
@@ -139,6 +196,9 @@ def ha_discovery_devices(
         "name": device.label,
         "sw_version": f"{device.version} {update_available}",
     }
+    connections = _device_connections(device)
+    if connections:
+        device_info["connections"] = connections
 
     command_topic = (
         f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/{device.id}/{sensor_name}/command"
@@ -210,6 +270,9 @@ def ha_discovery_cameras(
         "name": device.label,
         "sw_version": device.version,
     }
+    connections = _device_connections(device)
+    if connections:
+        device_info["connections"] = connections
 
     camera_config["topic"] = (
         f"{mqtt_config.get('ha_discover_prefix', 'homeassistant')}/camera/{site_id}_{device.id}/snapshot/config"

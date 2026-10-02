@@ -46,6 +46,7 @@ class Device:
         "status",
         "diagnosis",
         "settings",
+        "mac",
         "update_available",
         "video_backend",
     )
@@ -62,6 +63,7 @@ class Device:
         settings: Dict,
         update_available: bool = False,
         video_backend: Optional[str] = None,
+        mac: Optional[str] = None,
         **_: Any,
     ):
         self.id = device_id
@@ -72,6 +74,7 @@ class Device:
         self.status = status
         self.diagnosis = diagnosis
         self.settings = settings
+        self.mac = mac
         self.update_available = update_available
         self.video_backend = video_backend
 

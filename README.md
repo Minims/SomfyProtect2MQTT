@@ -98,6 +98,37 @@ cp config/config.yaml.example config/config.yaml
 The OAuth token cache is stored next to the config file as `config/token.json` and contains local secret material.
 The config directory must be writable and persistent so the token can be reused across restarts.
 
+### Link Somfy badges to Bluetooth devices
+
+The Somfy API does not expose the Bluetooth address of key fobs. To let Home Assistant associate a badge discovered
+as `Myfox R` with its MQTT device, add the address shown as `Address` in Home Assistant to `homeassistant_config`.
+Use the Somfy device ID when possible; a unique device label is also accepted:
+
+```yaml
+homeassistant_config:
+  device_macs:
+    "<Somfy badge device ID or unique label>": "AA:BB:CC:DD:EE:FF"
+```
+
+The `Source` shown in the Bluetooth advertisement is the scanner or Bluetooth proxy, not the badge. Restart
+SomfyProtect2MQTT after updating the configuration so it republishes MQTT discovery.
+
+### Know who armed or disarmed the alarm
+
+The site history entity (`text.***_history`) carries the details of the latest event as attributes: `user` and
+`user_id` for the Somfy account, `device` and `device_id` for the key fob, `message_key`, `message_type`,
+`origin_type` and `occurred_at`. History is polled with the site status, so an automation triggered by the alarm
+state should wait for the attributes to match the new event, for example:
+
+```yaml
+- wait_template: >-
+    {{ 'disarmed' in (state_attr('text.home_history', 'message_key') or '')
+       and (now() - as_datetime(state_attr('text.home_history', 'occurred_at'))).total_seconds() < 180 }}
+  timeout: "00:02:00"
+- condition: template
+  value_template: "{{ state_attr('text.home_history', 'device') != 'Badge Alex' }}"
+```
+
 ## Running
 
 ```
