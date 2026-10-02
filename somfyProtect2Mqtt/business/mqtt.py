@@ -122,6 +122,11 @@ def _handle_alarm_status(text_payload, context: MqttContext) -> bool:
 
 
 def _handle_siren(text_payload, context: MqttContext) -> bool:
+    if text_payload.lower() == "sos":
+        site_id = context.topic_parts[1]
+        LOGGER.info(f"Send SOS On Site ID {site_id}")
+        context.api.trigger_alarm(site_id=site_id, mode="silent")
+        return True
     if text_payload.lower() in ("panic", "trigger"):
         site_id = context.topic_parts[1]
         LOGGER.info(f"Start the Siren On Site ID {site_id}")

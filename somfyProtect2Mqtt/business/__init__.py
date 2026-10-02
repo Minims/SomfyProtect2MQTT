@@ -29,6 +29,7 @@ from homeassistant.ha_discovery import (
     ha_discovery_cameras,
     ha_discovery_devices,
     ha_discovery_history,
+    ha_discovery_sos,
 )
 from somfy_protect.api import SIREN_TEST_SOUNDS, SomfyProtectApi
 from somfy_protect.api.devices.category import Category
@@ -215,7 +216,8 @@ def ha_sites_config(
             homeassistant_config=homeassistant_config,
         )
         site_extended = ha_discovery_alarm_actions(site=my_site, mqtt_config=mqtt_config)
-        for site_config in [site, site_extended]:
+        site_sos = ha_discovery_sos(site=my_site, mqtt_config=mqtt_config)
+        for site_config in [site, site_extended, site_sos]:
             _publish_and_subscribe(mqtt_client, site_config)
 
         history = ha_discovery_history(

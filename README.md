@@ -19,6 +19,7 @@ Supported:
 - HA MQTT Discovery.
 - Stop the Alarm
 - Trigger the Alarm
+- Send an SOS using Somfy's silent panic mode.
 - Update Device Settings
 - Send Action to device (Open/Close Camera Shutter, Light On/Off connected to OutDoor Camera)
 - Get latest Camera snapshot
@@ -112,6 +113,14 @@ homeassistant_config:
 
 The `Source` shown in the Bluetooth advertisement is the scanner or Bluetooth proxy, not the badge. Restart
 SomfyProtect2MQTT after updating the configuration so it republishes MQTT discovery.
+
+### Send an SOS
+
+Each site's Somfy Home Alarm device has an **SOS** button in Home Assistant. Pressing it sends Somfy's silent panic
+command (`type: silent`). Restart SomfyProtect2MQTT after upgrading to publish the new button through MQTT discovery.
+
+To send the same command directly over MQTT, publish `sos` to `<topic_prefix>/<site_id>/siren/command` without retention.
+The default topic prefix is `somfyProtect2mqtt`. The existing `panic`, `trigger`, and `stop` commands keep their behavior.
 
 ### Know who armed or disarmed the alarm
 

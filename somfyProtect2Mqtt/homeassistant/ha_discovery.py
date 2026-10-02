@@ -167,6 +167,29 @@ def ha_discovery_alarm_actions(site: Site, mqtt_config: dict):
     return site_config
 
 
+def ha_discovery_sos(site: Site, mqtt_config: dict) -> dict:
+    """Build MQTT discovery for the site's SOS button.
+
+    Args:
+        site (Site): Somfy site associated with the button.
+        mqtt_config (dict): MQTT topic and discovery prefixes.
+
+    Returns:
+        dict: Discovery topic and button configuration.
+    """
+    return {
+        "topic": f"{mqtt_config.get('ha_discover_prefix', 'homeassistant')}/button/{site.id}/sos/config",
+        "config": {
+            "name": "SOS",
+            "unique_id": f"{site.id}_sos",
+            "command_topic": f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site.id}/siren/command",
+            "payload_press": "sos",
+            "retain": False,
+            "device": {"identifiers": [site.id]},
+        },
+    }
+
+
 def ha_discovery_devices(
     site_id: str,
     device: Device,
