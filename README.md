@@ -16,6 +16,7 @@ Supported:
 
 - Retrieve some status of the alarm and its devices.
 - Set security level: armed, disarmed, partial (HA aliases `armed_away` and `armed_night` are also supported on MQTT command payloads).
+- Alarm in progress: `triggered` is kept until the alarm ends or the site is disarmed (the periodic site refresh no longer overwrites it).
 - HA MQTT Discovery.
 - Stop the Alarm
 - Trigger the Alarm

@@ -5,6 +5,7 @@ import logging
 import threading
 from dataclasses import dataclass
 
+from business.alarm_state import alarm_in_progress, end_alarm
 from business.tempfiles import remove_temp_file, write_temp_bytes
 from homeassistant.ha_discovery import ALARM_STATUS
 from paho.mqtt import client
@@ -52,11 +53,20 @@ def build_device_status_payload(device) -> dict:
 
 
 def publish_site_state(mqtt_client, mqtt_config, site_id, security_level) -> None:
-    """Publish site security level to MQTT."""
+    """Publish site security level to MQTT.
+
+    The API security level only knows disarmed / partial / armed: keep `triggered` while an
+    alarm is in progress, so the periodic refresh does not hide it. Disarming ends the alarm.
+    """
+    state = ALARM_STATUS.get(security_level, "disarmed")
+    if state == "disarmed":
+        end_alarm(site_id)
+    elif alarm_in_progress(site_id):
+        state = "triggered"
     mqtt_publish(
         mqtt_client=mqtt_client,
         topic=f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/state",
-        payload={"security_level": ALARM_STATUS.get(security_level, "disarmed")},
+        payload={"security_level": state},
         retain=True,
     )
 

@@ -4,8 +4,8 @@
 
 import logging
 
-from business.mqtt import mqtt_publish, update_site
-from homeassistant.ha_discovery import ALARM_STATUS
+from business.alarm_state import end_alarm, start_alarm
+from business.mqtt import mqtt_publish, publish_site_state, update_site
 from somfy_protect.websocket.handlers.device import pulse_motion_sensor
 
 LOGGER = logging.getLogger(__name__)
@@ -19,9 +19,7 @@ def security_level_change(websocket_client, message: dict) -> None:
         LOGGER.warning("Missing site_id for security level change")
         return
     security_level = message.get("security_level")
-    payload = {"security_level": ALARM_STATUS.get(str(security_level), "disarmed")}
-    topic = f"{websocket_client.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/state"
-    mqtt_publish(mqtt_client=websocket_client.mqtt_client, topic=topic, payload=payload, retain=True)
+    publish_site_state(websocket_client.mqtt_client, websocket_client.mqtt_config, site_id, str(security_level))
 
 
 def alarm_trespass(websocket_client, message: dict) -> None:
@@ -36,6 +34,7 @@ def alarm_trespass(websocket_client, message: dict) -> None:
     if message.get("type") != "alarm":
         LOGGER.info(f"{message.get('type')} is not 'alarm'")
 
+    start_alarm(site_id, message.get("end_at"))
     topic_prefix = websocket_client.mqtt_config.get("topic_prefix", "somfyProtect2mqtt")
     mqtt_publish(
         mqtt_client=websocket_client.mqtt_client,
@@ -55,6 +54,7 @@ def alarm_panic(websocket_client, message: dict) -> None:
     if not site_id:
         LOGGER.warning("Missing site_id for alarm panic event")
         return
+    start_alarm(site_id, message.get("end_at"))
     topic = f"{websocket_client.mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/state"
     mqtt_publish(
         mqtt_client=websocket_client.mqtt_client,
@@ -98,4 +98,6 @@ def alarm_end(websocket_client, message: dict) -> None:
     """Handle alarm end events."""
     LOGGER.info("Report Alarm Stop")
     site_id = message.get("site_id")
+    if site_id:
+        end_alarm(site_id)
     update_site(websocket_client.api, websocket_client.mqtt_client, websocket_client.mqtt_config, site_id)
