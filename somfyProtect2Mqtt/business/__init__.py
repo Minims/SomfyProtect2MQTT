@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Optional
 import pytz
 import requests
 import schedule
+from business.alarm_state import get_site_revision
 from business.mqtt import mqtt_publish, publish_device_state, publish_site_state, register_subscribe_topic
 from business.tempfiles import remove_temp_file, write_temp_bytes
 from business.watermark import insert_watermark
@@ -546,11 +547,12 @@ def update_sites_status(
     LOGGER.info("Update Sites Status")
     for site_id in my_sites_id:
         try:
+            revision = get_site_revision(site_id)
             site = api.get_site(site_id=site_id)
             LOGGER.info("Update {} Status".format(site.label))
 
             try:
-                publish_site_state(mqtt_client, mqtt_config, site_id, site.security_level)
+                publish_site_state(mqtt_client, mqtt_config, site_id, site.security_level, expected_revision=revision)
             except (OSError, ValueError) as e:
                 LOGGER.warning("Error while updating MQTT: {}".format(e))
                 continue

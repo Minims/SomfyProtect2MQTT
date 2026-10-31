@@ -16,6 +16,7 @@ Supported:
 
 - Retrieve some status of the alarm and its devices.
 - Set security level: armed, disarmed, partial (HA aliases `armed_away` and `armed_night` are also supported on MQTT command payloads).
+- Keep `triggered` during periodic refreshes while an alarm is in progress on an armed site.
 - HA MQTT Discovery.
 - Stop the Alarm
 - Trigger the Alarm
@@ -27,6 +28,14 @@ Supported:
 - Get The temperature from PIR / Siren
 - Configure Sensors
 - Video Streaming <alpha>
+
+After an `alarm.trespass` or `alarm.panic` event, refreshes preserve `triggered` while the site is armed or partially armed.
+An `alarm.end` event or a disarmed state clears it. If Somfy provides a valid `end_at`, the first state update at or after
+that time also clears it. This tracking is kept in memory and is lost when the bridge restarts.
+
+Without a valid `end_at`, there is no automatic expiry: a missed end event can leave `triggered` until a disarmed state
+is received or the bridge restarts. Panic on an already disarmed site keeps its previous behavior: the next refresh
+returns the panel to `disarmed`.
 
 <img width="1012" alt="SomfyProtect" src="https://user-images.githubusercontent.com/1724785/112769160-e37df200-901f-11eb-9000-e8c463a64dd9.png">
 

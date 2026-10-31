@@ -5,6 +5,7 @@ import logging
 import threading
 from dataclasses import dataclass
 
+from business.alarm_state import ALARM_STATE_LOCK, alarm_in_progress, end_alarm, get_site_revision
 from business.tempfiles import remove_temp_file, write_temp_bytes
 from homeassistant.ha_discovery import ALARM_STATUS
 from paho.mqtt import client
@@ -51,14 +52,36 @@ def build_device_status_payload(device) -> dict:
     return {str(key): str(value) for key, value in keys_values}
 
 
-def publish_site_state(mqtt_client, mqtt_config, site_id, security_level) -> None:
-    """Publish site security level to MQTT."""
-    mqtt_publish(
-        mqtt_client=mqtt_client,
-        topic=f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/state",
-        payload={"security_level": ALARM_STATUS.get(security_level, "disarmed")},
-        retain=True,
-    )
+def publish_site_state(
+    mqtt_client, mqtt_config, site_id, security_level, *, expected_revision: int | None = None
+) -> None:
+    """Publish site security level to MQTT.
+
+    The API security level only knows disarmed / partial / armed: keep `triggered` while an
+    alarm is in progress on an armed site. A disarmed state clears the tracked alarm.
+
+    Args:
+        mqtt_client (MQTTClient): MQTT client used to enqueue the retained state.
+        mqtt_config (dict): MQTT topic configuration.
+        site_id (str): Site identifier.
+        security_level (str): Somfy security level.
+        expected_revision (int | None): Revision captured before a REST request; discard
+            its response if the site changed during the request. Omit for live events.
+    """
+    with ALARM_STATE_LOCK:
+        if expected_revision is not None and expected_revision != get_site_revision(site_id):
+            return
+        state = ALARM_STATUS.get(security_level, "disarmed")
+        if state == "disarmed":
+            end_alarm(site_id)
+        elif alarm_in_progress(site_id):
+            state = "triggered"
+        mqtt_publish(
+            mqtt_client=mqtt_client,
+            topic=f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/state",
+            payload={"security_level": state},
+            retain=True,
+        )
 
 
 def publish_device_state(mqtt_client, mqtt_config, site_id, device) -> None:
@@ -332,8 +355,9 @@ def update_site(api, mqtt_client, mqtt_config, site_id):
     """Update MQTT data for a site"""
     LOGGER.info(f"Live Update site {site_id}")
     try:
+        revision = get_site_revision(site_id)
         site = api.get_site(site_id=site_id)
-        publish_site_state(mqtt_client, mqtt_config, site_id, site.security_level)
+        publish_site_state(mqtt_client, mqtt_config, site_id, site.security_level, expected_revision=revision)
     except (RequestException, AttributeError, KeyError, ValueError) as e:
         LOGGER.exception(f"Error while refreshing site {site_id}: {e}")
 
