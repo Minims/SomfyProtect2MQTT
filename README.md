@@ -16,10 +16,11 @@ Supported:
 
 - Retrieve some status of the alarm and its devices.
 - Set security level: armed, disarmed, partial (HA aliases `armed_away` and `armed_night` are also supported on MQTT command payloads).
-- Alarm in progress: `triggered` is kept until the alarm ends or the site is disarmed (the periodic site refresh no longer overwrites it).
+- Keep `triggered` during periodic refreshes while an alarm is in progress on an armed site.
 - HA MQTT Discovery.
 - Stop the Alarm
 - Trigger the Alarm
+- Send an SOS using Somfy's silent panic mode.
 - Update Device Settings
 - Send Action to device (Open/Close Camera Shutter, Light On/Off connected to OutDoor Camera)
 - Get latest Camera snapshot
@@ -27,6 +28,14 @@ Supported:
 - Get The temperature from PIR / Siren
 - Configure Sensors
 - Video Streaming <alpha>
+
+After an `alarm.trespass` or `alarm.panic` event, refreshes preserve `triggered` while the site is armed or partially armed.
+An `alarm.end` event or a disarmed state clears it. If Somfy provides a valid `end_at`, the first state update at or after
+that time also clears it. This tracking is kept in memory and is lost when the bridge restarts.
+
+Without a valid `end_at`, there is no automatic expiry: a missed end event can leave `triggered` until a disarmed state
+is received or the bridge restarts. Panic on an already disarmed site keeps its previous behavior: the next refresh
+returns the panel to `disarmed`.
 
 <img width="1012" alt="SomfyProtect" src="https://user-images.githubusercontent.com/1724785/112769160-e37df200-901f-11eb-9000-e8c463a64dd9.png">
 
@@ -113,6 +122,14 @@ homeassistant_config:
 
 The `Source` shown in the Bluetooth advertisement is the scanner or Bluetooth proxy, not the badge. Restart
 SomfyProtect2MQTT after updating the configuration so it republishes MQTT discovery.
+
+### Send an SOS
+
+Each site's Somfy Home Alarm device has an **SOS** button in Home Assistant. Pressing it sends Somfy's silent panic
+command (`type: silent`). Restart SomfyProtect2MQTT after upgrading to publish the new button through MQTT discovery.
+
+To send the same command directly over MQTT, publish `sos` to `<topic_prefix>/<site_id>/siren/command` without retention.
+The default topic prefix is `somfyProtect2mqtt`. The existing `panic`, `trigger`, and `stop` commands keep their behavior.
 
 ### Know who armed or disarmed the alarm
 

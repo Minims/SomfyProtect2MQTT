@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Optional
 import pytz
 import requests
 import schedule
+from business.alarm_state import get_site_revision
 from business.mqtt import mqtt_publish, publish_device_state, publish_site_state, register_subscribe_topic
 from business.tempfiles import remove_temp_file, write_temp_bytes
 from business.watermark import insert_watermark
@@ -29,6 +30,7 @@ from homeassistant.ha_discovery import (
     ha_discovery_cameras,
     ha_discovery_devices,
     ha_discovery_history,
+    ha_discovery_sos,
 )
 from somfy_protect.api import SIREN_TEST_SOUNDS, SomfyProtectApi
 from somfy_protect.api.devices.category import Category
@@ -215,7 +217,8 @@ def ha_sites_config(
             homeassistant_config=homeassistant_config,
         )
         site_extended = ha_discovery_alarm_actions(site=my_site, mqtt_config=mqtt_config)
-        for site_config in [site, site_extended]:
+        site_sos = ha_discovery_sos(site=my_site, mqtt_config=mqtt_config)
+        for site_config in [site, site_extended, site_sos]:
             _publish_and_subscribe(mqtt_client, site_config)
 
         history = ha_discovery_history(
@@ -544,11 +547,12 @@ def update_sites_status(
     LOGGER.info("Update Sites Status")
     for site_id in my_sites_id:
         try:
+            revision = get_site_revision(site_id)
             site = api.get_site(site_id=site_id)
             LOGGER.info("Update {} Status".format(site.label))
 
             try:
-                publish_site_state(mqtt_client, mqtt_config, site_id, site.security_level)
+                publish_site_state(mqtt_client, mqtt_config, site_id, site.security_level, expected_revision=revision)
             except (OSError, ValueError) as e:
                 LOGGER.warning("Error while updating MQTT: {}".format(e))
                 continue
