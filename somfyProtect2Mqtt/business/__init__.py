@@ -549,11 +549,12 @@ def update_sites_status(
 ) -> None:
     """Update sites status (including history)."""
     LOGGER.info("Update Sites Status")
+    has_published_state = False
+    network_error = None
     for site_id in my_sites_id:
         try:
             revision = get_site_revision(site_id)
             site = api.get_site(site_id=site_id)
-            report_api_success(mqtt_client)
             LOGGER.info("Update {} Status".format(site.label))
 
             try:
@@ -561,15 +562,18 @@ def update_sites_status(
             except (OSError, ValueError) as e:
                 LOGGER.warning("Error while updating MQTT: {}".format(e))
                 continue
-        except RemoteDisconnected as e:
-            LOGGER.info("Retrying...")
-            report_api_failure(mqtt_client, e)
-        except requests.exceptions.RequestException as e:
-            LOGGER.warning("Error while refreshing site: {}".format(e))
-            report_api_failure(mqtt_client, e)
-            continue
+            has_published_state = True
+        # Requests JSONDecodeError is both a ValueError and a RequestException.
         except (KeyError, ValueError) as e:
             LOGGER.warning("Error while refreshing site: {}".format(e))
+            continue
+        except RemoteDisconnected as e:
+            LOGGER.info("Retrying...")
+            network_error = e
+            continue
+        except requests.exceptions.RequestException as e:
+            LOGGER.warning("Error while refreshing site: {}".format(e))
+            network_error = e
             continue
 
         try:
@@ -577,6 +581,11 @@ def update_sites_status(
         except (requests.exceptions.RequestException, KeyError, ValueError) as e:
             LOGGER.warning("Error while getting site history: {}".format(e))
             continue
+
+    if has_published_state:
+        report_api_success(mqtt_client)
+    elif network_error is not None:
+        report_api_failure(mqtt_client, network_error)
 
 
 def _history_attributes(event: dict) -> dict:

@@ -13,8 +13,8 @@ LOGGER = logging.getLogger(__name__)
 
 PAYLOAD_ONLINE = "online"
 PAYLOAD_OFFLINE = "offline"
-# The site status is polled every `delay_site` seconds (60 s minimum): two failures in a row
-# mark the API offline after 1 to 2 minutes, without reacting to a single timeout.
+# Count one failure per site polling cycle (every `delay_site` seconds, 60 s minimum),
+# regardless of the number of configured sites.
 FAILURES_BEFORE_OFFLINE = 2
 
 
@@ -60,7 +60,7 @@ class ApiAvailability:
             if self._online is True:
                 return
             self._online = True
-            LOGGER.info("Somfy Protect API reachable, publishing %s", PAYLOAD_ONLINE)
+            LOGGER.info(f"Somfy Protect API reachable, publishing {PAYLOAD_ONLINE}")
             self._publish(PAYLOAD_ONLINE)
 
     def report_failure(self, error: object = None) -> None:
@@ -70,7 +70,7 @@ class ApiAvailability:
             if self._online is False or self._failures < self._threshold:
                 return
             self._online = False
-            LOGGER.warning("Somfy Protect API unreachable (%s), publishing %s", error, PAYLOAD_OFFLINE)
+            LOGGER.warning(f"Somfy Protect API unreachable ({error}), publishing {PAYLOAD_OFFLINE}")
             self._publish(PAYLOAD_OFFLINE)
 
     def republish(self) -> None:

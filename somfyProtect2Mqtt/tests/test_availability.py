@@ -1,8 +1,11 @@
 """Tests for the availability of the Somfy Protect API (entities unavailable when the cloud cannot be reached)."""
 
+import json
+import sys
 from http.client import RemoteDisconnected
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 
+import pytest
 import requests
 from business import availability, update_sites_status
 from business.availability import ApiAvailability, availability_topic, with_availability
@@ -112,11 +115,123 @@ def test_site_refresh_reports_network_errors(monkeypatch):
     assert published == ["offline", "online"]
 
 
-def test_data_errors_do_not_mark_offline():
+@pytest.mark.parametrize(
+    "error",
+    [
+        KeyError("security_level"),
+        ValueError("invalid data"),
+        requests.exceptions.JSONDecodeError("invalid JSON", "", 0),
+    ],
+)
+def test_data_errors_do_not_mark_offline(error):
     """A malformed answer is not an outage."""
     tracker, published = _tracker(threshold=1)
     client = SimpleNamespace(availability=tracker)
 
-    update_sites_status(_FailingApi(KeyError("security_level")), client, {}, ["site"])
+    update_sites_status(_FailingApi(error), client, {}, ["site"])
 
     assert not published
+
+
+def test_recovery_publishes_all_site_states_before_online(monkeypatch):
+    """Recovered entities must receive fresh states before becoming available."""
+    tracker, published = _tracker(threshold=1)
+    tracker.report_failure("dns")
+    published.clear()
+    client = SimpleNamespace(
+        availability=tracker,
+        client=SimpleNamespace(publish=lambda topic, payload, **kwargs: published.append((topic, json.loads(payload)))),
+    )
+    api = SimpleNamespace(get_site=lambda site_id: SimpleNamespace(label=site_id, security_level="armed"))
+    monkeypatch.setattr("business._publish_site_history", lambda *args: None)
+
+    update_sites_status(api, client, {}, ["home", "second-home"])
+
+    assert published == [
+        ("somfyProtect2mqtt/home/state", {"security_level": "armed_away"}),
+        ("somfyProtect2mqtt/second-home/state", {"security_level": "armed_away"}),
+        "online",
+    ]
+
+
+def test_multi_site_outage_counts_once_per_poll():
+    """Two failing sites in one poll must not exhaust the two-poll tolerance."""
+    tracker, published = _tracker()
+    tracker.report_success()
+    published.clear()
+    client = SimpleNamespace(availability=tracker)
+    api = _FailingApi(requests.exceptions.ConnectionError("dns"))
+
+    update_sites_status(api, client, {}, ["home", "second-home"])
+    assert published == []
+
+    update_sites_status(api, client, {}, ["home", "second-home"])
+    assert published == ["offline"]
+
+
+def test_successful_site_prevents_global_outage(monkeypatch):
+    """A partial outage must not toggle global availability on each poll."""
+    tracker, published = _tracker()
+    tracker.report_success()
+    published.clear()
+    client = SimpleNamespace(availability=tracker)
+
+    def get_site(site_id):
+        if site_id != "reachable":
+            raise requests.exceptions.ConnectionError("timeout")
+        return SimpleNamespace(label=site_id, security_level="disarmed")
+
+    api = SimpleNamespace(get_site=get_site)
+    monkeypatch.setattr("business.publish_site_state", lambda *args, **kwargs: None)
+    monkeypatch.setattr("business._publish_site_history", lambda *args: None)
+
+    for _ in range(2):
+        update_sites_status(api, client, {}, ["home", "second-home", "reachable"])
+
+    assert published == []
+
+
+@pytest.mark.parametrize("error", [OSError("publish failed"), ValueError("invalid payload")])
+def test_failed_state_publish_does_not_restore_availability(monkeypatch, error):
+    """An API answer alone must not expose the retained state as current."""
+    tracker, published = _tracker(threshold=1)
+    tracker.report_failure("dns")
+    published.clear()
+    client = SimpleNamespace(availability=tracker)
+    api = SimpleNamespace(get_site=lambda site_id: SimpleNamespace(label=site_id, security_level="armed"))
+
+    def fail_publish(*args, **kwargs):
+        raise error
+
+    monkeypatch.setattr("business.publish_site_state", fail_publish)
+
+    update_sites_status(api, client, {}, ["home"])
+
+    assert published == []
+    assert tracker.online is False
+
+
+@pytest.mark.parametrize(
+    ("error", "expected"),
+    [
+        (requests.exceptions.ConnectionError("dns"), ["offline"]),
+        (requests.exceptions.JSONDecodeError("invalid JSON", "", 0), []),
+    ],
+)
+def test_startup_counts_network_errors_only(monkeypatch, error, expected):
+    """Malformed startup responses must not count as network failures either."""
+    # The API loop does not use the optional OpenCV camera backend.
+    monkeypatch.setitem(sys.modules, "cv2", ModuleType("cv2"))
+    import main  # pylint: disable=import-outside-toplevel
+
+    tracker, published = _tracker(threshold=1)
+    client = SimpleNamespace(availability=tracker)
+
+    def fail_init(**kwargs):
+        raise error
+
+    monkeypatch.setattr(main, "SomfyProtect2Mqtt", fail_init)
+
+    main.somfy_protect_loop({}, client, None)
+
+    assert published == expected

@@ -136,9 +136,14 @@ The default topic prefix is `somfyProtect2mqtt`. The existing `panic`, `trigger`
 SomfyProtect2MQTT publishes `online` or `offline` (retained) on `<topic_prefix>/availability`, and every entity it
 creates in Home Assistant follows this topic. The entities become unavailable when:
 
-- the Somfy Protect API does not answer two site refreshes in a row (internet outage, DNS failure, Somfy
-  maintenance), until it answers again;
+- site refreshes fail with network errors for two polling cycles in a row, with no successfully published site
+  state (internet outage, DNS failure, Somfy maintenance);
 - SomfyProtect2MQTT stops or loses the MQTT broker (last will).
+
+Each polling cycle counts at most one failure, regardless of the number of configured sites. Malformed responses,
+including invalid JSON, do not count as network failures. After an outage, `online` is published at the end of the
+first cycle that publishes a site state, after the recovered site states have been sent. A successful site refresh
+keeps the shared cloud availability online even if another site fails.
 
 Without it, the entities would keep their last state during an outage, and commands sent from Home Assistant would
 be lost without any visible error. Restart SomfyProtect2MQTT after upgrading so it republishes MQTT discovery.
