@@ -8,6 +8,7 @@ import signal
 import threading
 import time
 
+from business.availability import report_api_failure
 from constants import WEBSOCKET_RECONNECT
 from exceptions import SomfyProtectInitError
 from mqtt import init_mqtt
@@ -42,6 +43,9 @@ def somfy_protect_loop(config, mqtt_client, api):
         shutdown_event.set()
     except (OSError, RuntimeError, ValueError) as e:
         LOGGER.exception(f"API loop stopped unexpectedly: {e}")
+        if isinstance(e, OSError):
+            # Includes requests errors: the Somfy API cannot be reached (e.g. at startup without internet).
+            report_api_failure(mqtt_client, e)
 
 
 def _start_api_thread(config, mqtt_client, api):

@@ -6,6 +6,7 @@ import ssl
 from time import sleep
 
 import paho.mqtt.client as mqtt
+from business.availability import PAYLOAD_OFFLINE, ApiAvailability, availability_topic
 from business.mqtt import SUBSCRIBE_TOPICS, consume_mqtt_message
 from exceptions import SomfyProtectInitError
 from somfy_protect.api import SomfyProtectApi
@@ -25,6 +26,10 @@ class MQTTClient:
         self.client.on_publish = self.on_publish
         self.client.on_disconnect = self.on_disconnect
         self.client.username_pw_set(config.get("username"), config.get("password"))
+        # Entities become unavailable in Home Assistant if this process dies or loses the broker.
+        self.availability_topic = availability_topic(config)
+        self.availability = ApiAvailability(self._publish_availability)
+        self.client.will_set(self.availability_topic, PAYLOAD_OFFLINE, qos=1, retain=True)
         if config.get("ssl", False) is True:
             self.client.tls_set(cert_reqs=ssl.CERT_NONE)
             self.client.tls_insecure_set(True)
@@ -51,6 +56,7 @@ class MQTTClient:
             for topic in sorted(SUBSCRIBE_TOPICS):
                 LOGGER.info("Subscribing to: {}".format(topic))
                 self.client.subscribe(topic)
+            self.availability.republish()
         else:
             LOGGER.info("Not Connected: {}".format(rc))
 
@@ -94,6 +100,10 @@ class MQTTClient:
                     sleep(backoff)
                     backoff = min(backoff * 2, 60)
 
+    def _publish_availability(self, payload: str) -> None:
+        """Publish the API availability (retained)."""
+        self.client.publish(self.availability_topic, payload, qos=1, retain=True)
+
     def run(self):
         """MQTT run"""
         LOGGER.info("RUN")
@@ -101,6 +111,13 @@ class MQTTClient:
     def shutdown(self):
         """MQTT shutdown"""
         self.running = False
+        try:
+            # A clean disconnection does not send the last will: say offline explicitly.
+            self.client.publish(self.availability_topic, PAYLOAD_OFFLINE, qos=1, retain=True).wait_for_publish(
+                timeout=2
+            )
+        except (OSError, RuntimeError, ValueError) as e:
+            LOGGER.warning("Unable to publish offline availability: {}".format(e))
         self.client.loop_stop()
         self.client.disconnect()
 

@@ -131,6 +131,18 @@ command (`type: silent`). Restart SomfyProtect2MQTT after upgrading to publish t
 To send the same command directly over MQTT, publish `sos` to `<topic_prefix>/<site_id>/siren/command` without retention.
 The default topic prefix is `somfyProtect2mqtt`. The existing `panic`, `trigger`, and `stop` commands keep their behavior.
 
+### Know when the Somfy cloud cannot be reached
+
+SomfyProtect2MQTT publishes `online` or `offline` (retained) on `<topic_prefix>/availability`, and every entity it
+creates in Home Assistant follows this topic. The entities become unavailable when:
+
+- the Somfy Protect API does not answer two site refreshes in a row (internet outage, DNS failure, Somfy
+  maintenance), until it answers again;
+- SomfyProtect2MQTT stops or loses the MQTT broker (last will).
+
+Without it, the entities would keep their last state during an outage, and commands sent from Home Assistant would
+be lost without any visible error. Restart SomfyProtect2MQTT after upgrading so it republishes MQTT discovery.
+
 ### Know who armed or disarmed the alarm
 
 The site history entity (`text.***_history`) carries the details of the latest event as attributes: `user` and

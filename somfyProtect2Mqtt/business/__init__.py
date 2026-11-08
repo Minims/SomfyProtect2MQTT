@@ -17,6 +17,7 @@ import pytz
 import requests
 import schedule
 from business.alarm_state import get_site_revision
+from business.availability import report_api_failure, report_api_success, with_availability
 from business.mqtt import mqtt_publish, publish_device_state, publish_site_state, register_subscribe_topic
 from business.tempfiles import remove_temp_file, write_temp_bytes
 from business.watermark import insert_watermark
@@ -168,7 +169,10 @@ def _publish_config(mqtt_client: MQTTClient, config: Optional[dict], payload: Op
     mqtt_publish(
         mqtt_client=mqtt_client,
         topic=config.get("topic"),
-        payload=payload if payload is not None else config.get("config"),
+        payload=with_availability(
+            payload if payload is not None else config.get("config"),
+            getattr(mqtt_client, "availability_topic", None),
+        ),
         retain=True,
     )
 
@@ -549,6 +553,7 @@ def update_sites_status(
         try:
             revision = get_site_revision(site_id)
             site = api.get_site(site_id=site_id)
+            report_api_success(mqtt_client)
             LOGGER.info("Update {} Status".format(site.label))
 
             try:
@@ -556,9 +561,14 @@ def update_sites_status(
             except (OSError, ValueError) as e:
                 LOGGER.warning("Error while updating MQTT: {}".format(e))
                 continue
-        except RemoteDisconnected:
+        except RemoteDisconnected as e:
             LOGGER.info("Retrying...")
-        except (requests.exceptions.RequestException, KeyError, ValueError) as e:
+            report_api_failure(mqtt_client, e)
+        except requests.exceptions.RequestException as e:
+            LOGGER.warning("Error while refreshing site: {}".format(e))
+            report_api_failure(mqtt_client, e)
+            continue
+        except (KeyError, ValueError) as e:
             LOGGER.warning("Error while refreshing site: {}".format(e))
             continue
 
