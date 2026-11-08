@@ -17,6 +17,7 @@ import pytz
 import requests
 import schedule
 from business.alarm_state import get_site_revision
+from business.availability import report_api_failure, report_api_success, with_availability
 from business.mqtt import mqtt_publish, publish_device_state, publish_site_state, register_subscribe_topic
 from business.tempfiles import remove_temp_file, write_temp_bytes
 from business.watermark import insert_watermark
@@ -168,7 +169,10 @@ def _publish_config(mqtt_client: MQTTClient, config: Optional[dict], payload: Op
     mqtt_publish(
         mqtt_client=mqtt_client,
         topic=config.get("topic"),
-        payload=payload if payload is not None else config.get("config"),
+        payload=with_availability(
+            payload if payload is not None else config.get("config"),
+            getattr(mqtt_client, "availability_topic", None),
+        ),
         retain=True,
     )
 
@@ -545,6 +549,8 @@ def update_sites_status(
 ) -> None:
     """Update sites status (including history)."""
     LOGGER.info("Update Sites Status")
+    has_published_state = False
+    network_error = None
     for site_id in my_sites_id:
         try:
             revision = get_site_revision(site_id)
@@ -556,10 +562,18 @@ def update_sites_status(
             except (OSError, ValueError) as e:
                 LOGGER.warning("Error while updating MQTT: {}".format(e))
                 continue
-        except RemoteDisconnected:
-            LOGGER.info("Retrying...")
-        except (requests.exceptions.RequestException, KeyError, ValueError) as e:
+            has_published_state = True
+        # Requests JSONDecodeError is both a ValueError and a RequestException.
+        except (KeyError, ValueError) as e:
             LOGGER.warning("Error while refreshing site: {}".format(e))
+            continue
+        except RemoteDisconnected as e:
+            LOGGER.info("Retrying...")
+            network_error = e
+            continue
+        except requests.exceptions.RequestException as e:
+            LOGGER.warning("Error while refreshing site: {}".format(e))
+            network_error = e
             continue
 
         try:
@@ -567,6 +581,11 @@ def update_sites_status(
         except (requests.exceptions.RequestException, KeyError, ValueError) as e:
             LOGGER.warning("Error while getting site history: {}".format(e))
             continue
+
+    if has_published_state:
+        report_api_success(mqtt_client)
+    elif network_error is not None:
+        report_api_failure(mqtt_client, network_error)
 
 
 def _history_attributes(event: dict) -> dict:
