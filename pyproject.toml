@@ -5,27 +5,27 @@ description = "Somfy Home Alarm Addon"
 readme = "README.md"
 requires-python = ">=3.13.2"
 dependencies = [
-    "aenum>=3.1.15",
+    "aenum==3.1.17",
     "aiortc==1.16.0",
-    "oauthlib>=3.2.2",
-    "paho-mqtt>=2.1.0",
-    "pillow>=12.2.0",
-    "python-ffmpeg-video-streaming>=0.1.16",
-    "pytz>=2024.2",
-    "pyyaml>=6.0.2",
-    "requests-oauthlib>=2.0.0",
-    "schedule>=1.2.2",
-    "simple-http-server>=0.22.3",
-    "urllib3>=2.7.0",
-    "websocket-client>=1.8.0",
+    "oauthlib==4.0.1",
+    "paho-mqtt==2.2.0",
+    "pillow==13.0.0",
+    "python-ffmpeg-video-streaming==0.1.16",
+    "pytz==2026.6",
+    "pyyaml==6.0.3",
+    "requests-oauthlib==2.0.0",
+    "schedule==1.2.2",
+    "simple-http-server==0.22.3",
+    "urllib3==2.8.0",
+    "websocket-client==1.9.2",
 ]
 
 [dependency-groups]
 dev = [
-    "pytest>=9.1.1",
-    "black>=24.10.0",
-    "pylint>=3.3.3",
-    "isort>=5.13.2",
+    "pytest==9.2.0",
+    "black==26.10.1",
+    "pylint==4.1.3",
+    "isort==9.0.2",
 ]
 
 [tool.uv]
