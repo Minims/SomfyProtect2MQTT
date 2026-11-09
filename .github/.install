@@ -1,32 +1,11 @@
-brew install python@3.12
-brew install pyenv
-pyenv install 3.12.8
-pyenv local 3.12.8
-python --version
-curl -sSL https://install.python-poetry.org | python
-# Dans ~/.zshrc, export PATH="$HOME/.local/bin:$PATH"
-# source ~/.zshrc
-python -m poetry init
+brew install uv
+uv python install 3.13.2
+uv python pin 3.13.2
+uv sync
 
-###
-pyenv virtualenv 3.12.8 somfyProtect2Mqtt
-pyenv activate somfyProtect2Mqtt
-pyenv local somfyProtect2Mqtt
-###
+uv run black .
+uv run isort .
+uv run pylint .
 
-poetry run black .
-poetry run isort .
-poetry run pylint .
-
-
-poetry add $(cat requirements.txt)
-poetry add --dev $(cat requirements-dev.txt)
-poetry install
-poetry install --no-root
-poetry self add poetry-plugin-shell
-poetry self add poetry-plugin-export
-
-poetry export --without-hashes --without dev -o somfyProtect2Mqtt/requirements/common.txt
-poetry export --without-hashes --only dev -o somfyProtect2Mqtt/requirements/dev.txt
-
-poetry shell
+uv export --no-hashes --no-dev --output-file somfyProtect2Mqtt/requirements/common.txt
+uv export --no-hashes --only-group dev --output-file somfyProtect2Mqtt/requirements/dev.txt
