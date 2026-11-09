@@ -5,8 +5,8 @@ Keep changes small, follow existing patterns, and update docs if behavior change
 
 ## Project Basics
 
-- Language: Python 3.12+.
-- Packaging: Poetry (pyproject.toml) and requirements files for runtime/dev.
+- Language: Python 3.13.2+.
+- Packaging: uv (`pyproject.toml` and `uv.lock`) plus requirements files for runtime/dev.
 - Entry point: `somfyProtect2Mqtt/main.py`.
 - Configuration: `somfyProtect2Mqtt/config/config.yaml` (copy from example).
 - No Cursor/Copilot rules found in `.cursor/rules/`, `.cursorrules`, or `.github/copilot-instructions.md`.
@@ -15,7 +15,7 @@ Keep changes small, follow existing patterns, and update docs if behavior change
 
 ### Setup (choose one)
 
-- Poetry: `poetry install`.
+- uv: `uv sync`.
 - Pip: `pip3 install -r somfyProtect2Mqtt/requirements/common.txt`.
 - Dev tools: `pip3 install -r somfyProtect2Mqtt/requirements/dev.txt`.
 
@@ -35,11 +35,10 @@ Keep changes small, follow existing patterns, and update docs if behavior change
 
 ### Build
 
-- Packaging is Poetry-based; build artifacts are uncommon for this repo.
-- If needed: `poetry build`.
-- To regenerate requirements files:
-  `poetry lock --no-cache && poetry export -f requirements.txt --output somfyProtect2Mqtt/requirements/common.txt --without-hashes`
-  `poetry export --only dev -f requirements.txt --output somfyProtect2Mqtt/requirements/dev.txt --without-hashes`
+- Packaging uses uv; build artifacts are uncommon for this repo.
+- To regenerate the lockfile and requirements files:
+  `uv lock && uv export --no-hashes --no-dev --output-file somfyProtect2Mqtt/requirements/common.txt`
+  `uv export --no-hashes --only-group dev --output-file somfyProtect2Mqtt/requirements/dev.txt`
 
 ### Tests
 
@@ -158,7 +157,7 @@ Keep changes small, follow existing patterns, and update docs if behavior change
 
 ## Tooling Notes
 
-- Python version target is 3.12+ (see `pyproject.toml`).
+- Python version target is 3.13.2+ (see `pyproject.toml`).
 - Dev dependencies include black, isort, pylint (see `somfyProtect2Mqtt/requirements/dev.txt`).
 
 ## Safe Changes Checklist

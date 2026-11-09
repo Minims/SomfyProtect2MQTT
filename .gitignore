@@ -134,9 +134,9 @@ venv.bak/
 # ============================================
 # Python - Poetry
 # ============================================
-# poetry.lock devrait être versionné pour la reproductibilité
+# uv.lock devrait être versionné pour la reproductibilité
 # mais peut être ignoré si vous préférez régénérer à chaque fois
-# poetry.lock
+# uv.lock
 
 # ============================================
 # Python - pyenv
