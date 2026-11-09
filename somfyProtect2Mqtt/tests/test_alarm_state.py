@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 from business import alarm_state
 from business import mqtt as business_mqtt
+from paho.mqtt.client import MQTTMessageInfo
 
 SITE = "site-id"
 START = datetime(2026, 1, 1, 10, 0, 0, tzinfo=timezone.utc)
@@ -48,7 +49,9 @@ def test_periodic_refresh_keeps_the_alarm_in_progress(monkeypatch):
     """The API level (armed / partial) must not overwrite an alarm in progress; disarmed clears it."""
     published = []
     monkeypatch.setattr(
-        business_mqtt, "mqtt_publish", lambda **kwargs: published.append(kwargs["payload"]["security_level"])
+        business_mqtt,
+        "mqtt_publish",
+        lambda **kwargs: (published.append(kwargs["payload"]["security_level"]) or MQTTMessageInfo(1)),
     )
     alarm_state.start_alarm(SITE, None)
 

@@ -12,6 +12,7 @@ import business
 import pytest
 from business import alarm_state
 from business import mqtt as business_mqtt
+from paho.mqtt.client import MQTTMessageInfo
 
 # Alarm handlers do not use the optional OpenCV camera backend.
 with patch.dict(sys.modules, {"cv2": ModuleType("cv2")}):
@@ -25,7 +26,9 @@ def websocket_client():
     """Record actual MQTT payloads without connecting to a broker."""
     alarm_state.end_alarm(SITE)
     published = []
-    client = SimpleNamespace(publish=lambda topic, payload, **kwargs: published.append(json.loads(payload)))
+    client = SimpleNamespace(
+        publish=lambda topic, payload, **kwargs: (published.append(json.loads(payload)) or MQTTMessageInfo(1))
+    )
     api = SimpleNamespace(get_site=lambda site_id: SimpleNamespace(security_level="armed", label="Home"))
     websocket = SimpleNamespace(mqtt_client=SimpleNamespace(client=client), mqtt_config={}, api=api)
     yield websocket, published
@@ -65,7 +68,7 @@ def test_refresh_and_events_publish_in_order(websocket_client, event):
         if threading.current_thread().name.startswith("refresh"):
             enqueue_started.set()
             assert resume_enqueue.wait(5)
-        publish(topic, payload, **kwargs)
+        return publish(topic, payload, **kwargs)
 
     def deliver_event():
         event_started.set()

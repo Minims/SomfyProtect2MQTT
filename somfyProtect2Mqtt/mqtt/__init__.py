@@ -6,7 +6,7 @@ import ssl
 from time import sleep
 
 import paho.mqtt.client as mqtt
-from business.availability import PAYLOAD_OFFLINE, ApiAvailability, availability_topic
+from business.availability import PAYLOAD_OFFLINE, PAYLOAD_ONLINE, ApiAvailability, availability_topic
 from business.mqtt import SUBSCRIBE_TOPICS, consume_mqtt_message
 from exceptions import SomfyProtectInitError
 from somfy_protect.api import SomfyProtectApi
@@ -56,7 +56,7 @@ class MQTTClient:
             for topic in sorted(SUBSCRIBE_TOPICS):
                 LOGGER.info("Subscribing to: {}".format(topic))
                 self.client.subscribe(topic)
-            self.availability.republish()
+            self.availability.reset_connection()
         else:
             LOGGER.info("Not Connected: {}".format(rc))
 
@@ -102,7 +102,9 @@ class MQTTClient:
 
     def _publish_availability(self, payload: str) -> None:
         """Publish the API availability (retained)."""
-        self.client.publish(self.availability_topic, payload, qos=1, retain=True)
+        # Do not queue an online announcement while the broker is disconnected.
+        qos = 0 if payload == PAYLOAD_ONLINE else 1
+        self.client.publish(self.availability_topic, payload, qos=qos, retain=True)
 
     def run(self):
         """MQTT run"""

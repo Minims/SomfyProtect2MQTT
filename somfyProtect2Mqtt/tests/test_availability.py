@@ -4,11 +4,14 @@ import json
 import sys
 from http.client import RemoteDisconnected
 from types import ModuleType, SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 import requests
 from business import availability, update_sites_status
 from business.availability import ApiAvailability, availability_topic, with_availability
+from mqtt import MQTTClient
+from paho.mqtt import client as paho
 
 
 def _tracker(threshold=2):
@@ -55,16 +58,14 @@ def test_back_online_after_outage():
     assert published == ["offline", "online"]
 
 
-def test_republish_only_known_state():
-    """After a broker reconnection the known state is published again; nothing before it is known."""
-    tracker, published = _tracker(threshold=1)
-
-    tracker.republish()
-    assert not published
-
-    tracker.report_failure("dns")
-    tracker.republish()
-    assert published == ["offline", "offline"]
+def test_reconnect_resets_known_availability():
+    """A broker connection requires a new state refresh before going online."""
+    tracker, published = _tracker()
+    tracker.report_success()
+    published.clear()
+    tracker.reset_connection()
+    assert published == ["offline"]
+    assert tracker.online is False
 
 
 def test_discovery_payload_follows_availability_topic():
@@ -102,7 +103,7 @@ def test_site_refresh_reports_network_errors(monkeypatch):
     """Network errors while polling the site count as failures; the API answering counts as a success."""
     tracker, published = _tracker(threshold=2)
     client = SimpleNamespace(availability=tracker)
-    monkeypatch.setattr("business.publish_site_state", lambda *args, **kwargs: None)
+    monkeypatch.setattr("business.publish_site_state", lambda *args, **kwargs: True)
     monkeypatch.setattr("business._publish_site_history", lambda *args, **kwargs: None)
 
     update_sites_status(_FailingApi(requests.exceptions.ConnectionError("dns")), client, {}, ["site"])
@@ -140,7 +141,11 @@ def test_recovery_publishes_all_site_states_before_online(monkeypatch):
     published.clear()
     client = SimpleNamespace(
         availability=tracker,
-        client=SimpleNamespace(publish=lambda topic, payload, **kwargs: published.append((topic, json.loads(payload)))),
+        client=SimpleNamespace(
+            publish=lambda topic, payload, **kwargs: (
+                published.append((topic, json.loads(payload))) or paho.MQTTMessageInfo(1)
+            )
+        ),
     )
     api = SimpleNamespace(get_site=lambda site_id: SimpleNamespace(label=site_id, security_level="armed"))
     monkeypatch.setattr("business._publish_site_history", lambda *args: None)
@@ -182,7 +187,7 @@ def test_successful_site_prevents_global_outage(monkeypatch):
         return SimpleNamespace(label=site_id, security_level="disarmed")
 
     api = SimpleNamespace(get_site=get_site)
-    monkeypatch.setattr("business.publish_site_state", lambda *args, **kwargs: None)
+    monkeypatch.setattr("business.publish_site_state", lambda *args, **kwargs: True)
     monkeypatch.setattr("business._publish_site_history", lambda *args: None)
 
     for _ in range(2):
@@ -235,3 +240,71 @@ def test_startup_counts_network_errors_only(monkeypatch, error, expected):
     main.somfy_protect_loop({}, client, None)
 
     assert published == expected
+
+
+def test_disconnected_paho_publish_does_not_restore_availability():
+
+    tracker, published = _tracker(threshold=1)
+    tracker.report_failure("dns")
+    published.clear()
+    client = SimpleNamespace(availability=tracker, client=paho.Client(paho.CallbackAPIVersion.VERSION2))
+    api = SimpleNamespace(
+        get_site=lambda site_id: SimpleNamespace(label=site_id, security_level="armed"),
+        get_history=lambda site_id: [],
+    )
+    update_sites_status(api, client, {}, ["home"])
+    assert published == []
+    assert tracker.online is False
+
+
+def test_reconnect_requires_state_from_new_connection():
+
+    publications = []
+    wrapper = MQTTClient.__new__(MQTTClient)
+    wrapper.client = Mock()
+    wrapper.client.publish.side_effect = lambda topic, payload, **kwargs: (
+        publications.append((topic, payload)) or paho.MQTTMessageInfo(1)
+    )
+    wrapper.availability_topic = "availability"
+    wrapper.availability = ApiAvailability(wrapper._publish_availability)
+    wrapper.availability.report_success()
+    publications.clear()
+
+    def get_site(site_id):
+        wrapper.on_connect(None, None, None, 0)
+        return SimpleNamespace(label=site_id, security_level="armed")
+
+    api = SimpleNamespace(get_site=get_site, get_history=lambda site_id: [])
+    update_sites_status(api, wrapper, {}, ["home"])
+    assert ("availability", "online") not in publications
+    assert wrapper.availability.online is False
+    publications.clear()
+    api.get_site = lambda site_id: SimpleNamespace(label=site_id, security_level="armed")
+    update_sites_status(api, wrapper, {}, ["home"])
+    assert publications[0][0].endswith("/state")
+    assert publications[-1] == ("availability", "online")
+
+
+def test_online_announcement_is_not_queued_during_disconnection():
+    wrapper = MQTTClient.__new__(MQTTClient)
+    wrapper.client = paho.Client(paho.CallbackAPIVersion.VERSION2)
+    wrapper.availability_topic = "availability"
+    wrapper._publish_availability("online")
+    assert not wrapper.client._out_messages  # Paho's pending QoS 1/2 messages.
+
+
+def test_discarded_site_refresh_does_not_restore_availability():
+    from business.alarm_state import invalidate_site_refresh
+
+    tracker, published = _tracker(threshold=1)
+    tracker.report_failure("dns")
+    published.clear()
+
+    def get_site(site_id):
+        invalidate_site_refresh(site_id)
+        return SimpleNamespace(label=site_id, security_level="armed")
+
+    api = SimpleNamespace(get_site=get_site, get_history=lambda site_id: [])
+    update_sites_status(api, SimpleNamespace(availability=tracker), {}, ["home"])
+    assert published == []
+    assert tracker.online is False

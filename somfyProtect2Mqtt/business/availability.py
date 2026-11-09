@@ -47,15 +47,23 @@ class ApiAvailability:
         self._lock = threading.Lock()
         self._failures = 0
         self._online: Optional[bool] = None
+        self.generation = 0
 
     @property
     def online(self) -> Optional[bool]:
         """True / False once known, None before the first answer or failure."""
         return self._online
 
-    def report_success(self) -> None:
-        """The API answered: publish `online` if it was not already."""
+    def report_success(self, expected_generation: int | None = None) -> None:
+        """Publish online after a state refresh on the current MQTT connection.
+
+        Args:
+            expected_generation (int | None): Connection generation captured before the refresh.
+                Ignore success if that connection has since been replaced.
+        """
         with self._lock:
+            if expected_generation is not None and expected_generation != self.generation:
+                return
             self._failures = 0
             if self._online is True:
                 return
@@ -73,18 +81,25 @@ class ApiAvailability:
             LOGGER.warning(f"Somfy Protect API unreachable ({error}), publishing {PAYLOAD_OFFLINE}")
             self._publish(PAYLOAD_OFFLINE)
 
-    def republish(self) -> None:
-        """Publish the known state again, e.g. after a reconnection to the broker."""
+    def reset_connection(self) -> None:
+        """Publish offline until a state refresh completes on this MQTT connection."""
         with self._lock:
-            if self._online is not None:
-                self._publish(PAYLOAD_ONLINE if self._online else PAYLOAD_OFFLINE)
+            self.generation += 1
+            self._failures = 0
+            self._online = False
+            self._publish(PAYLOAD_OFFLINE)
 
 
-def report_api_success(mqtt_client) -> None:
-    """Report a successful API call, if the client tracks availability."""
+def report_api_success(mqtt_client, expected_generation: int | None = None) -> None:
+    """Report a published site state, if the client tracks availability.
+
+    Args:
+        mqtt_client (MQTTClient): Client owning the availability tracker.
+        expected_generation (int | None): MQTT generation captured before refreshing sites.
+    """
     availability = getattr(mqtt_client, "availability", None)
     if availability is not None:
-        availability.report_success()
+        availability.report_success(expected_generation)
 
 
 def report_api_failure(mqtt_client, error: object = None) -> None:

@@ -54,7 +54,7 @@ def build_device_status_payload(device) -> dict:
 
 def publish_site_state(
     mqtt_client, mqtt_config, site_id, security_level, *, expected_revision: int | None = None
-) -> None:
+) -> bool:
     """Publish site security level to MQTT.
 
     The API security level only knows disarmed / partial / armed: keep `triggered` while an
@@ -67,21 +67,25 @@ def publish_site_state(
         security_level (str): Somfy security level.
         expected_revision (int | None): Revision captured before a REST request; discard
             its response if the site changed during the request. Omit for live events.
+
+    Returns:
+        bool: True when MQTT accepts the state; False for a stale refresh or publish failure.
     """
     with ALARM_STATE_LOCK:
         if expected_revision is not None and expected_revision != get_site_revision(site_id):
-            return
+            return False
         state = ALARM_STATUS.get(security_level, "disarmed")
         if state == "disarmed":
             end_alarm(site_id)
         elif alarm_in_progress(site_id):
             state = "triggered"
-        mqtt_publish(
+        publication = mqtt_publish(
             mqtt_client=mqtt_client,
             topic=f"{mqtt_config.get('topic_prefix', 'somfyProtect2mqtt')}/{site_id}/state",
             payload={"security_level": state},
             retain=True,
         )
+        return publication.rc == client.MQTT_ERR_SUCCESS
 
 
 def publish_device_state(mqtt_client, mqtt_config, site_id, device) -> None:
@@ -325,11 +329,11 @@ def _requires_device_topic(text_payload, topic_parts) -> bool:
     return False
 
 
-def mqtt_publish(mqtt_client, topic, payload, qos=0, retain=False, is_json=True):
-    """MQTT publish"""
+def mqtt_publish(mqtt_client, topic, payload, qos=0, retain=False, is_json=True) -> client.MQTTMessageInfo:
+    """Publish to MQTT and return Paho's publication status."""
     if is_json:
         payload = json.dumps(payload, ensure_ascii=False).encode("utf8")
-    mqtt_client.client.publish(topic, payload, qos=qos, retain=retain)
+    return mqtt_client.client.publish(topic, payload, qos=qos, retain=retain)
 
 
 def update_device(api, mqtt_client, mqtt_config, site_id, device_id):

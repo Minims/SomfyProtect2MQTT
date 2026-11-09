@@ -3,7 +3,7 @@
 import asyncio
 import sys
 from pathlib import Path
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -100,5 +100,129 @@ def test_offer_without_session_announcement_is_ignored():
         client.webrtc_handler = AsyncMock()
         await client._video_webrtc_offer({"session_id": "unannounced"})
         client.webrtc_handler.handle_offer.assert_not_awaited()
+
+    asyncio.run(scenario())
+
+
+def test_overlapping_offers_preserve_latest_session(monkeypatch):
+
+    async def scenario():
+        handler = WebRTCHandler(None, {}, lambda message: None, "go2rtc")
+        closing = asyncio.Event()
+        finish_close = asyncio.Event()
+
+        async def slow_close():
+            closing.set()
+            await finish_close.wait()
+
+        handler.peer_connections["old"] = SimpleNamespace(close=slow_close)
+        handler.device_sessions["camera"] = "old"
+
+        class Peer:
+            async def close(self):
+                pass
+
+            async def setRemoteDescription(self, description):
+                handler._init_hls_muxer("camera")
+
+            async def createAnswer(self):
+                return SimpleNamespace(sdp="v=0", type="answer")
+
+            async def setLocalDescription(self, description):
+                pass
+
+        monkeypatch.setattr("somfy_protect.webrtc_handler.RTCPeerConnection", lambda **kwargs: Peer())
+        monkeypatch.setattr(handler, "_setup_event_handlers", lambda *args: None)
+        monkeypatch.setattr(handler, "_wait_for_ice_gathering", AsyncMock())
+        monkeypatch.setattr(handler, "_send_answer_and_candidates", AsyncMock())
+
+        def offer(session):
+            return {
+                "device_id": "camera",
+                "site_id": "home",
+                "session_id": session,
+                "offer": {"sdp": "v=0", "type": "offer"},
+            }
+
+        earlier = asyncio.create_task(handler.handle_offer(offer("earlier")))
+        await asyncio.wait_for(closing.wait(), 1)
+        later = asyncio.create_task(handler.handle_offer(offer("later")))
+        await asyncio.sleep(0)
+        finish_close.set()
+        await asyncio.wait_for(asyncio.gather(earlier, later), 2)
+        try:
+            assert handler.device_sessions["camera"] == "later"
+            assert set(handler.peer_connections) == {"later"}
+            assert Path(handler.hls_muxers["camera"]["temp_dir"]).exists()
+        finally:
+            await handler.cleanup()
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("event", ["hangup", "candidate", "cleanup"])
+def test_pending_offer_handles_session_events(monkeypatch, event):
+    async def scenario():
+        handler = WebRTCHandler(None, {}, lambda message: None, "go2rtc")
+        negotiating = asyncio.Event()
+        resume = asyncio.Event()
+        peers = []
+
+        class Peer:
+            def __init__(self, **kwargs):
+                self.candidates = []
+                peers.append(self)
+
+            async def close(self):
+                pass
+
+            async def setRemoteDescription(self, description):
+                pass
+
+            async def createAnswer(self):
+                return SimpleNamespace(sdp="v=0", type="answer")
+
+            async def setLocalDescription(self, description):
+                if self is peers[0]:
+                    negotiating.set()
+                    await resume.wait()
+
+            async def addIceCandidate(self, candidate):
+                self.candidates.append(candidate)
+
+        monkeypatch.setattr("somfy_protect.webrtc_handler.RTCPeerConnection", Peer)
+        monkeypatch.setattr(handler, "_setup_event_handlers", lambda *args: None)
+        monkeypatch.setattr(handler, "_wait_for_ice_gathering", AsyncMock())
+        monkeypatch.setattr(handler, "_send_answer_and_candidates", AsyncMock())
+
+        def offer(session):
+            return {
+                "device_id": "camera",
+                "site_id": "home",
+                "session_id": session,
+                "offer": {"sdp": "v=0", "type": "offer"},
+            }
+
+        first = asyncio.create_task(handler.handle_offer(offer("first")))
+        await asyncio.wait_for(negotiating.wait(), 1)
+        second = asyncio.create_task(handler.handle_offer(offer("second")))
+        await asyncio.sleep(0)
+        if event == "hangup":
+            await handler.close_session("second")
+        elif event == "cleanup":
+            await handler.cleanup()
+        else:
+            await handler.add_remote_candidate("second", None)
+        resume.set()
+        await asyncio.wait_for(asyncio.gather(first, second, return_exceptions=True), 2)
+        try:
+            if event == "hangup":
+                assert set(handler.peer_connections) == {"first"}
+            elif event == "cleanup":
+                assert not handler.peer_connections
+            else:
+                assert peers[1].candidates == [None]
+        finally:
+            await handler.cleanup()
 
     asyncio.run(scenario())

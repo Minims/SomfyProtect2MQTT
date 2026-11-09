@@ -184,6 +184,9 @@ class WebRTCHandler:
         self.streaming_config = streaming_config
         self.peer_connections = {}
         self.device_sessions = {}
+        self._offer_locks = {}
+        self._offer_tasks = {}
+        self._pending_candidates = {}
         self.turn_configs = {}
         # A TURN credential is issued for the site and carries its own expiry, not for a
         # single session: the server sends one only occasionally, under whichever session
@@ -244,7 +247,34 @@ class WebRTCHandler:
                 )
             )
 
-    async def handle_offer(self, message):
+    async def handle_offer(self, message: dict) -> None:
+        """Negotiate offers in arrival order for each camera.
+
+        Args:
+            message (dict): WebSocket offer containing a device ID and SDP.
+        """
+        device_id = message.get("device_id")
+        if not isinstance(device_id, str) or not device_id:
+            raise ValueError("Missing WebRTC device identifier")
+        session_id = message.get("session_id")
+        if not isinstance(session_id, str) or not session_id:
+            raise ValueError("Missing WebRTC session identifier")
+        if session_id in self._offer_tasks:
+            return
+        self._offer_tasks[session_id] = asyncio.current_task()
+        self._pending_candidates[session_id] = []
+        lock = self._offer_locks.setdefault(device_id, asyncio.Lock())
+        try:
+            async with lock:
+                await self._handle_offer(message)
+        except (asyncio.CancelledError, OSError, ValueError, RuntimeError):
+            await self.close_session(session_id)
+            raise
+        finally:
+            self._offer_tasks.pop(session_id, None)
+            self._pending_candidates.pop(session_id, None)
+
+    async def _handle_offer(self, message):
         """
         Handle incoming WebRTC offer from camera
 
@@ -313,6 +343,8 @@ class WebRTCHandler:
         # Set remote description
         offer = RTCSessionDescription(sdp=sdp, type=offer_type)
         await pc.setRemoteDescription(offer)
+        for candidate in self._pending_candidates.pop(session_id, []):
+            await self.add_remote_candidate(session_id, candidate)
 
         # Add audio track - silence for MQTT, nothing for go2rtc (let it auto-negotiate)
         if self.streaming_config != "go2rtc":
@@ -606,6 +638,9 @@ class WebRTCHandler:
             LOGGER.warning("Missing session_id or candidate data")
             return
 
+        if session_id in self._pending_candidates:
+            self._pending_candidates[session_id].append(candidate_data)
+            return
         pc = self.peer_connections.get(session_id)
         if not pc:
             LOGGER.warning("No peer connection found for session {}".format(session_id))
@@ -637,6 +672,11 @@ class WebRTCHandler:
         Args:
             session_id: WebRTC session ID
         """
+        offer_task = self._offer_tasks.pop(session_id, None)
+        if offer_task is not None and offer_task is not asyncio.current_task():
+            offer_task.cancel()
+            await asyncio.gather(offer_task, return_exceptions=True)
+        self._pending_candidates.pop(session_id, None)
         pc = self.peer_connections.pop(session_id, None)
         self.turn_configs.pop(session_id, None)
         for device_id, current_session in list(self.device_sessions.items()):
@@ -653,6 +693,10 @@ class WebRTCHandler:
         Should be called when shutting down the handler.
         """
         LOGGER.info("Starting WebRTC handler cleanup...")
+        offer_tasks = list(self._offer_tasks.values())
+        for task in offer_tasks:
+            task.cancel()
+        await asyncio.gather(*offer_tasks, return_exceptions=True)
 
         # Cancel all active tasks
         if hasattr(self, "active_tasks") and self.active_tasks:

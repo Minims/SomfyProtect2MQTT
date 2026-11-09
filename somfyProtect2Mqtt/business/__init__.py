@@ -549,6 +549,8 @@ def update_sites_status(
 ) -> None:
     """Update sites status (including history)."""
     LOGGER.info("Update Sites Status")
+    availability = getattr(mqtt_client, "availability", None)
+    generation = availability.generation if availability is not None else None
     has_published_state = False
     network_error = None
     for site_id in my_sites_id:
@@ -558,11 +560,13 @@ def update_sites_status(
             LOGGER.info("Update {} Status".format(site.label))
 
             try:
-                publish_site_state(mqtt_client, mqtt_config, site_id, site.security_level, expected_revision=revision)
+                published = publish_site_state(
+                    mqtt_client, mqtt_config, site_id, site.security_level, expected_revision=revision
+                )
             except (OSError, ValueError) as e:
                 LOGGER.warning("Error while updating MQTT: {}".format(e))
                 continue
-            has_published_state = True
+            has_published_state = has_published_state or published
         # Requests JSONDecodeError is both a ValueError and a RequestException.
         except (KeyError, ValueError) as e:
             LOGGER.warning("Error while refreshing site: {}".format(e))
@@ -583,7 +587,7 @@ def update_sites_status(
             continue
 
     if has_published_state:
-        report_api_success(mqtt_client)
+        report_api_success(mqtt_client, generation)
     elif network_error is not None:
         report_api_failure(mqtt_client, network_error)
 
