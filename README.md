@@ -180,7 +180,7 @@ To start a stream:
 
 - Open the camera shutter with `switch.***_shutter_state`.
 - Start the stream with `switch.***_stream`.
-- Select the video backend exposed by Home Assistant/MQTT: `evostream` or `webrtc`.
+- Select `webrtc` as the video backend exposed by Home Assistant/MQTT. The legacy `evostream` backend is deprecated.
 
 ### MQTT Camera
 
@@ -207,7 +207,12 @@ Install:
 
 The go2rtc source depends on the selected Somfy video backend.
 
-#### Backend `evostream`
+#### Backend `evostream` (deprecated)
+
+The legacy RTMPS backend is deprecated in SomfyProtect2MQTT. Use `webrtc` for new
+configurations. The instructions below remain available for existing installations
+whose cameras still support `evostream`. WebRTC streaming remains experimental;
+switching backends does not guarantee reliable playback on every camera.
 
 Use the echo script. It reads the RTMPS URL written by SomfyProtect2MQTT when
 the stream starts.
