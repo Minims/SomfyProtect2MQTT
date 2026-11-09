@@ -63,6 +63,8 @@ class SomfyProtectWebsocket:
         self.api = api
         self.sso = sso
         self.last_message_at = time.time()
+        self._owned_webrtc_sessions = set()
+        self._requested_webrtc_sessions = set()
         self._io_queue = queue.Queue(maxsize=SNAPSHOT_QUEUE_MAXSIZE)
         self._io_worker_stop = threading.Event()
         self._io_worker = threading.Thread(target=self._io_worker_loop, daemon=True)
@@ -235,6 +237,7 @@ class SomfyProtectWebsocket:
             "key": "video.webrtc.start",
             "session_id": session_id,
         }
+        self._requested_webrtc_sessions.add(session_id)
         self.send_websocket_message(message)
         LOGGER.info("Sent video.webrtc.start for device {}, session {}".format(device_id, session_id))
         return session_id
@@ -366,6 +369,7 @@ class SomfyProtectWebsocket:
         """WEBRTC HangUP"""
         LOGGER.info("WEBRTC HangUp: {}".format(message))
         session_id = message.get("session_id")
+        self._owned_webrtc_sessions.discard(session_id)
         await self.webrtc_handler.close_session(session_id)
 
     def _video_webrtc_keep_alive(self, message):
@@ -374,6 +378,8 @@ class SomfyProtectWebsocket:
         site_id = message.get("site_id")
         device_id = message.get("device_id")
         session_id = message.get("session_id")
+        if session_id not in self._owned_webrtc_sessions:
+            return
         if not site_id or not device_id or not session_id:
             LOGGER.warning("Missing keepalive identifiers")
             return
@@ -389,9 +395,21 @@ class SomfyProtectWebsocket:
     def _video_webrtc_session(self, message):
         """WEBRTC Session"""
         LOGGER.info("WEBRTC Session: {}".format(message))
+        session_id = message.get("session_id")
+        request_id = message.get("request_session_id")
+        if (
+            session_id
+            and "request_session_id" in message
+            and (request_id is None or request_id in self._requested_webrtc_sessions)
+        ):
+            self._owned_webrtc_sessions.add(session_id)
+        self._requested_webrtc_sessions.discard(request_id)
 
     async def _video_webrtc_offer(self, message):
         """WEBRTC Offer"""
+        if message.get("session_id") not in self._owned_webrtc_sessions:
+            LOGGER.debug("Ignoring WebRTC offer without an owned session")
+            return
         await self.webrtc_handler.handle_offer(message)
 
     def _video_webrtc_start(self, message):
@@ -414,6 +432,8 @@ class SomfyProtectWebsocket:
     async def _video_webrtc_candidate(self, message):
         """WEBRTC Candidate - Add remote ICE candidate from camera"""
         session_id = message.get("session_id")
+        if session_id not in self._owned_webrtc_sessions:
+            return
         candidate_data = message.get("candidate")
         await self.webrtc_handler.add_remote_candidate(session_id, candidate_data)
 

@@ -1,7 +1,6 @@
 """WebRTC Handler for Somfy Protect Cameras"""
 
 import asyncio
-import importlib
 import json
 import logging
 import math
@@ -21,6 +20,7 @@ from typing import Optional
 import av
 from aiortc import AudioStreamTrack, RTCConfiguration, RTCIceServer, RTCPeerConnection, RTCSessionDescription
 from aiortc.mediastreams import MediaStreamError
+from aiortc.sdp import candidate_from_sdp
 from business.mqtt import publish_snapshot_bytes
 from PIL import ImageDraw, ImageFont
 
@@ -183,6 +183,7 @@ class WebRTCHandler:
         self.send_websocket = send_websocket_callback
         self.streaming_config = streaming_config
         self.peer_connections = {}
+        self.device_sessions = {}
         self.turn_configs = {}
         # A TURN credential is issued for the site and carries its own expiry, not for a
         # single session: the server sends one only occasionally, under whichever session
@@ -263,6 +264,14 @@ class WebRTCHandler:
         sdp = offer_data_json.get("sdp")
         offer_type = offer_data_json.get("type")
 
+        if not all(isinstance(value, str) and value for value in (device_id, site_id, session_id, sdp)):
+            raise ValueError("Missing WebRTC offer identifiers or SDP")
+        if offer_type != "offer":
+            raise ValueError("Expected a WebRTC offer")
+        previous_session = self.device_sessions.get(device_id)
+        if previous_session:
+            await self.close_session(previous_session)
+        await self._reset_hls_muxer(device_id)
         # Try to fix H264 decoding issues by forcing a common profile-level-id
         new_sdp_lines = []
         for line in sdp.splitlines():
@@ -296,6 +305,7 @@ class WebRTCHandler:
         # Create peer connection
         pc = RTCPeerConnection(configuration=RTCConfiguration(iceServers=ice_servers))
         self.peer_connections[session_id] = pc
+        self.device_sessions[device_id] = session_id
 
         # Setup event handlers
         self._setup_event_handlers(pc, session_id, site_id, device_id)
@@ -334,9 +344,7 @@ class WebRTCHandler:
             LOGGER.info("ICE connection state is {}".format(pc.iceConnectionState))
             if pc.iceConnectionState == "failed":
                 LOGGER.error("ICE connection failed")
-                if session_id in self.peer_connections:
-                    del self.peer_connections[session_id]
-                await pc.close()
+                await self.close_session(session_id)
             elif pc.iceConnectionState == "connected":
                 LOGGER.info("ICE connection established successfully!")
 
@@ -351,7 +359,7 @@ class WebRTCHandler:
                 LOGGER.info("WebRTC connection established")
             elif pc.connectionState == "failed":
                 LOGGER.error("WebRTC connection failed")
-                await pc.close()
+                await self.close_session(session_id)
 
         @pc.on("icecandidate")
         async def on_icecandidate(candidate):
@@ -363,6 +371,8 @@ class WebRTCHandler:
 
         @pc.on("track")
         async def on_track(track):
+            if self.device_sessions.get(device_id) != session_id:
+                return
             LOGGER.info("[TRACK] Received {} track (id={})".format(track.kind, track.id))
             if track.kind == "video":
                 if self.streaming_config == "mqtt":
@@ -438,6 +448,7 @@ class WebRTCHandler:
                     # Store video track and start reading
                     self.hls_muxers[device_id]["video_track"] = track
                     task = asyncio.create_task(self._read_video_frames(device_id, track))
+                    self.hls_muxers[device_id]["tasks"].add(task)
                     self.active_tasks.add(task)
                     task.add_done_callback(self.active_tasks.discard)
 
@@ -460,6 +471,7 @@ class WebRTCHandler:
                     # Store audio track and start reading
                     self.hls_muxers[device_id]["audio_track"] = track
                     task = asyncio.create_task(self._read_audio_frames(device_id, track))
+                    self.hls_muxers[device_id]["tasks"].add(task)
                     self.active_tasks.add(task)
                     task.add_done_callback(self.active_tasks.discard)
                 else:
@@ -590,7 +602,7 @@ class WebRTCHandler:
             session_id: WebRTC session ID
             candidate_data: Candidate data from WebSocket message
         """
-        if not session_id or not candidate_data:
+        if not session_id:
             LOGGER.warning("Missing session_id or candidate data")
             return
 
@@ -600,19 +612,23 @@ class WebRTCHandler:
             return
 
         try:
-            candidate_sdp = candidate_data.get("sdp")
-            if not candidate_sdp:
-                LOGGER.warning("Missing candidate sdp for session {}".format(session_id))
+            if candidate_data is None:
+                await pc.addIceCandidate(None)
                 return
-            rtc_transport = importlib.import_module("aiortc.rtcicetransport")
-            candidate_factory = getattr(rtc_transport, "candidate_from_sdp")
-            candidate = candidate_factory(candidate_sdp)
+            if not isinstance(candidate_data, dict):
+                raise ValueError("Candidate must be an object or null")
+            candidate_sdp = candidate_data.get("sdp")
+            if candidate_sdp == "":
+                await pc.addIceCandidate(None)
+                return
+            if not isinstance(candidate_sdp, str):
+                raise ValueError("Missing candidate SDP")
+            candidate = candidate_from_sdp(candidate_sdp.removeprefix("candidate:"))
             candidate.sdpMid = candidate_data.get("sdpMid")
             candidate.sdpMLineIndex = candidate_data.get("sdpMLineIndex")
             await pc.addIceCandidate(candidate)
-            LOGGER.info("Added remote ICE candidate: {}...".format(candidate_data.get("sdp", "")[:60]))
-        except (ValueError, RuntimeError) as e:
-            LOGGER.error("Failed to add remote ICE candidate: {}".format(e))
+        except (AssertionError, TypeError, ValueError, RuntimeError) as e:
+            LOGGER.error(f"Failed to add remote ICE candidate: {e}")
 
     async def close_session(self, session_id):
         """
@@ -621,16 +637,15 @@ class WebRTCHandler:
         Args:
             session_id: WebRTC session ID
         """
-        if session_id and session_id in self.peer_connections:
-            try:
-                pc = self.peer_connections[session_id]
-                await pc.close()
-                del self.peer_connections[session_id]
-                if session_id in self.turn_configs:
-                    del self.turn_configs[session_id]
-                LOGGER.info("Closed and removed peer connection for session {}".format(session_id))
-            except (ValueError, RuntimeError) as e:
-                LOGGER.error("Error closing peer connection: {}".format(e))
+        pc = self.peer_connections.pop(session_id, None)
+        self.turn_configs.pop(session_id, None)
+        for device_id, current_session in list(self.device_sessions.items()):
+            if current_session == session_id:
+                self.device_sessions.pop(device_id, None)
+                await self._reset_hls_muxer(device_id)
+        if pc is not None:
+            await pc.close()
+            LOGGER.info(f"Closed and removed peer connection for session {session_id}")
 
     async def cleanup(self):
         """
@@ -740,6 +755,26 @@ class WebRTCHandler:
                 "HLS HTTP server started on http://{}:{}/<device_id>/playlist.m3u8".format(self.hls_host, self.hls_port)
             )
 
+    async def _reset_hls_muxer(self, device_id: str) -> None:
+        """Stop device tasks and release their temporary HLS files."""
+        muxer = self.hls_muxers.pop(device_id, None)
+        self.hls_segments.pop(device_id, None)
+        if muxer is None:
+            return
+        for task in muxer["tasks"]:
+            task.cancel()
+        await asyncio.gather(*muxer["tasks"], return_exceptions=True)
+        container = muxer.get("container")
+        if container is not None:
+            try:
+                container.close()
+            except (OSError, RuntimeError, ValueError) as e:
+                LOGGER.warning(f"Unable to close HLS container for {device_id}: {e}")
+        try:
+            shutil.rmtree(muxer["temp_dir"])
+        except OSError as e:
+            LOGGER.warning(f"Unable to remove HLS files for {device_id}: {e}")
+
     def _init_hls_muxer(self, device_id):
         """Initialize HLS muxer for a device"""
         # Create temporary directory for HLS segments
@@ -765,6 +800,7 @@ class WebRTCHandler:
             "audio_ready": False,
             "audio_failed": False,
             "stopped": False,
+            "tasks": set(),
             "no_frame_retries": 0,
             "segments": [],
             "segment_durations": {},
@@ -776,6 +812,7 @@ class WebRTCHandler:
 
         # Start the muxer task
         task = asyncio.create_task(self._hls_muxer_task(device_id))
+        self.hls_muxers[device_id]["tasks"].add(task)
         self.active_tasks.add(task)
         task.add_done_callback(self.active_tasks.discard)
 
@@ -806,6 +843,7 @@ class WebRTCHandler:
             muxer = self.hls_muxers.get(device_id)
             if muxer:
                 muxer["stopped"] = True
+                self.hls_segments.pop(device_id, None)
             LOGGER.info("Video stream ended for device {}".format(device_id))
         except (OSError, RuntimeError, ValueError) as e:
             LOGGER.error("Error reading video frames: {}".format(e))
@@ -1046,6 +1084,7 @@ class WebRTCHandler:
 
                 if not video_frame:
                     LOGGER.warning("Video ready but no frame available to start segment; retrying later")
+                    container.close()
                     muxer["no_frame_retries"] += 1
                     muxer["container"] = None
                     await asyncio.sleep(min(0.5, 0.05 * muxer["no_frame_retries"]))
