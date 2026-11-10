@@ -8,6 +8,7 @@ import ssl
 import threading
 import time
 import uuid
+from concurrent.futures import CancelledError
 
 import websocket
 from business.mqtt import mqtt_publish, publish_snapshot_bytes
@@ -65,6 +66,8 @@ class SomfyProtectWebsocket:
         self.last_message_at = time.time()
         self._owned_webrtc_sessions = set()
         self._requested_webrtc_sessions = set()
+        self._close_lock = threading.Lock()
+        self._closing = False
         self._io_queue = queue.Queue(maxsize=SNAPSHOT_QUEUE_MAXSIZE)
         self._io_worker_stop = threading.Event()
         self._io_worker = threading.Thread(target=self._io_worker_loop, daemon=True)
@@ -102,9 +105,20 @@ class SomfyProtectWebsocket:
         )
 
     def _run_event_loop(self):
-        """Run the event loop in a dedicated thread"""
+        """Run and drain the event loop in its owning thread."""
         asyncio.set_event_loop(self.loop)
-        self.loop.run_forever()
+        try:
+            self.loop.run_forever()
+        finally:
+            pending = asyncio.all_tasks(self.loop)
+            for task in pending:
+                task.cancel()
+            self.loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+            self.loop.run_until_complete(self.loop.shutdown_asyncgens())
+            self.loop.run_until_complete(self.loop.shutdown_default_executor(timeout=2))
+            self.loop.close()
+            asyncio.set_event_loop(None)
+            LOGGER.info("Event loop closed successfully")
 
     def _load_token(self) -> dict:
         token = self.sso.get_token() or read_token_from_file(self.sso.token_cache_path)
@@ -130,7 +144,7 @@ class SomfyProtectWebsocket:
             return False
         try:
             expires_at = float(expires_at)
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             return False
         return expires_at <= (time.time() + leeway_seconds)
 
@@ -159,17 +173,24 @@ class SomfyProtectWebsocket:
 
     def _on_message_wrapper(self, _ws_app, message):
         """Wrapper to handle async on_message in sync context"""
-        try:
-            # Schedule coroutine on the persistent event loop
-            future = asyncio.run_coroutine_threadsafe(self.on_message(_ws_app, message), self.loop)
-            future.add_done_callback(self._log_message_processing_error)
-        except (RuntimeError, ValueError) as e:
-            LOGGER.error("Error in message wrapper: {}".format(e))
+        with self._close_lock:
+            if self._closing:
+                return
+            coroutine = self.on_message(_ws_app, message)
+            try:
+                future = asyncio.run_coroutine_threadsafe(coroutine, self.loop)
+            except (RuntimeError, ValueError) as e:
+                coroutine.close()
+                LOGGER.error("Error in message wrapper: {}".format(e))
+                return
+        future.add_done_callback(self._log_message_processing_error)
 
     @staticmethod
     def _log_message_processing_error(future):
         try:
             future.result()
+        except CancelledError:
+            LOGGER.debug("Websocket message processing cancelled during shutdown")
         except (RuntimeError, ValueError) as e:
             LOGGER.error("Error while processing websocket message: {}".format(e))
 
@@ -185,7 +206,11 @@ class SomfyProtectWebsocket:
         )
 
     def close(self):
-        """Close Websocket Connection"""
+        """Close once, even when both the main and WebSocket threads exit."""
+        with self._close_lock:
+            if self._closing:
+                return
+            self._closing = True
         LOGGER.info("WebSocket Close")
 
         self._io_worker_stop.set()
@@ -202,7 +227,7 @@ class SomfyProtectWebsocket:
         if hasattr(self, "webrtc_handler") and self.webrtc_handler:
             try:
                 # Schedule cleanup on the event loop
-                if hasattr(self, "loop") and self.loop and self.loop.is_running():
+                if not self.loop.is_closed():
                     cleanup_future = asyncio.run_coroutine_threadsafe(self.webrtc_handler.cleanup(), self.loop)
                     cleanup_future.result(timeout=2)
             except (RuntimeError, ValueError) as e:
@@ -210,20 +235,12 @@ class SomfyProtectWebsocket:
             except TimeoutError:
                 LOGGER.warning("WebRTC cleanup timed out")
 
-        # Stop the event loop
-        if hasattr(self, "loop") and self.loop:
-            try:
-                if self.loop.is_running():
-                    self.loop.call_soon_threadsafe(self.loop.stop)
-                    # Wait for loop thread to finish
-                    if hasattr(self, "loop_thread") and self.loop_thread:
-                        self.loop_thread.join(timeout=2.0)
-                # Close the loop
-                if not self.loop.is_closed():
-                    self.loop.close()
-                LOGGER.info("Event loop closed successfully")
-            except (RuntimeError, ValueError) as e:
-                LOGGER.error("Error closing event loop: {}".format(e))
+        # The owner thread drains cancelled tasks before closing the loop.
+        if not self.loop.is_closed():
+            self.loop.call_soon_threadsafe(self.loop.stop)
+        self.loop_thread.join(timeout=5)
+        if self.loop_thread.is_alive():
+            LOGGER.warning("WebSocket event loop is still shutting down")
 
     def start_webrtc_stream(self, site_id: str, device_id: str, session_id: str | None = None):
         """Start a WebRTC video stream session"""
