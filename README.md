@@ -92,11 +92,22 @@ git checkout dev # if you want the dev branch
 cd /opt/SomfyProtect2MQTT/
 ```
 
-Install Python3 dependencies
+Install dependencies with Python 3.13.2 or newer. With uv, the repository's
+`.python-version` selects Python 3.13:
+
+```
+uv sync
+```
+
+Alternatively, install with pip:
 
 ```
 pip3 install -r somfyProtect2Mqtt/requirements/common.txt
 ```
+
+RTMPS snapshots published to MQTT also require OpenCV. For that backend, install
+`somfyProtect2Mqtt/requirements/docker.txt` in the same Python environment.
+Docker images already include these dependencies. WebRTC streaming does not require OpenCV.
 
 Copy config file and setup your own credentials for SomfyProtect & MQTT.
 

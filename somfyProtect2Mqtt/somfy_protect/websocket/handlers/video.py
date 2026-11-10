@@ -6,7 +6,6 @@ import logging
 import os
 
 from business.mqtt import mqtt_publish
-from business.streaming.camera import VideoCamera
 
 LOGGER = logging.getLogger(__name__)
 
@@ -41,6 +40,14 @@ def video_stream_ready(websocket_client, message: dict) -> None:
 
 def stream_video_to_mqtt(websocket_client, site_id: str, device_id: str, stream_url: str) -> None:
     """Stream camera frames and publish snapshots to MQTT."""
+    try:
+        # OpenCV is only needed for RTMPS snapshots, not WebRTC or the alarm bridge.
+        from business.streaming.camera import VideoCamera  # pylint: disable=import-outside-toplevel
+    except ModuleNotFoundError as e:
+        if e.name != "cv2":
+            raise
+        LOGGER.error("RTMPS snapshots require OpenCV; install somfyProtect2Mqtt/requirements/docker.txt")
+        return
     camera = VideoCamera(url=stream_url)
     frame = None
     try:
