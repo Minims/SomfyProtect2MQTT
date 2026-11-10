@@ -218,7 +218,7 @@ class WebRTCHandler:
             return False
         try:
             return datetime.strptime(expires_at, TURN_EXPIRY_FORMAT) > datetime.utcnow()
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             return False
 
     def turn_config_for(self, session_id):
@@ -267,7 +267,7 @@ class WebRTCHandler:
         try:
             async with lock:
                 await self._handle_offer(message)
-        except (asyncio.CancelledError, OSError, ValueError, RuntimeError):
+        except asyncio.CancelledError, OSError, ValueError, RuntimeError:
             await self.close_session(session_id)
             raise
         finally:
@@ -281,7 +281,7 @@ class WebRTCHandler:
         Args:
             message: WebSocket message containing the offer
         """
-        LOGGER.info("WEBRTC Offer: {}".format(message))
+        LOGGER.info("WEBRTC Offer for session {}".format(message.get("session_id")))
 
         device_id = message.get("device_id")
         site_id = message.get("site_id")
@@ -559,9 +559,6 @@ class WebRTCHandler:
         clean_answer_sdp = "\r\n".join(answer_sdp_no_candidates)
         candidates_stripped = answer_sdp.count("a=candidate:")
         LOGGER.info("Stripped {} candidates from answer SDP".format(candidates_stripped))
-
-        # Log SDP for debugging
-        LOGGER.info("Full clean answer SDP:\n{}".format(clean_answer_sdp))
 
         if "a=setup:" in clean_answer_sdp:
             setup_line = [line for line in answer_sdp_no_candidates if "a=setup:" in line]
@@ -1179,7 +1176,7 @@ class WebRTCHandler:
                 LOGGER.warning("Error adding video stream: {}".format(e))
                 try:
                     container.close()
-                except (OSError, RuntimeError):
+                except OSError, RuntimeError:
                     pass
                 muxer["container"] = None
                 return
@@ -1212,7 +1209,7 @@ class WebRTCHandler:
                         audio_stream.layout = "mono" if num_channels == 1 else "stereo"
                         audio_stream.time_base = Fraction(1, sample_rate)
                         muxer["audio_stream"] = audio_stream
-                    except (OSError, RuntimeError, ValueError):
+                    except OSError, RuntimeError, ValueError:
                         # Fallback to MP3 if AAC fails
                         try:
                             audio_stream = container.add_stream("libmp3lame", rate=sample_rate)

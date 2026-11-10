@@ -437,11 +437,11 @@ class SomfyProtectWebsocket:
 
     def _video_webrtc_answer(self, message):
         """WEBRTC Answer"""
-        LOGGER.info("WEBRTC Answer: {}".format(message))
+        LOGGER.info("WEBRTC Answer for session {}".format(message.get("session_id")))
 
     def _video_webrtc_turn_config(self, message):
         """WEBRTC Turn Config - Store TURN server configuration"""
-        LOGGER.info("WEBRTC Turn Config: {}".format(message))
+        LOGGER.info("WEBRTC Turn Config for session {}".format(message.get("session_id")))
         session_id = message.get("session_id")
         turn_data = message.get("turn")
         self.webrtc_handler.store_turn_config(session_id, turn_data)
@@ -723,7 +723,7 @@ class SomfyProtectWebsocket:
 
     def _default_message(self, message):
         """Default Message"""
-        LOGGER.info("[default] Read Message {}".format(message))
+        LOGGER.info("Received event {} for device {}".format(message.get("key"), message.get("device_id")))
         mqtt_config = self.mqtt_config or {}
         topic_suffix = message.get("key")
         if not topic_suffix:
@@ -915,6 +915,6 @@ class SomfyProtectWebsocket:
         """Send a message via the WebSocket connection"""
         if self._websocket and self._websocket.sock and self._websocket.sock.connected:
             self._websocket.send(json.dumps(message))
-            LOGGER.debug("Sent on Websocket: {}".format(message))
+            LOGGER.debug("Sent WebSocket message: {}".format(message.get("key", "ack")))
         else:
-            LOGGER.warning("WebSocket is not connected. Unable to send message: {}".format(message))
+            LOGGER.warning("WebSocket is not connected. Unable to send message: {}".format(message.get("key", "ack")))
