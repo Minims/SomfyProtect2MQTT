@@ -5,7 +5,7 @@ Keep changes small, follow existing patterns, and update docs if behavior change
 
 ## Project Basics
 
-- Language: Python 3.13.2+.
+- Language: Python 3.14+.
 - Packaging: uv (`pyproject.toml` and `uv.lock`) plus requirements files for runtime/dev.
 - Entry point: `somfyProtect2Mqtt/main.py`.
 - Configuration: `somfyProtect2Mqtt/config/config.yaml` (copy from example).
@@ -157,7 +157,7 @@ Keep changes small, follow existing patterns, and update docs if behavior change
 
 ## Tooling Notes
 
-- Python version target is 3.13.2+ (see `pyproject.toml`).
+- Python version target is 3.14+ (see `pyproject.toml`).
 - Dev dependencies include black, isort, pylint (see `somfyProtect2Mqtt/requirements/dev.txt`).
 
 ## Safe Changes Checklist

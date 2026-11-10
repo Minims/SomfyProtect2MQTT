@@ -3,7 +3,7 @@ name = "somfyProtect2Mqtt"
 version = "2026.11.2"
 description = "Somfy Home Alarm Addon"
 readme = "README.md"
-requires-python = ">=3.13.2"
+requires-python = ">=3.14"
 dependencies = [
     "aenum==3.1.17",
     "aiortc==1.16.0",

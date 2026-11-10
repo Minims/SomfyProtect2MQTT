@@ -92,8 +92,8 @@ git checkout dev # if you want the dev branch
 cd /opt/SomfyProtect2MQTT/
 ```
 
-Install dependencies with Python 3.13.2 or newer. With uv, the repository's
-`.python-version` selects Python 3.13:
+Install dependencies with Python 3.14 or newer. With uv, the repository's
+`.python-version` selects Python 3.14:
 
 ```
 uv sync
