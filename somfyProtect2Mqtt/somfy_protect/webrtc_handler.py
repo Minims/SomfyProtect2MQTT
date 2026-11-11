@@ -1025,7 +1025,7 @@ class WebRTCHandler:
                 # Try to get frames from queues
                 video_frame = None
                 video_received_at = None
-                audio_frame = None
+                audio_frames = []
 
                 try:
                     video_item = muxer["video_queue"].get_nowait()
@@ -1037,16 +1037,17 @@ class WebRTCHandler:
                 except asyncio.QueueEmpty:
                     pass
 
-                try:
-                    audio_frame = muxer["audio_queue"].get_nowait()
-                except asyncio.QueueEmpty:
-                    pass
+                while True:
+                    try:
+                        audio_frames.append(muxer["audio_queue"].get_nowait())
+                    except asyncio.QueueEmpty:
+                        break
 
                 # Process frames
                 if video_frame and muxer["video_stream"]:
                     try:
                         if video_received_at:
-                            video_frame = _overlay_timestamp(video_frame, video_received_at)
+                            video_frame = await asyncio.to_thread(_overlay_timestamp, video_frame, video_received_at)
                         # Wall-clock PTS: use actual elapsed time since first frame
                         if muxer.get("video_first_time") is None:
                             muxer["video_first_time"] = time.monotonic()
@@ -1062,36 +1063,37 @@ class WebRTCHandler:
                     except (OSError, RuntimeError, ValueError) as e:
                         LOGGER.warning("Error encoding video: {}".format(e))
 
-                if audio_frame and muxer.get("audio_failed"):
-                    # Drop audio frames silently if audio setup failed
-                    continue
+                # Audio arrives more often than video, so drain every queued frame.
+                for audio_frame in audio_frames:
+                    if muxer.get("audio_failed"):
+                        continue
 
-                if audio_frame and muxer["audio_stream"]:
-                    try:
-                        # Reformat audio if needed
-                        if audio_frame.format.name != "s16":
-                            LOGGER.debug("[AUDIO] Reformatting from {} to s16".format(audio_frame.format.name))
-                            audio_frame = audio_frame.reformat(format="s16")
+                    if muxer["audio_stream"]:
+                        try:
+                            # Reformat audio if needed
+                            if audio_frame.format.name != "s16":
+                                LOGGER.debug("[AUDIO] Reformatting from {} to s16".format(audio_frame.format.name))
+                                audio_frame = audio_frame.reformat(format="s16")
 
-                        audio_frame.pts = muxer.get("audio_pts", 0)
-                        muxer["audio_pts"] = audio_frame.pts + (audio_frame.samples or 0)
+                            audio_frame.pts = muxer.get("audio_pts", 0)
+                            muxer["audio_pts"] = audio_frame.pts + (audio_frame.samples or 0)
 
-                        packets = list(muxer["audio_stream"].encode(audio_frame))
-                        if packets:
-                            for packet in packets:
-                                muxer["container"].mux(packet)
-                            LOGGER.debug("[AUDIO] Encoded frame into {} packets".format(len(packets)))
-                        else:
-                            LOGGER.debug("[AUDIO] No packets produced")
-                    except (OSError, RuntimeError, ValueError) as e:
-                        LOGGER.error("[AUDIO] Encoding error: {}".format(e), exc_info=True)
-                elif audio_frame and not muxer["audio_stream"]:
-                    audio_no_stream_warns += 1
-                    if audio_no_stream_warns == 1 or audio_no_stream_warns % 200 == 0:
-                        LOGGER.warning("[AUDIO] Frame available but no audio stream created yet")
+                            packets = list(muxer["audio_stream"].encode(audio_frame))
+                            if packets:
+                                for packet in packets:
+                                    muxer["container"].mux(packet)
+                                LOGGER.debug("[AUDIO] Encoded frame into {} packets".format(len(packets)))
+                            else:
+                                LOGGER.debug("[AUDIO] No packets produced")
+                        except (OSError, RuntimeError, ValueError) as e:
+                            LOGGER.error("[AUDIO] Encoding error: {}".format(e), exc_info=True)
+                    else:
+                        audio_no_stream_warns += 1
+                        if audio_no_stream_warns == 1 or audio_no_stream_warns % 200 == 0:
+                            LOGGER.warning("[AUDIO] Frame available but no audio stream created yet")
 
                 # Small sleep to prevent CPU spinning
-                if not video_frame and not audio_frame:
+                if not video_frame and not audio_frames:
                     await asyncio.sleep(0.001)
 
         except (OSError, RuntimeError, ValueError) as e:

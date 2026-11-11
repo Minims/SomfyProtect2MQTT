@@ -1,13 +1,29 @@
 """Exercise the native codecs used by the camera bridge."""
 
 import asyncio
+import time
 from fractions import Fraction
 from io import BytesIO
 
 import av
-from aiortc import VideoStreamTrack
+import somfy_protect.webrtc_handler as webrtc
+from aiortc import AudioStreamTrack, VideoStreamTrack
 from PIL import Image
 from somfy_protect.webrtc_handler import SilenceAudioTrack, WebRTCHandler
+
+
+class _RealtimeAudioTrack(AudioStreamTrack):
+    """Generate camera-rate audio using aiortc's absolute playback clock."""
+
+    def __init__(self):
+        super().__init__()
+        self.resampler = av.AudioResampler(format="s16", layout="stereo", rate=48000)
+
+    async def recv(self):
+        while True:
+            frames = self.resampler.resample(await super().recv())
+            if frames:
+                return frames[0]
 
 
 def test_hls_segment_encodes_and_decodes_video_and_audio():
@@ -63,6 +79,17 @@ def test_live_hls_audio_and_video_stay_synchronized():
     _check_live_hls_timestamps(with_audio=True)
 
 
+def test_live_hls_stays_synchronized_during_slow_timestamp_rendering(monkeypatch):
+    overlay_timestamp = webrtc._overlay_timestamp
+
+    def slow_overlay(frame, timestamp):
+        time.sleep(0.025)
+        return overlay_timestamp(frame, timestamp)
+
+    monkeypatch.setattr(webrtc, "_overlay_timestamp", slow_overlay)
+    _check_live_hls_timestamps(with_audio=True)
+
+
 def _check_live_hls_timestamps(with_audio):
     async def scenario():
         handler = WebRTCHandler(None, {}, lambda message: None, "go2rtc")
@@ -71,7 +98,7 @@ def _check_live_hls_timestamps(with_audio):
         tracks = [VideoStreamTrack()]
         readers = [handler._read_video_frames]
         if with_audio:
-            tracks.append(SilenceAudioTrack())
+            tracks.append(_RealtimeAudioTrack())
             readers.append(handler._read_audio_frames)
         for reader, track in zip(readers, tracks):
             task = asyncio.create_task(reader("camera", track))
