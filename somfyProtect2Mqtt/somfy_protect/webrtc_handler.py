@@ -800,9 +800,13 @@ class WebRTCHandler:
             )
 
     async def _reset_hls_muxer(self, device_id: str) -> None:
-        """Stop device tasks and release their temporary HLS files."""
+        """Stop device tasks and release their temporary HLS files.
+
+        hls_segments is intentionally left intact so the HTTP server can
+        still serve any in-flight playlist or segment requests until the
+        next session overwrites it via _init_hls_muxer.
+        """
         muxer = self.hls_muxers.pop(device_id, None)
-        self.hls_segments.pop(device_id, None)
         if muxer is None:
             return
         for task in muxer["tasks"]:
@@ -823,6 +827,11 @@ class WebRTCHandler:
         """Initialize HLS muxer for a device"""
         # Create temporary directory for HLS segments
         temp_dir = tempfile.mkdtemp(prefix=f"hls_{device_id}_")
+        # Overwrite any stale segments from a previous session immediately
+        # so the HTTP server does not serve old data for the new session.
+        self.hls_segments[device_id] = {
+            "playlist": b"",
+        }
 
         self.hls_muxers[device_id] = {
             "temp_dir": temp_dir,
@@ -848,10 +857,6 @@ class WebRTCHandler:
             "no_frame_retries": 0,
             "segments": [],
             "segment_durations": {},
-        }
-
-        self.hls_segments[device_id] = {
-            "playlist": b"",
         }
 
         # Start the muxer task
@@ -887,7 +892,6 @@ class WebRTCHandler:
             muxer = self.hls_muxers.get(device_id)
             if muxer:
                 muxer["stopped"] = True
-                self.hls_segments.pop(device_id, None)
             LOGGER.info("Video stream ended for device {}".format(device_id))
         except (OSError, RuntimeError, ValueError) as e:
             LOGGER.error("Error reading video frames: {}".format(e))

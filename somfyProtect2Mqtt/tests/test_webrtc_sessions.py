@@ -38,7 +38,10 @@ def test_hangup_releases_muxer_and_playlist():
         old = handler.hls_muxers["camera"]
         handler.hls_segments["camera"]["playlist"] = b"old playlist"
         await handler.close_session("s")
-        assert "camera" not in handler.hls_segments
+        # hls_segments is kept after reset so in-flight HTTP requests can still
+        # read existing segments; it is only superseded by the next _init_hls_muxer.
+        assert "camera" in handler.hls_segments
+        assert handler.hls_segments["camera"]["playlist"] == b"old playlist"
         assert not Path(old["temp_dir"]).exists()
         assert all(task.done() for task in old["tasks"])
         handler._init_hls_muxer("camera")
@@ -248,3 +251,22 @@ def test_audio_timeout_is_reported_only_after_video_starts(video_ready, caplog):
 
     asyncio.run(scenario())
     assert ("No audio frames from camera" in caplog.text) == video_ready
+
+
+def test_hls_segments_remain_accessible_after_session_reset():
+    """HLS playlist must stay readable until a new session replaces it."""
+
+    async def scenario():
+        handler = WebRTCHandler(None, {}, lambda message: None, "go2rtc")
+        handler._init_hls_muxer("camera")
+        # Simulate a segment being written so the playlist is non-empty
+        handler.hls_segments["camera"]["playlist"] = b"#EXTM3U\n"
+        handler.hls_segments["camera"]["segment0.ts"] = b"\x47" * 188
+        # A hang_up triggers _reset_hls_muxer; segments must still be reachable
+        await handler._reset_hls_muxer("camera")
+        assert "camera" in handler.hls_segments, "segments must survive reset"
+        assert handler.hls_segments["camera"].get("playlist"), "playlist must survive reset"
+        assert handler.hls_segments["camera"].get("segment0.ts"), "segment must survive reset"
+        await handler.cleanup()
+
+    asyncio.run(scenario())
