@@ -19,7 +19,7 @@ from somfy_protect.websocket import SomfyProtectWebsocket
 from somfy_protect_2_mqtt import SomfyProtect2Mqtt
 from utils import read_config_file, setup_logger
 
-VERSION = "2026.11.4"
+VERSION = "2026.11.5"
 LOGGER = logging.getLogger(__name__)
 
 # Global flag for shutdown
