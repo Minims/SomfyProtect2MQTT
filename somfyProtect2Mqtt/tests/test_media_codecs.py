@@ -5,6 +5,7 @@ from fractions import Fraction
 from io import BytesIO
 
 import av
+from aiortc import VideoStreamTrack
 from PIL import Image
 from somfy_protect.webrtc_handler import SilenceAudioTrack, WebRTCHandler
 
@@ -49,6 +50,58 @@ def test_hls_segment_encodes_and_decodes_video_and_audio():
                 assert all(frame.sample_rate == 48000 for frame in frames)
         finally:
             track.stop()
+            await handler.cleanup()
+
+    asyncio.run(scenario())
+
+
+def test_live_hls_video_timestamps_match_playlist_durations():
+    _check_live_hls_timestamps(with_audio=False)
+
+
+def test_live_hls_audio_and_video_stay_synchronized():
+    _check_live_hls_timestamps(with_audio=True)
+
+
+def _check_live_hls_timestamps(with_audio):
+    async def scenario():
+        handler = WebRTCHandler(None, {}, lambda message: None, "go2rtc")
+        handler._init_hls_muxer("camera")
+        muxer = handler.hls_muxers["camera"]
+        tracks = [VideoStreamTrack()]
+        readers = [handler._read_video_frames]
+        if with_audio:
+            tracks.append(SilenceAudioTrack())
+            readers.append(handler._read_audio_frames)
+        for reader, track in zip(readers, tracks):
+            task = asyncio.create_task(reader("camera", track))
+            muxer["tasks"].add(task)
+            handler.active_tasks.add(task)
+            task.add_done_callback(handler.active_tasks.discard)
+        try:
+            async with asyncio.timeout(10):
+                while "segment1.ts" not in handler.hls_segments["camera"]:
+                    await asyncio.sleep(0.05)
+            previous_video_end = None
+            for filename in ("segment0.ts", "segment1.ts"):
+                payload = handler.hls_segments["camera"][filename]
+                with av.open(BytesIO(payload)) as container:
+                    video_times = [frame.time for frame in container.decode(video=0)]
+                assert len(video_times) >= 10
+                duration = muxer["segment_durations"][filename]
+                assert 0.5 * duration < video_times[-1] - video_times[0] < 1.5 * duration
+                assert all(0 <= later - earlier < 0.2 for earlier, later in zip(video_times, video_times[1:]))
+                if previous_video_end is not None:
+                    assert 0 <= video_times[0] - previous_video_end < 0.2
+                previous_video_end = video_times[-1]
+                if with_audio:
+                    with av.open(BytesIO(payload)) as container:
+                        audio_times = [frame.time for frame in container.decode(audio=0)]
+                    assert len(audio_times) >= 10
+                    assert abs(audio_times[-1] - video_times[-1]) < 0.5
+        finally:
+            for track in tracks:
+                track.stop()
             await handler.cleanup()
 
     asyncio.run(scenario())

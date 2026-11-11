@@ -77,21 +77,24 @@ class HLSHandler(BaseHTTPRequestHandler):
             return
         segments = handler.hls_segments[device_id]
         if filename == "playlist.m3u8":
+            playlist = segments.get("playlist", b"")
             self.send_response(200)
             self.send_header("Content-Type", "application/vnd.apple.mpegurl")
+            self.send_header("Content-Length", str(len(playlist)))
             self.send_header("Access-Control-Allow-Origin", "*")
             self.send_header("Cache-Control", "no-cache, no-store")
             self.end_headers()
-            playlist = segments.get("playlist", b"")
             self.wfile.write(playlist)
             return
         if filename.endswith(".ts"):
-            if filename in segments:
+            segment = segments.get(filename)
+            if segment is not None:
                 self.send_response(200)
                 self.send_header("Content-Type", "video/mp2t")
+                self.send_header("Content-Length", str(len(segment)))
                 self.send_header("Access-Control-Allow-Origin", "*")
                 self.end_headers()
-                self.wfile.write(segments[filename])
+                self.wfile.write(segment)
             else:
                 self.send_error(404)
             return
@@ -1050,6 +1053,8 @@ class WebRTCHandler:
                             muxer["video_pts"] = 0
                         elapsed = time.monotonic() - muxer["video_first_time"]
                         video_frame.pts = int(elapsed * 90000)
+                        # The timestamp overlay creates a frame without a time base.
+                        video_frame.time_base = Fraction(1, 90000)
                         muxer["video_pts"] = video_frame.pts
                         for packet in muxer["video_stream"].encode(video_frame):
                             muxer["container"].mux(packet)
@@ -1152,6 +1157,7 @@ class WebRTCHandler:
                 video_stream.height = height
                 video_stream.pix_fmt = "yuv420p"
                 video_stream.time_base = Fraction(1, 90000)
+                video_stream.codec_context.time_base = Fraction(1, 90000)
                 video_stream.options = {
                     "preset": "ultrafast",
                     "tune": "zerolatency",
