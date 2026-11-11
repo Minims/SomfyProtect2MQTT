@@ -1,6 +1,6 @@
 [project]
 name = "somfyProtect2Mqtt"
-version = "2026.11.3"
+version = "2026.11.4"
 description = "Somfy Home Alarm Addon"
 readme = "README.md"
 requires-python = ">=3.14"
