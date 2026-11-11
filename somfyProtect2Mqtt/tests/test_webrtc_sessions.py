@@ -270,3 +270,130 @@ def test_hls_segments_remain_accessible_after_session_reset():
         await handler.cleanup()
 
     asyncio.run(scenario())
+
+
+def _websocket_for_reconnect_tests():
+    client = SomfyProtectWebsocket.__new__(SomfyProtectWebsocket)
+    client._owned_webrtc_sessions = set()
+    client._requested_webrtc_sessions = set()
+    client._webrtc_session_context = {}
+    client._webrtc_current_sessions = {}
+    client._webrtc_reconnect_tasks = {}
+    client._webrtc_reconnect_attempts = {}
+    client._closing = False
+    client.webrtc_handler = AsyncMock()
+    client.start_webrtc_stream = lambda site_id, device_id: f"retry-{site_id}-{device_id}"
+    return client
+
+
+def test_server_hangup_retries_active_session_with_bounded_backoff(monkeypatch):
+    async def scenario():
+        client = _websocket_for_reconnect_tests()
+        sleep_delays = []
+
+        async def fake_sleep(delay):
+            sleep_delays.append(delay)
+
+        monkeypatch.setattr("somfy_protect.websocket.asyncio.sleep", fake_sleep)
+        client._video_webrtc_session(
+            {"session_id": "s", "request_session_id": None, "site_id": "site", "device_id": "camera"}
+        )
+        await client._video_webrtc_hang_up({"session_id": "s", "site_id": "site", "device_id": "camera"})
+        await asyncio.gather(client._webrtc_reconnect_tasks["camera"])
+        assert sleep_delays == [2]
+        assert client.start_webrtc_stream("site", "camera") == "retry-site-camera"
+
+    asyncio.run(scenario())
+
+
+def test_late_server_hangup_does_not_restart_or_close_replacement_session(monkeypatch):
+    async def scenario():
+        client = _websocket_for_reconnect_tests()
+        client._video_webrtc_session(
+            {"session_id": "old", "request_session_id": None, "site_id": "site", "device_id": "camera"}
+        )
+        client._video_webrtc_session(
+            {"session_id": "new", "request_session_id": None, "site_id": "site", "device_id": "camera"}
+        )
+        client.start_webrtc_stream = AsyncMock()
+        await client._video_webrtc_hang_up({"session_id": "old", "site_id": "site", "device_id": "camera"})
+        client.webrtc_handler.close_session.assert_not_awaited()
+        client.start_webrtc_stream.assert_not_awaited()
+
+    asyncio.run(scenario())
+
+
+def test_duplicate_server_hangup_schedules_one_reconnect(monkeypatch):
+    async def scenario():
+        client = _websocket_for_reconnect_tests()
+        gate = asyncio.Event()
+
+        async def fake_sleep(delay):
+            await gate.wait()
+
+        monkeypatch.setattr("somfy_protect.websocket.asyncio.sleep", fake_sleep)
+        client._video_webrtc_session(
+            {"session_id": "s", "request_session_id": None, "site_id": "site", "device_id": "camera"}
+        )
+        await client._video_webrtc_hang_up({"session_id": "s", "site_id": "site", "device_id": "camera"})
+        first_task = client._webrtc_reconnect_tasks["camera"]
+        await client._video_webrtc_hang_up({"session_id": "s", "site_id": "site", "device_id": "camera"})
+        assert client._webrtc_reconnect_tasks["camera"] is first_task
+        first_task.cancel()
+        await asyncio.gather(first_task, return_exceptions=True)
+        gate.set()
+
+    asyncio.run(scenario())
+
+
+def test_new_session_cancels_pending_reconnect(monkeypatch):
+    async def scenario():
+        client = _websocket_for_reconnect_tests()
+        gate = asyncio.Event()
+
+        async def fake_sleep(_delay):
+            await gate.wait()
+
+        monkeypatch.setattr("somfy_protect.websocket.asyncio.sleep", fake_sleep)
+        client._video_webrtc_session(
+            {"session_id": "old", "request_session_id": None, "site_id": "site", "device_id": "camera"}
+        )
+        await client._video_webrtc_hang_up({"session_id": "old", "site_id": "site", "device_id": "camera"})
+        reconnect_task = client._webrtc_reconnect_tasks["camera"]
+        client._video_webrtc_session(
+            {"session_id": "new", "request_session_id": None, "site_id": "site", "device_id": "camera"}
+        )
+        await asyncio.gather(reconnect_task, return_exceptions=True)
+        assert reconnect_task.cancelled()
+        assert "camera" not in client._webrtc_reconnect_tasks
+
+    asyncio.run(scenario())
+
+
+def test_shutdown_cancels_pending_reconnect():
+    async def scenario():
+        client = _websocket_for_reconnect_tests()
+        client._closing = True
+        reconnect_task = asyncio.create_task(client._reconnect_webrtc_stream("site", "camera"))
+        client._webrtc_reconnect_tasks["camera"] = reconnect_task
+        await reconnect_task
+        assert "camera" not in client._webrtc_reconnect_tasks
+
+    asyncio.run(scenario())
+
+
+def test_reconnect_attempts_stop_after_three_delays(monkeypatch):
+    async def scenario():
+        client = _websocket_for_reconnect_tests()
+        delays = []
+
+        async def fake_sleep(delay):
+            delays.append(delay)
+
+        monkeypatch.setattr("somfy_protect.websocket.asyncio.sleep", fake_sleep)
+        for _ in range(4):
+            await client._reconnect_webrtc_stream("site", "camera")
+        assert delays == [2, 5, 15]
+        assert client.start_webrtc_stream("site", "camera") == "retry-site-camera"
+
+    asyncio.run(scenario())

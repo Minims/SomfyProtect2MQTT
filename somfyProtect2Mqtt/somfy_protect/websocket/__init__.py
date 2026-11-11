@@ -66,6 +66,10 @@ class SomfyProtectWebsocket:
         self.last_message_at = time.time()
         self._owned_webrtc_sessions = set()
         self._requested_webrtc_sessions = set()
+        self._webrtc_session_context = {}
+        self._webrtc_current_sessions = {}
+        self._webrtc_reconnect_tasks = {}
+        self._webrtc_reconnect_attempts = {}
         self._close_lock = threading.Lock()
         self._closing = False
         self._io_queue = queue.Queue(maxsize=SNAPSHOT_QUEUE_MAXSIZE)
@@ -228,7 +232,7 @@ class SomfyProtectWebsocket:
             try:
                 # Schedule cleanup on the event loop
                 if not self.loop.is_closed():
-                    cleanup_future = asyncio.run_coroutine_threadsafe(self.webrtc_handler.cleanup(), self.loop)
+                    cleanup_future = asyncio.run_coroutine_threadsafe(self._cleanup_webrtc_resources(), self.loop)
                     cleanup_future.result(timeout=2)
             except (RuntimeError, ValueError) as e:
                 LOGGER.error("Error cleaning up WebRTC handler: {}".format(e))
@@ -241,6 +245,15 @@ class SomfyProtectWebsocket:
         self.loop_thread.join(timeout=5)
         if self.loop_thread.is_alive():
             LOGGER.warning("WebSocket event loop is still shutting down")
+
+    async def _cleanup_webrtc_resources(self):
+        """Cancel recovery tasks before releasing WebRTC resources."""
+        for task in self._webrtc_reconnect_tasks.values():
+            task.cancel()
+        if self._webrtc_reconnect_tasks:
+            await asyncio.gather(*self._webrtc_reconnect_tasks.values(), return_exceptions=True)
+        self._webrtc_reconnect_tasks.clear()
+        await self.webrtc_handler.cleanup()
 
     def start_webrtc_stream(self, site_id: str, device_id: str, session_id: str | None = None):
         """Start a WebRTC video stream session"""
@@ -386,8 +399,42 @@ class SomfyProtectWebsocket:
         """WEBRTC HangUP"""
         LOGGER.info("WEBRTC HangUp: {}".format(message))
         session_id = message.get("session_id")
+        context = self._webrtc_session_context.pop(session_id, None)
+        if session_id not in self._owned_webrtc_sessions:
+            return
+        if context and self._webrtc_current_sessions.get(context[1]) != session_id:
+            return
         self._owned_webrtc_sessions.discard(session_id)
         await self.webrtc_handler.close_session(session_id)
+        if context and self._webrtc_current_sessions.get(context[1]) == session_id:
+            self._webrtc_current_sessions.pop(context[1], None)
+            self._schedule_webrtc_reconnect(*context)
+        elif context:
+            self._webrtc_reconnect_attempts.pop(context[1], None)
+
+    def _schedule_webrtc_reconnect(self, site_id, device_id):
+        """Schedule one bounded recovery task for a disconnected camera."""
+        task = self._webrtc_reconnect_tasks.get(device_id)
+        if task is None or task.done():
+            task = asyncio.create_task(self._reconnect_webrtc_stream(site_id, device_id))
+            self._webrtc_reconnect_tasks[device_id] = task
+
+    async def _reconnect_webrtc_stream(self, site_id, device_id):
+        """Retry a server-closed WebRTC stream with bounded backoff."""
+        attempt = self._webrtc_reconnect_attempts.get(device_id, 0)
+        if attempt >= 3:
+            self._webrtc_reconnect_attempts.pop(device_id, None)
+            return
+        try:
+            await asyncio.sleep((2, 5, 15)[attempt])
+            if self._closing or device_id in self._webrtc_current_sessions:
+                return
+            session_id = self.start_webrtc_stream(site_id, device_id)
+            self._webrtc_session_context[session_id] = (site_id, device_id)
+            self._webrtc_reconnect_attempts[device_id] = attempt + 1
+        finally:
+            if self._webrtc_reconnect_tasks.get(device_id) is asyncio.current_task():
+                self._webrtc_reconnect_tasks.pop(device_id, None)
 
     def _video_webrtc_keep_alive(self, message):
         """WEBRTC KeepAlive"""
@@ -420,6 +467,15 @@ class SomfyProtectWebsocket:
             and (request_id is None or request_id in self._requested_webrtc_sessions)
         ):
             self._owned_webrtc_sessions.add(session_id)
+            site_id = message.get("site_id")
+            device_id = message.get("device_id")
+            if site_id and device_id:
+                self._webrtc_session_context[session_id] = (site_id, device_id)
+                self._webrtc_current_sessions[device_id] = session_id
+                self._webrtc_reconnect_attempts.pop(device_id, None)
+                reconnect_task = self._webrtc_reconnect_tasks.pop(device_id, None)
+                if reconnect_task is not None:
+                    reconnect_task.cancel()
         self._requested_webrtc_sessions.discard(request_id)
 
     async def _video_webrtc_offer(self, message):

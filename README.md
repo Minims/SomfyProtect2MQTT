@@ -291,6 +291,11 @@ it does not get ahead of the video timeline. Repeated H264 `no frame!` decode
 warnings are limited to one every five seconds per decoder thread; other decode
 errors remain visible. Enable `debug` to retain every warning.
 
+Since version `2026.11.5`, if Somfy closes a WebRTC session with
+`video.webrtc.hang_up`, the bridge tries to start a replacement session after
+2, 5, and 15 seconds. A maximum of three retries is made per camera. A newer session or bridge shutdown cancels pending
+retries; this cannot bypass a Somfy server or camera-side refusal.
+
 If go2rtc runs in the same network namespace as SomfyProtect2MQTT, the URL can
 be:
 
