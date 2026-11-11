@@ -226,3 +226,25 @@ def test_pending_offer_handles_session_events(monkeypatch, event):
             await handler.cleanup()
 
     asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("video_ready", [False, True])
+def test_audio_timeout_is_reported_only_after_video_starts(video_ready, caplog):
+    from aiortc.mediastreams import MediaStreamError
+
+    async def scenario():
+        handler = WebRTCHandler(None, {}, lambda message: None, "go2rtc")
+        handler._init_hls_muxer("camera")
+        muxer = handler.hls_muxers["camera"]
+        for task in muxer["tasks"]:
+            task.cancel()
+        await asyncio.gather(*muxer["tasks"], return_exceptions=True)
+        muxer["video_ready"] = video_ready
+        track = SimpleNamespace(recv=AsyncMock(side_effect=[asyncio.TimeoutError, MediaStreamError]))
+        try:
+            await handler._read_audio_frames("camera", track)
+        finally:
+            await handler.cleanup()
+
+    asyncio.run(scenario())
+    assert ("No audio frames from camera" in caplog.text) == video_ready

@@ -917,7 +917,8 @@ class WebRTCHandler:
                         first_frame = False
 
                     muxer = self.hls_muxers.get(device_id)
-                    if muxer:
+                    # Audio received before the first decoded video frame predates the HLS timeline.
+                    if muxer and muxer["video_ready"]:
                         try:
                             muxer["audio_queue"].put_nowait(frame)
                             muxer["audio_ready"] = True
@@ -925,9 +926,11 @@ class WebRTCHandler:
                             pass  # Drop frame silently if queue is full
 
                 except asyncio.TimeoutError:
-                    error_count += 1
-                    if error_count == 1:
-                        LOGGER.warning("[AUDIO] No audio frames from camera for device {}".format(device_id))
+                    muxer = self.hls_muxers.get(device_id)
+                    if muxer and muxer["video_ready"]:
+                        error_count += 1
+                        if error_count == 1:
+                            LOGGER.warning("[AUDIO] No audio frames from camera for device {}".format(device_id))
                     await asyncio.sleep(0.5)
 
                 except (MediaStreamError, OSError, RuntimeError, ValueError) as frame_error:

@@ -1,6 +1,8 @@
 """Exercise the native codecs used by the camera bridge."""
 
+import array
 import asyncio
+import math
 import time
 from fractions import Fraction
 from io import BytesIO
@@ -24,6 +26,28 @@ class _RealtimeAudioTrack(AudioStreamTrack):
             frames = self.resampler.resample(await super().recv())
             if frames:
                 return frames[0]
+
+
+class _ToneAudioTrack(_RealtimeAudioTrack):
+    async def recv(self):
+        frame = await super().recv()
+        samples = array.array("h")
+        for index in range(frame.samples):
+            amplitude = int(6000 * math.sin(2 * math.pi * 440 * (frame.pts + index) / 48000))
+            samples.extend((amplitude, amplitude))
+        frame.planes[0].update(samples.tobytes().ljust(frame.planes[0].buffer_size, b"\0"))
+        return frame
+
+
+class _DelayedVideoTrack(VideoStreamTrack):
+    async def recv(self):
+        if not hasattr(self, "_timestamp"):
+            await asyncio.sleep(1.2)
+        return await super().recv()
+
+
+def test_live_hls_audio_waits_for_delayed_video_and_preserves_sound():
+    _check_live_hls_timestamps(with_audio=True, delayed_video=True)
 
 
 def test_hls_segment_encodes_and_decodes_video_and_audio():
@@ -90,15 +114,15 @@ def test_live_hls_stays_synchronized_during_slow_timestamp_rendering(monkeypatch
     _check_live_hls_timestamps(with_audio=True)
 
 
-def _check_live_hls_timestamps(with_audio):
+def _check_live_hls_timestamps(with_audio, delayed_video=False):
     async def scenario():
         handler = WebRTCHandler(None, {}, lambda message: None, "go2rtc")
         handler._init_hls_muxer("camera")
         muxer = handler.hls_muxers["camera"]
-        tracks = [VideoStreamTrack()]
+        tracks = [_DelayedVideoTrack() if delayed_video else VideoStreamTrack()]
         readers = [handler._read_video_frames]
         if with_audio:
-            tracks.append(_RealtimeAudioTrack())
+            tracks.append(_ToneAudioTrack())
             readers.append(handler._read_audio_frames)
         for reader, track in zip(readers, tracks):
             task = asyncio.create_task(reader("camera", track))
@@ -123,7 +147,14 @@ def _check_live_hls_timestamps(with_audio):
                 previous_video_end = video_times[-1]
                 if with_audio:
                     with av.open(BytesIO(payload)) as container:
-                        audio_times = [frame.time for frame in container.decode(audio=0)]
+                        audio_frames = list(container.decode(audio=0))
+                        audio_times = [frame.time for frame in audio_frames]
+                        samples = [
+                            sample
+                            for frame in audio_frames
+                            for sample in array.array("f", bytes(frame.planes[0]))[: frame.samples]
+                        ]
+                        assert math.sqrt(sum(sample * sample for sample in samples) / len(samples)) > 0.05
                     assert len(audio_times) >= 10
                     assert abs(audio_times[-1] - video_times[-1]) < 0.5
         finally:

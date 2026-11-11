@@ -9,6 +9,7 @@ from typing import Any, Dict, Iterable
 import yaml
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+from utils.log_filters import H264DecodeWarningFilter
 from yaml.parser import ParserError
 
 LOGGER = logging.getLogger(__name__)
@@ -52,6 +53,9 @@ def setup_logger(debug: bool = False, filename: str = "/var/log/somfyProtect.log
         handlers=handlers,
         force=True,
     )
+    decoder_logger = logging.getLogger("aiortc.rtcrtpreceiver")
+    if not any(isinstance(item, H264DecodeWarningFilter) for item in decoder_logger.filters):
+        decoder_logger.addFilter(H264DecodeWarningFilter())
     if file_error is not None:
         logging.warning("Cannot open log file %s (%s) — logging to stdout only.", filename, file_error)
 

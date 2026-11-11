@@ -276,7 +276,20 @@ Configure go2rtc with the HLS URL:
 streams:
   somfy_indoor_camera:
     - http://<somfyprotect2mqtt_host>:8090/<camera device_id>/playlist.m3u8
+    - "ffmpeg:somfy_indoor_camera#audio=opus"
 ```
+
+The HLS stream contains H264 video and AAC audio. Browser WebRTC playback needs
+Opus, PCMU or PCMA audio, so the second source converts AAC to Opus using FFmpeg
+in the go2rtc environment; it does not transcode the video. Keep the stream name
+in `ffmpeg:somfy_indoor_camera` identical to the key above. AAC remains available
+for HLS/MSE playback. See [go2rtc codec negotiation](https://github.com/AlexxIT/go2rtc#codecs-negotiation).
+Also unmute the player; browsers can start playback muted.
+
+At startup, audio received before the first decoded video frame is discarded so
+it does not get ahead of the video timeline. Repeated H264 `no frame!` decode
+warnings are limited to one every five seconds per decoder thread; other decode
+errors remain visible. Enable `debug` to retain every warning.
 
 If go2rtc runs in the same network namespace as SomfyProtect2MQTT, the URL can
 be:
@@ -285,6 +298,7 @@ be:
 streams:
   somfy_indoor_camera:
     - http://0.0.0.0:8090/<camera device_id>/playlist.m3u8
+    - "ffmpeg:somfy_indoor_camera#audio=opus"
 ```
 
 Add WebRTC Camera card:

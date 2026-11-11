@@ -76,3 +76,20 @@ def test_setup_logger_sets_info_level(tmp_path):
     for h in list(root.handlers):
         h.close()
         root.removeHandler(h)
+
+
+def test_setup_logger_installs_one_decoder_warning_filter(tmp_path):
+    from utils.log_filters import H264DecodeWarningFilter
+
+    decoder_logger = logging.getLogger("aiortc.rtcrtpreceiver")
+    original_filters = decoder_logger.filters[:]
+    try:
+        setup_logger(filename=str(tmp_path / "decoder.log"))
+        setup_logger(filename=str(tmp_path / "decoder.log"))
+        assert sum(isinstance(item, H264DecodeWarningFilter) for item in decoder_logger.filters) == 1
+    finally:
+        decoder_logger.filters[:] = original_filters
+        root = logging.getLogger()
+        for handler in list(root.handlers):
+            handler.close()
+            root.removeHandler(handler)
