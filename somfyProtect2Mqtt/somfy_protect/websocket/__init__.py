@@ -403,6 +403,10 @@ class SomfyProtectWebsocket:
         if session_id not in self._owned_webrtc_sessions:
             return
         if context and self._webrtc_current_sessions.get(context[1]) != session_id:
+            LOGGER.info(
+                f"Ignoring stale WebRTC hang-up for session {session_id}; "
+                f"current session is {self._webrtc_current_sessions.get(context[1])}"
+            )
             return
         self._owned_webrtc_sessions.discard(session_id)
         await self.webrtc_handler.close_session(session_id)

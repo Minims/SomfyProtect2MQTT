@@ -1,6 +1,7 @@
 """ICE parsing and isolation of successive camera sessions."""
 
 import asyncio
+import logging
 import sys
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
@@ -306,7 +307,9 @@ def test_server_hangup_retries_active_session_with_bounded_backoff(monkeypatch):
     asyncio.run(scenario())
 
 
-def test_late_server_hangup_does_not_restart_or_close_replacement_session(monkeypatch):
+def test_late_server_hangup_does_not_restart_or_close_replacement_session(monkeypatch, caplog):
+    caplog.set_level(logging.INFO, logger="somfy_protect.websocket")
+
     async def scenario():
         client = _websocket_for_reconnect_tests()
         client._video_webrtc_session(
@@ -321,6 +324,7 @@ def test_late_server_hangup_does_not_restart_or_close_replacement_session(monkey
         client.start_webrtc_stream.assert_not_awaited()
 
     asyncio.run(scenario())
+    assert "Ignoring stale WebRTC hang-up for session old; current session is new" in caplog.text
 
 
 def test_duplicate_server_hangup_schedules_one_reconnect(monkeypatch):
